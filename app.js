@@ -15,7 +15,7 @@ const state = {
   defaultRowGap: 1.20,
   lastUToTray: 1.00,
   defaultSlack: 10,
-  rows: [], racks: [], cables: [], trays: [], trayLinks: [], selected: null,
+  rows: [], racks: [], cables: [], trays: [], trayLinks: [], selected: null, multiSelected: [], trayMultiSelected: [],
   theme: localStorage.getItem(THEME_STORAGE) || localStorage.getItem('dc-theme') || 'dark'
 };
 let pan = null;
@@ -25,6 +25,8 @@ const history = { undo: [], redo: [], last: null, restoring: false, max: 80 };
 function projectSnapshot(){
   const copy=JSON.parse(JSON.stringify(state));
   delete copy.selected;
+  delete copy.multiSelected;
+  delete copy.trayMultiSelected;
   delete copy.theme;
   return JSON.stringify(copy);
 }
@@ -52,7 +54,7 @@ function recordHistory(){
       const persisted=localStorage.getItem(STORAGE);
       if(persisted){
         const obj=JSON.parse(persisted);
-        delete obj.selected; delete obj.theme;
+        delete obj.selected; delete obj.multiSelected; delete obj.trayMultiSelected; delete obj.theme;
         previous=JSON.stringify(obj);
       }
     }catch(_){ }
@@ -163,7 +165,19 @@ function normalizeState(){
   // como _legacy até o primeiro render, quando são convertidos para coordenadas livres.
   state.trays=(Array.isArray(state.trays)?state.trays:[]).map(t=>{
     if(Number.isFinite(Number(t.x1))&&Number.isFinite(Number(t.y1))&&Number.isFinite(Number(t.x2))&&Number.isFinite(Number(t.y2))){
-      return {id:t.id||uid('tray'),name:t.name||'Calha',x1:+t.x1,y1:+t.y1,x2:+t.x2,y2:+t.y2,width:num(t.width,.10)};
+      return {
+        id:t.id||uid('tray'),name:t.name||'Calha',
+        x1:+t.x1,y1:+t.y1,x2:+t.x2,y2:+t.y2,width:num(t.width,.10),
+        // Structural inter-row calhas keep their rack/fileira anchors so their
+        // endpoints can be recomputed whenever rack geometry or row spacing changes.
+        ...(t.fromRowId?{fromRowId:t.fromRowId}:{}),
+        ...(t.toRowId?{toRowId:t.toRowId}:{}),
+        ...(Number.isFinite(Number(t.fromIndex))?{fromIndex:Number(t.fromIndex)}:{}),
+        ...(Number.isFinite(Number(t.toIndex))?{toIndex:Number(t.toIndex)}:{}),
+        ...(t.edge!==undefined?{edge:!!t.edge}:{}),
+        ...(t.sideFrom?{sideFrom:t.sideFrom}:{}),
+        ...(t.sideTo?{sideTo:t.sideTo}:{}),
+      };
     }
     return {...t,_legacy:true,name:t.name||'Calha'};
   });
@@ -177,9 +191,14 @@ function normalizeState(){
   state.cables=state.cables.filter(c=>rackIds.has(c.originRack)&&rackIds.has(c.destRack));
   state.cables.forEach(c=>{c.type=CABLE_TYPES.includes(c.type)?c.type:DEFAULT_CABLE_TYPE;c.via=(c.via||[]).filter(id=>rackIds.has(id));});
   if(state.selected?.type==='rack'&&!rackIds.has(state.selected.id))state.selected=null;
+  state.multiSelected=Array.isArray(state.multiSelected)?state.multiSelected.filter(id=>rackIds.has(id)):[];
+  if(state.selected?.type==='rack' && !state.multiSelected.includes(state.selected.id)) state.multiSelected=[state.selected.id];
+  const trayIds=new Set(state.trays.map(t=>t.id));
+  state.trayMultiSelected=Array.isArray(state.trayMultiSelected)?state.trayMultiSelected.filter(id=>trayIds.has(id)):[];
+  if(state.selected?.type==='tray' && !state.trayMultiSelected.includes(state.selected.id)) state.trayMultiSelected=[state.selected.id];
 }
 function initRows(){
-  state.rows=[]; state.racks=[]; state.trays=[]; state.trayLinks=[]; state.trayRackLinks=[]; state.cables=[]; state.selected=null;
+  state.rows=[]; state.racks=[]; state.trays=[]; state.trayLinks=[]; state.trayRackLinks=[]; state.cables=[]; state.selected=null; state.multiSelected=[]; state.trayMultiSelected=[];
   const count=Math.max(0,Math.floor(num($('rowCount').value,0)));
   const racks=Math.max(0,Math.floor(num($('defaultRacks').value,0)));
   for(let i=0;i<count;i++) addRow(racks,i===0?0:num($('defaultRowGap').value,1.2));
@@ -231,8 +250,9 @@ function buildRowsPanel(){
   state.rows.forEach(row=>{
     const d=document.createElement('div'); d.className='row-card';
     const displayName = row.name ? esc(row.name) : '<span class="mini">(sem nome)</span>';
-    d.innerHTML=`<div class="row-title"><span>${displayName}</span><button class="iconbtn" data-del-row="${row.id}" title="Excluir fileira">×</button></div>
+    d.innerHTML=`<div class="row-title"><span>${displayName}</span><div class="row-actions"><button class="iconbtn" data-del-row="${row.id}" title="Excluir fileira">×</button></div></div>
       <div class="grid2"><label>Nome<input data-row-name="${row.id}" value="${esc(row.name)}"></label><label>Racks<input data-row-count="${row.id}" type="number" min="0" max="100" value="${row.rackCount}"></label></div>
+      <button class="btn small full" data-rename-row="${row.id}">✎ Renomear racks</button>
       ${state.rows.indexOf(row)>0?`<label>Distância para a fileira anterior (m)<input data-row-gap="${row.id}" type="number" min="0" step="0.01" value="${row.gap||0}"></label>`:''}`;
     p.appendChild(d);
   });
@@ -255,7 +275,62 @@ function buildRowsPanel(){
   });
   p.querySelectorAll('[data-row-count]').forEach(e=>e.onchange=()=>resizeRow(e.dataset.rowCount,num(e.value,0)));
   p.querySelectorAll('[data-row-gap]').forEach(e=>e.onchange=()=>{const r=state.rows.find(x=>x.id===e.dataset.rowGap);if(!r)return;r.gap=Math.max(0,num(e.value,0));renderAll();});
+  p.querySelectorAll('[data-rename-row]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();openRenameRowModal(e.dataset.renameRow);});
   p.querySelectorAll('[data-del-row]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();deleteRow(e.dataset.delRow);});
+}
+
+function openRenameRowModal(rowId){
+  const row=state.rows.find(r=>r.id===rowId); if(!row)return;
+  const racks=racksInRow(rowId); if(!racks.length){toast('Esta fileira não possui racks');return;}
+  const rowIndexValue=state.rows.findIndex(r=>r.id===rowId);
+  const prefixDefault=`${rowIndexValue+1}0`;
+  $('renameRowId').value=rowId;
+  $('renamePrefix').value=prefixDefault;
+  $('renameStart').value=1;
+  $('renamePad').value=0;
+  $('renameRowTitle').textContent=`Renomear racks — ${row.name||'Fileira'}`;
+  $('renameRowError').textContent='';
+  $('renameRowModal').classList.add('open');
+  updateRenamePreview();
+  setTimeout(()=>{$('renamePrefix').focus();$('renamePrefix').select();},0);
+}
+function closeRenameRowModal(){$('renameRowModal').classList.remove('open');}
+function buildRenameNames(){
+  const rowId=$('renameRowId').value;
+  const racks=racksInRow(rowId);
+  const prefix=$('renamePrefix').value.trim();
+  const start=Math.max(0,Math.floor(num($('renameStart').value,1)));
+  // 'Zeros à esquerda' is the number of zeros to add before the number,
+  // not the total width of the numeric portion. Example: 1 -> 01, 2 -> 001.
+  const zeros=Math.max(0,Math.min(6,Math.floor(num($('renamePad').value,0))));
+  return racks.map((rack,i)=>{
+    const n=String(start+i);
+    return `${prefix}${n.padStart(n.length+zeros,'0')}`;
+  });
+}
+function updateRenamePreview(){
+  const rowId=$('renameRowId').value;
+  const racks=racksInRow(rowId);
+  const names=buildRenameNames();
+  const currentIds=new Set(racks.map(r=>r.id));
+  const duplicate=new Set(names).size!==names.length;
+  const existingConflict=state.racks.some(r=>!currentIds.has(r.id)&&names.includes(r.name));
+  const err=duplicate?'Os novos nomes possuem duplicidade.':existingConflict?'Um ou mais nomes já estão sendo usados por outro rack.':'';
+  const preview=$('renamePreview');
+  preview.innerHTML=racks.map((r,i)=>`<div class="rename-preview-row"><span>${esc(r.name)}</span><b>→</b><span>${esc(names[i])}</span></div>`).join('');
+  $('renameRowError').textContent=err;
+  $('renameApply').disabled=!!err;
+}
+function applyRenameRow(){
+  const rowId=$('renameRowId').value;
+  const row=state.rows.find(r=>r.id===rowId); if(!row)return;
+  const racks=racksInRow(rowId), names=buildRenameNames();
+  const currentIds=new Set(racks.map(r=>r.id));
+  if(new Set(names).size!==names.length || state.racks.some(r=>!currentIds.has(r.id)&&names.includes(r.name))){toast('Não foi possível aplicar: nomes duplicados');return;}
+  racks.forEach((r,i)=>r.name=names[i]);
+  closeRenameRowModal();
+  renderAll();
+  toast(`${racks.length} racks renomeados`);
 }
 
 function rowDepth(row){
@@ -413,21 +488,69 @@ function migrateLegacyTrays(g){
     if(!ra||!rb)return;
     const sa=trayPointForRowIndex(ra,t.fromIndex,g,t.sideFrom||null);
     const sb=trayPointForRowIndex(rb,t.toIndex,g,t.sideTo||null);
-    converted.push({id:t.id||uid('tray'),name:t.name||'Calha',x1:sa.x,y1:sa.y,x2:sb.x,y2:sb.y,width:num(t.width,.10)});
+    converted.push({
+      id:t.id||uid('tray'),name:t.name||'Calha',x1:sa.x,y1:sa.y,x2:sb.x,y2:sb.y,width:num(t.width,.10),
+      fromRowId:t.fromRowId,toRowId:t.toRowId,fromIndex:Number(t.fromIndex),toIndex:Number(t.toIndex),
+      edge:!!t.edge,sideFrom:t.sideFrom||null,sideTo:t.sideTo||null
+    });
   });
   state.trays=state.trays.filter(t=>!t._legacy).concat(converted);
   if(converted.length)localStorage.setItem(STORAGE,JSON.stringify(state));
 }
+// Keep tray endpoints that were snapped to racks physically attached to those
+// racks. This makes an existing calha follow changes in rack width, depth or
+// spacing without moving free/independent trays. The saved link also preserves
+// which side/point of the rack the endpoint was attached to.
+function syncStructuralTrayEndpoints(g){
+  if(!g)return;
+  // Inter-row calhas created from one rack/fileira to another are structural
+  // connections, not free-floating geometry. Their endpoints must be derived
+  // from the current rack positions on both rows every render. This makes them
+  // follow changes to row spacing as well as rack width/gap changes.
+  state.trays.forEach(t=>{
+    if(!t?.fromRowId || !t?.toRowId)return;
+    const ra=state.rows.find(r=>r.id===t.fromRowId);
+    const rb=state.rows.find(r=>r.id===t.toRowId);
+    if(!ra||!rb)return;
+    const a=trayPointForRowIndex(ra,t.fromIndex,g,t.sideFrom||null);
+    const b=trayPointForRowIndex(rb,t.toIndex,g,t.sideTo||null);
+    if(a&&Number.isFinite(a.x)&&Number.isFinite(a.y)){t.x1=a.x;t.y1=a.y;}
+    if(b&&Number.isFinite(b.x)&&Number.isFinite(b.y)){t.x2=b.x;t.y2=b.y;}
+  });
+}
+
+function syncAttachedTrayEndpoints(g){
+  if(!g)return;
+  syncStructuralTrayEndpoints(g);
+  if(!Array.isArray(state.trayRackLinks) || !state.trayRackLinks.length)return;
+  state.trayRackLinks.forEach(link=>{
+    const t=state.trays.find(x=>x.id===link.trayId);
+    const r=state.racks.find(x=>x.id===link.rackId);
+    if(!t||!r)return;
+    const q=rackRect(r,g);
+    let p;
+    switch(link.point){
+      case 'left': p={x:q.x,y:q.y+q.h/2}; break;
+      case 'right': p={x:q.x+q.w,y:q.y+q.h/2}; break;
+      case 'top': p={x:q.x+q.w/2,y:q.y}; break;
+      case 'bottom': p={x:q.x+q.w/2,y:q.y+q.h}; break;
+      default: p={x:q.x+q.w/2,y:q.y+q.h/2};
+    }
+    if(Number(link.end)===0){t.x1=p.x;t.y1=p.y;}
+    else {t.x2=p.x;t.y2=p.y;}
+  });
+}
 function trayLengthPx(t){return Math.hypot(num(t.x2)-num(t.x1),num(t.y2)-num(t.y1));}
-function trayLengthMeters(t,g){return trayLengthPx(t)/Math.max(1,g.scale);}
+function trayLengthMeters(t,g){syncAttachedTrayEndpoints(g);return trayLengthPx(t)/Math.max(1,g.scale);}
 function createIndependentTray(g,x1,y1,x2,y2){
   const t={id:uid('tray'),name:`Calha ${state.trays.length+1}`,x1,y1,x2,y2,width:.10};
-  state.trays.push(t);state.selected={type:'tray',id:t.id};renderAll();toast('Calha independente criada');
+  state.trays.push(t);state.multiSelected=[];state.trayMultiSelected=[t.id];state.selected={type:'tray',id:t.id};renderAll();toast('Calha independente criada');
 }
 
 function render(){
   const svg=$('layout'),stage=$('canvasStage'),g=geometry();
   migrateLegacyTrays(g);
+  syncAttachedTrayEndpoints(g);
   // The stage is deliberately sized to the complete drawing so the scroll container
   // always has real horizontal AND vertical overflow when the plant is larger than the viewport.
   // Keep a real, larger-than-viewport scroll surface. This is intentionally independent
@@ -456,13 +579,13 @@ function render(){
 
   // Camada 1: corpos dos racks. As calhas ficam visualmente acima deles.
   state.racks.forEach(r=>{
-    const q=rackRect(r,g),selected=state.selected?.type==='rack'&&state.selected.id===r.id;
+    const q=rackRect(r,g),selected=state.multiSelected.includes(r.id) || (state.selected?.type==='rack'&&state.selected.id===r.id);
     svg.insertAdjacentHTML('beforeend',`<g data-rack="${r.id}" class="rackg"><rect class="rack-body ${selected?'selected':''}" x="${q.x}" y="${q.y}" width="${q.w}" height="${q.h}" rx="7"/></g>`);
   });
 
   // Camada 2: calhas e seus nós. Elas sempre ficam por cima do corpo dos racks.
   state.trays.forEach(t=>{
-    const selected=state.selected?.type==='tray'&&state.selected.id===t.id;
+    const selected=state.trayMultiSelected.includes(t.id) || (state.selected?.type==='tray'&&state.selected.id===t.id);
     const len=trayLengthMeters(t,g);
     const mx=(t.x1+t.x2)/2,my=(t.y1+t.y2)/2;
     svg.insertAdjacentHTML('beforeend',`<line data-tray="${t.id}" class="tray-line ${selected?'selected-tray':''}" x1="${t.x1}" y1="${t.y1}" x2="${t.x2}" y2="${t.y2}"/>`);
@@ -488,6 +611,16 @@ function render(){
     svg.insertAdjacentHTML('beforeend',`<g data-rack="${r.id}" class="rackg"><text class="rack-text" x="${c.x}" y="${c.y+4}">${esc(r.name)}</text><text class="svg-label" x="${c.x}" y="${q.y+q.h+14}" style="font-size:9px;text-anchor:middle">${r.units}U</text><text class="rack-width-label" x="${c.x}" y="${q.y+q.h+27}" text-anchor="middle">L ${num(r.width,state.rackWidth).toFixed(2)} m</text><text class="rack-depth-label" x="${c.x}" y="${q.y+q.h+40}" text-anchor="middle">P ${num(r.depth,state.rackDepth).toFixed(2)} m</text></g>`);
   });
 
+  // Caixas de seleção múltipla. Shift = racks; Ctrl/Cmd+Shift = calhas.
+  if(window.__rackSelectionBox){
+    const b=window.__rackSelectionBox;
+    svg.insertAdjacentHTML('beforeend',`<rect class="rack-selection-box" x="${Math.min(b.x1,b.x2)}" y="${Math.min(b.y1,b.y2)}" width="${Math.abs(b.x2-b.x1)}" height="${Math.abs(b.y2-b.y1)}"/>`);
+  }
+  if(window.__traySelectionBox){
+    const b=window.__traySelectionBox;
+    svg.insertAdjacentHTML('beforeend',`<rect class="tray-selection-box" x="${Math.min(b.x1,b.x2)}" y="${Math.min(b.y1,b.y2)}" width="${Math.abs(b.x2-b.x1)}" height="${Math.abs(b.y2-b.y1)}"/>`);
+  }
+
   // Indicador visual do snap magnético durante o arraste de uma ponta.
   if(window.__traySnapGuide){
     const sg=window.__traySnapGuide;
@@ -496,14 +629,51 @@ function render(){
   if(state.selected?.type==='cable'){const c=state.cables.find(x=>x.id===state.selected.id);if(c){const pts=computeRoute(c,g);if(pts.length>1)svg.insertAdjacentHTML('beforeend',`<polyline class="route-line" points="${pts.map(p=>p.x+','+p.y).join(' ')}"/>`);}}
   // Textos dos racks ficam visualmente acima das calhas, mas não capturam o clique.
   // Assim uma calha que passa sobre um rack continua selecionável.
-  svg.querySelectorAll('[data-rack]').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();state.selected={type:'rack',id:el.dataset.rack};renderAll();}));
+  svg.querySelectorAll('[data-rack]').forEach(el=>el.addEventListener('click',e=>{
+    e.stopPropagation();
+    const id=el.dataset.rack, multi=e.ctrlKey||e.metaKey;
+    state.trayMultiSelected=[];
+    if(multi){
+      const set=new Set(state.multiSelected);
+      if(set.has(id)){ set.delete(id); } else { set.add(id); }
+      state.multiSelected=[...set].filter(rid=>state.racks.some(r=>r.id===rid));
+      if(state.multiSelected.length){ state.selected={type:'rack',id:state.multiSelected[state.multiSelected.length-1]}; }
+      else state.selected=null;
+    }else{
+      state.multiSelected=[id];
+      state.selected={type:'rack',id};
+    }
+    renderAll();
+  }));
   svg.querySelectorAll('.rack-text,.svg-label').forEach(el=>el.style.pointerEvents='none');
-  svg.querySelectorAll('[data-tray]').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();state.selected={type:'tray',id:el.dataset.tray};renderAll();}));
+  svg.querySelectorAll('[data-tray]').forEach(el=>el.addEventListener('click',e=>{
+    e.stopPropagation();
+    const id=el.dataset.tray, multi=e.ctrlKey||e.metaKey;
+    // mousedown already handles Ctrl/Cmd multi-selection so a normal click
+    // after it must not toggle the same calha a second time.
+    if(window.__trayMouseMultiHandled===id){
+      window.__trayMouseMultiHandled=null;
+      renderAll();
+      return;
+    }
+    if(multi){
+      const set=new Set(state.trayMultiSelected);
+      if(set.has(id)) set.delete(id); else set.add(id);
+      state.trayMultiSelected=[...set].filter(tid=>state.trays.some(t=>t.id===tid));
+      state.multiSelected=[];
+      state.selected=state.trayMultiSelected.length?{type:'tray',id:state.trayMultiSelected[state.trayMultiSelected.length-1]}:null;
+    }else{
+      state.multiSelected=[];
+      state.trayMultiSelected=[id];
+      state.selected={type:'tray',id};
+    }
+    renderAll();
+  }));
   // Clique em uma área vazia do canvas limpa a seleção atual. O grid não
   // captura ponteiro, portanto clicar sobre o fundo do SVG também conta como vazio.
   svg.addEventListener('click',e=>{
     if(e.target===svg){
-      if(state.selected){state.selected=null;renderAll();}
+      if(state.selected||state.multiSelected.length||state.trayMultiSelected.length){state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];renderAll();}
     }
   });
   // Calhas: a linha move a calha; as pontas são redimensionáveis.
@@ -515,6 +685,17 @@ function render(){
     const node=el.dataset.trayNode;
     // Selecionar imediatamente ao pressionar a calha, inclusive quando ela
     // estiver sobre um rack. A linha fica destacada enquanto selecionada.
+    const multiSelect=e.ctrlKey||e.metaKey;
+    if(multiSelect){
+      const set=new Set(state.trayMultiSelected);
+      if(!set.has(id)) set.add(id);
+      state.trayMultiSelected=[...set].filter(tid=>state.trays.some(x=>x.id===tid));
+      state.multiSelected=[];
+      window.__trayMouseMultiHandled=id;
+    }else{
+      state.trayMultiSelected=[id];
+      state.multiSelected=[];
+    }
     state.selected={type:'tray',id};
     render();
     const zoom=(window.__canvasPan&&Number.isFinite(window.__canvasPan.zoom))?window.__canvasPan.zoom:1;
@@ -730,6 +911,43 @@ function connectCrossingsForTray(trayId){
 
 function renderProperties(){
   const p=$('properties');
+  if(state.trayMultiSelected.length>1){
+    const count=state.trayMultiSelected.length;
+    p.innerHTML=`<div class="prop-title">${count} calhas selecionadas</div>
+      <div class="help">Várias calhas selecionadas. Para evitar alterações acidentais na geometria e nas conexões, somente a exclusão em lote está disponível.</div>
+      <button class="btn danger full" id="delSelectedTrays">Excluir ${count} calhas selecionadas</button>
+      <button class="btn ghost full" id="clearSelectedTrays">Limpar seleção</button>`;
+    $('delSelectedTrays').onclick=deleteSelectedTrays;
+    $('clearSelectedTrays').onclick=()=>{state.trayMultiSelected=[];state.selected=null;renderAll();};
+    return;
+  }
+  if(state.multiSelected.length>1){
+    const count=state.multiSelected.length;
+    p.innerHTML=`<div class="prop-title">${count} racks selecionados</div>
+      <div class="help">As propriedades abaixo serão aplicadas a todos os racks selecionados. Deixe um campo vazio para não alterá-lo. Largura e profundidade mantêm cada rack centrado.</div>
+      <div class="grid2"><label>Qtd. U<input id="bulkUnits" type="number" min="1" max="60" placeholder="Não alterar"></label><label>Largura (m)<input id="bulkWidth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label></div>
+      <div class="grid2"><label>Profundidade (m)<input id="bulkDepth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label><label>Distância até o próximo (m)<input id="bulkGap" type="number" min="0" step="0.01" placeholder="Não alterar"></label></div>
+      <label>Altura da última U → calha (m)<input id="bulkRise" type="number" min="0" step="0.01" placeholder="Não alterar"></label>
+      <button class="btn primary full" id="applyBulkRack">✓ Aplicar propriedades</button>
+      <button class="btn danger full" id="delSelectedRacks">Excluir ${count} racks selecionados</button>
+      <button class="btn ghost full" id="clearSelectedRacks">Limpar seleção</button>`;
+    $('applyBulkRack').onclick=()=>{
+      const ids=new Set(state.multiSelected);
+      const unitsVal=$('bulkUnits').value.trim(), widthVal=$('bulkWidth').value.trim(), depthVal=$('bulkDepth').value.trim(), gapVal=$('bulkGap').value.trim(), riseVal=$('bulkRise').value.trim();
+      if(!unitsVal&&!widthVal&&!depthVal&&!gapVal&&!riseVal){toast('Informe pelo menos uma propriedade');return;}
+      state.racks.filter(r=>ids.has(r.id)).forEach(r=>{
+        if(unitsVal){r.units=Math.max(1,Math.min(60,Math.floor(num(unitsVal,r.units))));}
+        if(widthVal){const old=Math.max(.1,num(r.width,state.rackWidth)),next=Math.max(.1,num(widthVal,state.rackWidth));r.offset=num(r.offset,0)+(old-next)/2;r.width=next;}
+        if(depthVal){const old=Math.max(.1,num(r.depth,state.rackDepth)),next=Math.max(.1,num(depthVal,state.rackDepth));r.yOffset=num(r.yOffset,0)+(old-next)/2;r.depth=next;}
+        if(gapVal){r.gapAfter=Math.max(0,num(gapVal,r.gapAfter??state.rackGap));}
+        if(riseVal){r.riseToTray=Math.max(0,num(riseVal,r.riseToTray??state.lastUToTray));}
+      });
+      refreshVisuals();renderProperties();toast(`${count} racks atualizados`);
+    };
+    $('delSelectedRacks').onclick=deleteSelectedRacks;
+    $('clearSelectedRacks').onclick=()=>{state.multiSelected=[];state.selected=null;renderAll();};
+    return;
+  }
   if(!state.selected){p.innerHTML='<div class="empty">Selecione um rack, calha ou cabo.</div>';return;}
   if(state.selected.type==='rack'){
     const r=state.racks.find(x=>x.id===state.selected.id); if(!r){state.selected=null;return renderProperties();}
@@ -773,6 +991,7 @@ function renderProperties(){
       // contain gaps after a rack is deleted.
       if(parentRow) parentRow.rackCount=racksInRow(parentRow.id).length;
       state.selected=null;
+      state.multiSelected=[];
       normalizeState();renderAll();toast('Rack excluído');
     };
     return;
@@ -913,6 +1132,7 @@ function buildRouteGraph(c){
   addNode(oid,{kind:'rack',rack:o,role:'origin'});
   addNode(did,{kind:'rack',rack:d,role:'dest'});
   const g=geometry();
+  syncAttachedTrayEndpoints(g);
 
   // Build a complete, current set of junction/access parameters for each tray.
   // A junction may come from an explicit endpoint link or from a valid crossing.
@@ -1149,7 +1369,7 @@ function addRackToRow(rowId){
   toast(`Rack adicionado em ${row.name||'fileira'}`);
 }
 
-function addCable(){if(state.racks.length<2){toast('Crie pelo menos 2 racks');return;}const c={id:uid('cable'),name:`Cabo-${String(state.cables.length+1).padStart(3,'0')}`,originRack:state.racks[0].id,originU:state.racks[0].units,destRack:state.racks[1].id,destU:state.racks[1].units,slack:state.defaultSlack,type:DEFAULT_CABLE_TYPE,via:[]};state.cables.push(c);state.selected={type:'cable',id:c.id};renderAll();toast('Cabo adicionado');}
+function addCable(){if(state.racks.length<2){toast('Crie pelo menos 2 racks');return;}const c={id:uid('cable'),name:`Cabo-${String(state.cables.length+1).padStart(3,'0')}`,originRack:state.racks[0].id,originU:state.racks[0].units,destRack:state.racks[1].id,destU:state.racks[1].units,slack:state.defaultSlack,type:DEFAULT_CABLE_TYPE,via:[]};state.cables.push(c);state.multiSelected=[];state.selected={type:'cable',id:c.id};renderAll();toast('Cabo adicionado');}
 
 function cableRouteLabel(c,res){
   if(!res?.reachable) return '';
@@ -1353,9 +1573,72 @@ async function exportCablesXLSX(){
   }catch(err){toast(err.message||'Erro ao exportar Excel');}
 }
 
-function renderCables(){const el=$('cablesList');$('cableCount').textContent=state.cables.length;if(!state.cables.length){el.innerHTML='<div class="empty">Nenhum cabo cadastrado.</div>';return;}el.innerHTML=state.cables.map(c=>{const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack);const invalid=!cableUnitValidation(c).valid;return`<div class="cable-item ${state.selected?.type==='cable'&&state.selected.id===c.id?'selected':''} ${invalid?'invalid':''}" data-cable="${c.id}"><div class="cable-name">${invalid?'⚠ ':''}${esc(c.name)}</div><div class="cable-meta">${esc(rowForRack(o)?.name||'?')} / ${esc(o?.name||'?')} U${c.originU} → ${esc(rowForRack(d)?.name||'?')} / ${esc(d?.name||'?')} U${c.destU}</div></div>`;}).join('');el.querySelectorAll('[data-cable]').forEach(x=>x.onclick=e=>{e.stopPropagation();state.selected={type:'cable',id:x.dataset.cable};renderAll();});}
+function renderCables(){const el=$('cablesList');$('cableCount').textContent=state.cables.length;if(!state.cables.length){el.innerHTML='<div class="empty">Nenhum cabo cadastrado.</div>';return;}el.innerHTML=state.cables.map(c=>{const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack);const invalid=!cableUnitValidation(c).valid;return`<div class="cable-item ${state.selected?.type==='cable'&&state.selected.id===c.id?'selected':''} ${invalid?'invalid':''}" data-cable="${c.id}"><div class="cable-name">${invalid?'⚠ ':''}${esc(c.name)}</div><div class="cable-meta">${esc(rowForRack(o)?.name||'?')} / ${esc(o?.name||'?')} U${c.originU} → ${esc(rowForRack(d)?.name||'?')} / ${esc(d?.name||'?')} U${c.destU}</div></div>`;}).join('');el.querySelectorAll('[data-cable]').forEach(x=>x.onclick=e=>{e.stopPropagation();state.multiSelected=[];state.selected={type:'cable',id:x.dataset.cable};renderAll();});}
 function ensureFields(){$('projectName').value=state.projectName;$('rowCount').value=state.rows.length;$('defaultRacks').value=state.rows[0]?.rackCount??0;$('rackUnits').value=state.rackUnits;$('rackWidth').value=state.rackWidth;$('rackDepth').value=state.rackDepth;$('rackGap').value=state.rackGap;$('defaultRowGap').value=state.defaultRowGap;$('lastUToTray').value=state.lastUToTray;$('defaultSlack').value=state.defaultSlack;}
 function renderAll(persist=true){ensureFields();buildRowsPanel();render();renderProperties();renderCables();if(persist)save();updateHistoryButtons();}
+
+function clearRackMultiSelection(){ state.multiSelected=[]; if(state.selected?.type==='rack') state.selected=null; }
+function svgLocalPoint(clientX,clientY){
+  const stage=$('canvasStage');
+  const rect=stage.getBoundingClientRect();
+  const zoom=(window.__canvasPan&&Number.isFinite(window.__canvasPan.zoom))?window.__canvasPan.zoom:1;
+  // getBoundingClientRect() already includes the current canvas translation and scroll.
+  // Dividing by zoom converts the pointer back to the SVG/stage coordinate system.
+  return {x:(clientX-rect.left)/zoom,y:(clientY-rect.top)/zoom};
+}
+function selectRacksInBox(b){
+  // Use the rendered rack bodies in screen coordinates. This is deliberately
+  // independent of the canvas zoom/pan transform, so Shift+drag keeps working
+  // at any zoom level and after scrolling/panning.
+  const x1=Math.min(b.clientX1,b.clientX2),x2=Math.max(b.clientX1,b.clientX2);
+  const y1=Math.min(b.clientY1,b.clientY2),y2=Math.max(b.clientY1,b.clientY2);
+  const ids=[];
+  document.querySelectorAll('#layout .rack-body').forEach(el=>{
+    const r=el.getBoundingClientRect();
+    const cx=r.left+r.width/2, cy=r.top+r.height/2;
+    if(cx>=x1&&cx<=x2&&cy>=y1&&cy<=y2){
+      const g=el.closest('[data-rack]');
+      if(g?.dataset.rack) ids.push(g.dataset.rack);
+    }
+  });
+  state.multiSelected=[...new Set(ids)];
+  state.selected=ids.length?{type:'rack',id:ids[ids.length-1]}:null;
+}
+function selectTraysInBox(b){
+  const x1=Math.min(b.clientX1,b.clientX2),x2=Math.max(b.clientX1,b.clientX2);
+  const y1=Math.min(b.clientY1,b.clientY2),y2=Math.max(b.clientY1,b.clientY2);
+  const ids=[];
+  document.querySelectorAll('#layout .tray-line[data-tray]').forEach(el=>{
+    const r=el.getBoundingClientRect();
+    const intersects=!(r.right<x1 || r.left>x2 || r.bottom<y1 || r.top>y2);
+    if(intersects && el.dataset.tray) ids.push(el.dataset.tray);
+  });
+  state.multiSelected=[];
+  state.trayMultiSelected=[...new Set(ids)];
+  state.selected=ids.length?{type:'tray',id:ids[ids.length-1]}:null;
+}
+
+function deleteSelectedTrays(){
+  const ids=[...new Set(state.trayMultiSelected)].filter(id=>state.trays.some(t=>t.id===id));
+  if(ids.length<2)return;
+  if(!confirm(`Excluir ${ids.length} calhas selecionadas?`))return;
+  const set=new Set(ids);
+  state.trayLinks=state.trayLinks.filter(l=>!set.has(l.aTray)&&!set.has(l.bTray));
+  state.trayRackLinks=state.trayRackLinks.filter(l=>!set.has(l.trayId));
+  state.trays=state.trays.filter(t=>!set.has(t.id));
+  state.trayMultiSelected=[];state.selected=null;
+  normalizeState();renderAll();toast(`${ids.length} calhas excluídas`);
+}
+
+function deleteSelectedRacks(){
+  const ids=[...new Set(state.multiSelected)].filter(id=>state.racks.some(r=>r.id===id));
+  if(ids.length<2)return;
+  if(!confirm(`Excluir ${ids.length} racks selecionados?`))return;
+  removeRackReferences(ids);
+  state.racks=state.racks.filter(r=>!ids.includes(r.id));
+  state.rows.forEach(row=>row.rackCount=racksInRow(row.id).length);
+  state.multiSelected=[];state.selected=null;normalizeState();renderAll();toast(`${ids.length} racks excluídos`);
+}
 
 function setupPan(){
   const wrap=$('canvasWrap'), stage=$('canvasStage');
@@ -1382,6 +1665,52 @@ function setupPan(){
   };
   const begin=(e)=>{
     if(e.button!==0 || e.target.closest('[data-rack]') || e.target.closest('[data-tray]'))return;
+    const layout=document.getElementById('layout');
+    const stageEl=document.getElementById('canvasStage');
+    const onCanvasBackground=(e.target===wrap || e.target===stageEl || e.target===layout || !!e.target.closest?.('#layout'));
+    if(e.shiftKey && onCanvasBackground){
+      const isTraySelection=e.ctrlKey||e.metaKey;
+      const start=svgLocalPoint(e.clientX,e.clientY);
+      const box={x1:start.x,y1:start.y,x2:start.x,y2:start.y,clientX1:e.clientX,clientY1:e.clientY,clientX2:e.clientX,clientY2:e.clientY};
+      if(isTraySelection){
+        window.__traySelectionBox=box;
+        window.__traySelectionDrag=true;
+      }else{
+        window.__rackSelectionBox=box;
+        window.__rackSelectionDrag=true;
+      }
+      // Capture the pointer on the canvas so replacing the SVG during render()
+      // cannot interrupt the selection gesture.
+      try{wrap.setPointerCapture?.(e.pointerId);}catch(_){}
+      const moveSelect=ev=>{
+        const pt=svgLocalPoint(ev.clientX,ev.clientY);
+        box.x2=pt.x;box.y2=pt.y;
+        box.clientX2=ev.clientX;box.clientY2=ev.clientY;
+        render();ev.preventDefault();
+      };
+      const stopSelect=ev=>{
+        document.removeEventListener('pointermove',moveSelect);
+        document.removeEventListener('pointerup',stopSelect);
+        document.removeEventListener('pointercancel',stopSelect);
+        try{wrap.releasePointerCapture?.(e.pointerId);}catch(_){}
+        const area=Math.abs(box.clientX2-box.clientX1)*Math.abs(box.clientY2-box.clientY1);
+        window.__rackSelectionBox=null;window.__rackSelectionDrag=false;
+        window.__traySelectionBox=null;window.__traySelectionDrag=false;
+        if(area>9){
+          if(isTraySelection) selectTraysInBox(box);
+          else selectRacksInBox(box);
+        }else{
+          state.multiSelected=[];state.trayMultiSelected=[];state.selected=null;
+        }
+        renderAll();
+        ev?.preventDefault?.();
+      };
+      document.addEventListener('pointermove',moveSelect,{passive:false});
+      document.addEventListener('pointerup',stopSelect,{once:true});
+      document.addEventListener('pointercancel',stopSelect,{once:true});
+      e.preventDefault();
+      return;
+    }
     drag={x:e.clientX,y:e.clientY,startX:p.x,startY:p.y};
     wrap.classList.add('panning');
     window.addEventListener('pointermove',move,{passive:false});
@@ -1431,7 +1760,7 @@ function newProject(){
   const keepTheme=state.theme;
   localStorage.removeItem(STORAGE);
   localStorage.removeItem(LEGACY_STORAGE);
-  state.projectName='Data Center';state.rackUnits=48;state.rackWidth=.60;state.rackDepth=1.20;state.rackGap=0;state.defaultRowGap=1.20;state.lastUToTray=1.00;state.defaultSlack=10;state.rows=[];state.racks=[];state.cables=[];state.trays=[];state.trayLinks=[];state.trayRackLinks=[];state.selected=null;state.theme=keepTheme;
+  state.projectName='Data Center';state.rackUnits=48;state.rackWidth=.60;state.rackDepth=1.20;state.rackGap=0;state.defaultRowGap=1.20;state.lastUToTray=1.00;state.defaultSlack=10;state.rows=[];state.racks=[];state.cables=[];state.trays=[];state.trayLinks=[];state.trayRackLinks=[];state.selected=null;state.multiSelected=[];state.theme=keepTheme;
   normalizeState();
   localStorage.setItem(STORAGE,JSON.stringify(state));
   initHistory();
@@ -1457,6 +1786,14 @@ function bind(){
   $('btnImportProject').onclick=()=>$('projectInput').click();
   $('projectInput').onchange=e=>{const f=e.target.files[0];if(f)importProject(f);e.target.value='';};
   $('btnReset').onclick=newProject;
+  $('renameApply').onclick=applyRenameRow;
+  $('renameCancel').onclick=closeRenameRowModal;
+  $('renameCancelTop').onclick=closeRenameRowModal;
+  $('renamePrefix').oninput=updateRenamePreview;
+  $('renameStart').oninput=updateRenamePreview;
+  $('renamePad').oninput=updateRenamePreview;
+  $('renameRowModal').addEventListener('click',e=>{if(e.target.id==='renameRowModal')closeRenameRowModal();});
+  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('renameRowModal').classList.contains('open'))closeRenameRowModal();});
   window.addEventListener('resize',()=>{render();});
 }
 bind();

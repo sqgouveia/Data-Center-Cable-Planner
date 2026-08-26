@@ -42,7 +42,7 @@
   </aside>
   <main class="workspace">
     <div class="toolbar">
-      <div><b>Planta superior</b><span id="canvasHint">Arraste o fundo para navegar. Use a roda do mouse para zoom. Clique em um rack para editar; as alterações são salvas automaticamente.</span></div>
+      <div><b>Planta superior</b><span id="canvasHint">Arraste o fundo para navegar. Use a roda do mouse para zoom. Clique em um rack para editar. Ctrl/Cmd + clique seleciona múltiplos racks ou calhas; Shift + arraste seleciona racks; Ctrl + Shift + arraste seleciona calhas. As alterações são salvas automaticamente.</span></div>
       <div class="toolbar-actions">
                 <button id="btnAddTray" class="btn">＋ Calha</button><button id="btnAddCable" class="btn">＋ Cabo</button>
         <button id="btnImport" class="btn">⇩ Importar cabos XLSX</button>
@@ -61,6 +61,22 @@
   </aside>
 </div>
 <div id="toast"></div>
+<div id="renameRowModal" class="modal-backdrop" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="renameRowTitle">
+    <div class="modal-head"><div><h3 id="renameRowTitle">Renomear racks</h3><span>Renomeie todos os racks da fileira de uma só vez.</span></div><button id="renameCancelTop" class="iconbtn" title="Fechar">×</button></div>
+    <input id="renameRowId" type="hidden">
+    <div class="grid2">
+      <label>Prefixo<input id="renamePrefix" value="10" placeholder="Ex.: 10 ou A"></label>
+      <label>Número inicial<input id="renameStart" type="number" min="0" step="1" value="1"></label>
+    </div>
+    <label>Zeros à esquerda<input id="renamePad" type="number" min="0" max="6" step="1" value="0"></label>
+    <div class="help">Exemplo: 0 zeros → A1, A2, A3. 1 zero → A01, A02, A03. 2 zeros → A001, A002, A003.</div>
+    <div class="rename-preview-title">Pré-visualização</div>
+    <div id="renamePreview" class="rename-preview"></div>
+    <div id="renameRowError" class="field-error rename-error"></div>
+    <div class="form-actions"><button id="renameCancel" class="btn ghost">Cancelar</button><button id="renameApply" class="btn primary">✓ Aplicar renomeação</button></div>
+  </div>
+</div>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="app.js"></script>
