@@ -12,8 +12,10 @@
     <button id="btnUndo" class="btn ghost" title="Desfazer (Ctrl+Z)" disabled>↶ Desfazer</button>
     <button id="btnRedo" class="btn ghost" title="Refazer (Ctrl+Y)" disabled>↷ Refazer</button>
     <button id="btnTheme" class="btn ghost">☾ Tema</button>
-    <button id="btnSave" class="btn ghost">Salvar</button>
-    <button id="btnExport" class="btn ghost">Exportar</button>
+    <button id="btnSave" class="btn ghost">💾 Salvar</button>
+    <button id="btnImportProject" class="btn ghost">⇩ Importar projeto</button>
+    <button id="btnExport" class="btn ghost">⇧ Exportar projeto</button>
+    <input id="projectInput" type="file" accept=".json,application/json" hidden>
   </div>
 </header>
 <div class="app">
@@ -31,7 +33,7 @@
       <label>Distância padrão entre fileiras (m)<input id="defaultRowGap" type="number" min="0" step="0.01" value="1.20"></label>
       <label>Altura da última U até a calha (m)<input id="lastUToTray" type="number" min="0" step="0.01" value="1.00"></label>
       <label>Folga padrão (%)<input id="defaultSlack" type="number" min="0" step="1" value="10"></label>
-      <button id="btnBuildRows" class="btn primary full">Aplicar estrutura</button>
+      <button id="btnBuildRows" class="btn primary full">✓ Aplicar estrutura</button>
     </section>
     <section><div class="section-head"><h2>Fileiras</h2></div><div id="rowsPanel"></div></section>
     <section><div class="section-head"><h2>Legenda</h2></div>

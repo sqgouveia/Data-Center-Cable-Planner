@@ -133,11 +133,12 @@ function rackAt(rowId,index){ return racksInRow(rowId).find(r=>r.index===index)|
 function adjacentRows(row){ const i=state.rows.findIndex(x=>x.id===row?.id); if(i<0)return[]; return state.rows.filter((_,idx)=>Math.abs(idx-i)===1); }
 function makeRack(row,index){ return {id:uid('rack'),rowId:row.id,index,name:`${row.name||'R'}-${String(index+1).padStart(2,'0')}`,units:state.rackUnits,width:state.rackWidth,depth:state.rackDepth,gapAfter:state.rackGap,riseToTray:state.lastUToTray,offset:0,yOffset:0,hasTray:false}; }
 function normalizeIndices(){
-  // Preserve physical slot indexes so deleting a rack leaves an empty position.
+  // Physical slot indexes are preserved so deleting a rack does not move the
+  // remaining racks.  rackCount, however, represents the actual number of
+  // racks currently present in the row, not the highest occupied slot.
   state.rows.forEach(row=>{
     const rs=racksInRow(row.id);
-    const maxIndex=rs.reduce((m,r)=>Math.max(m,Number.isFinite(r.index)?r.index:-1),-1);
-    row.rackCount=Math.max(0,Math.floor(num(row.rackCount,0)),maxIndex+1);
+    row.rackCount=rs.length;
   });
 }
 function normalizeState(){
@@ -764,10 +765,13 @@ function renderProperties(){
     if($('prRiseToTray'))$('prRiseToTray').onchange=()=>{r.riseToTray=Math.max(0,num($('prRiseToTray').value,state.lastUToTray));refreshVisuals();renderProperties();};
     if($('delRack'))$('delRack').onclick=()=>{
       if(!confirm(`Excluir o rack ${r.name||''}?`))return;
+      const parentRow=rowForRack(r);
       removeRackReferences([r.id]);
       state.racks=state.racks.filter(x=>x.id!==r.id);
-      const parentRow=rowForRack(r);
-      if(parentRow) parentRow.rackCount=Math.max(parentRow.rackCount||0,r.index+1);
+      // The row property must reflect the number of racks that actually
+      // remain.  Do not use r.index+1 here because physical slot indexes may
+      // contain gaps after a rack is deleted.
+      if(parentRow) parentRow.rackCount=racksInRow(parentRow.id).length;
       state.selected=null;
       normalizeState();renderAll();toast('Rack excluído');
     };
@@ -1428,8 +1432,6 @@ function newProject(){
   localStorage.removeItem(STORAGE);
   localStorage.removeItem(LEGACY_STORAGE);
   state.projectName='Data Center';state.rackUnits=48;state.rackWidth=.60;state.rackDepth=1.20;state.rackGap=0;state.defaultRowGap=1.20;state.lastUToTray=1.00;state.defaultSlack=10;state.rows=[];state.racks=[];state.cables=[];state.trays=[];state.trayLinks=[];state.trayRackLinks=[];state.selected=null;state.theme=keepTheme;
-  const count=2, racks=5;
-  for(let i=0;i<count;i++) addRow(racks,i===0?0:state.defaultRowGap);
   normalizeState();
   localStorage.setItem(STORAGE,JSON.stringify(state));
   initHistory();
@@ -1452,6 +1454,8 @@ function bind(){
   window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();}else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();}});
   $('btnSave').onclick=()=>{save();toast('Projeto salvo no navegador');};
   $('btnExport').onclick=()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(state.projectName||'data-center')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
+  $('btnImportProject').onclick=()=>$('projectInput').click();
+  $('projectInput').onchange=e=>{const f=e.target.files[0];if(f)importProject(f);e.target.value='';};
   $('btnReset').onclick=newProject;
   window.addEventListener('resize',()=>{render();});
 }
