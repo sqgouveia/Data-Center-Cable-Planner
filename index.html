@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Data Center Cable Planner</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><div class="brandmark">DC</div><div><h1>Data Center Cable Planner</h1><span>Planejamento visual de racks, calhas e cabeamento</span></div></div>
+  <div class="actions">
+    <button id="btnUndo" class="btn ghost" title="Desfazer (Ctrl+Z)" disabled>↶ Desfazer</button>
+    <button id="btnRedo" class="btn ghost" title="Refazer (Ctrl+Y)" disabled>↷ Refazer</button>
+    <button id="btnTheme" class="btn ghost">☾ Tema</button>
+    <button id="btnSave" class="btn ghost">💾 Salvar</button>
+    <button id="btnImportProject" class="btn ghost">⇩ Importar projeto</button>
+    <button id="btnExport" class="btn ghost">⇧ Exportar projeto</button>
+    <input id="projectInput" type="file" accept=".json,application/json" hidden>
+  </div>
+</header>
+<div class="app">
+  <aside class="sidebar left">
+    <section>
+      <div class="section-head"><h2>Ambiente</h2><button id="btnReset" class="iconbtn" title="Novo projeto">＋</button></div>
+      <label>Nome do projeto<input id="projectName" value="Data Center"></label>
+      <div class="grid2">
+        <label>Fileiras<input id="rowCount" type="number" min="0" max="30" value="2"></label>
+        <label>Racks/fila<input id="defaultRacks" type="number" min="0" max="100" value="5"></label>
+      </div>
+      <label>Altura do rack (U)<input id="rackUnits" type="number" min="1" max="60" value="48"></label>
+      <div class="grid2"><label>Largura do rack (m)<input id="rackWidth" type="number" min="0.1" step="0.01" value="0.60"></label><label>Profundidade do rack (m)<input id="rackDepth" type="number" min="0.1" step="0.01" value="1.20"></label></div>
+      <label>Distância padrão entre racks (m)<input id="rackGap" type="number" min="0" step="0.01" value="0"></label>
+      <label>Distância padrão entre fileiras (m)<input id="defaultRowGap" type="number" min="0" step="0.01" value="1.20"></label>
+      <label>Altura da última U até a calha (m)<input id="lastUToTray" type="number" min="0" step="0.01" value="1.00"></label>
+      <label>Folga padrão (%)<input id="defaultSlack" type="number" min="0" step="1" value="10"></label>
+      <button id="btnBuildRows" class="btn primary full">✓ Aplicar estrutura</button>
+    </section>
+    <section><div class="section-head"><h2>Fileiras</h2></div><div id="rowsPanel"></div></section>
+    <section><div class="section-head"><h2>Legenda</h2></div>
+      <div class="legend"><span><i class="dot rack"></i> Rack</span><span><i class="line tray"></i> Calha</span><span><i class="line route"></i> Rota selecionada</span><span><i class="dot crossing"></i> Passagem</span></div>
+    </section>
+  </aside>
+  <main class="workspace">
+    <div class="toolbar">
+      <div><b>Planta superior</b><span id="canvasHint">Arraste o fundo para navegar. Use a roda do mouse para zoom. Clique em um rack para editar; as alterações são salvas automaticamente.</span></div>
+      <div class="toolbar-actions">
+                <button id="btnAddTray" class="btn">＋ Calha</button><button id="btnAddCable" class="btn">＋ Cabo</button>
+        <button id="btnImport" class="btn">⇩ Importar cabos XLSX</button>
+        <button id="btnTemplate" class="btn ghost">⇩ Template XLSX</button>
+        <button id="btnExportCables" class="btn">⇧ Exportar cabos XLSX</button>
+        <input id="excelInput" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+      </div>
+    </div>
+    <div id="canvasWrap">
+      <div id="canvasStage"><svg id="layout" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    </div>
+  </main>
+  <aside class="sidebar right">
+    <section><div class="section-head"><h2>Propriedades</h2></div><div id="properties"><div class="empty">Selecione um rack, calha ou cabo.</div></div></section>
+    <section class="cables-section"><div class="section-head"><h2>Cabos</h2><span id="cableCount" class="badge">0</span></div><div id="cablesList"></div></section>
+  </aside>
+</div>
+<div id="toast"></div>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
