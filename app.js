@@ -21,7 +21,58 @@ let lastCloudSnapshot = null;
 const AUTOSAVE_STORAGE = 'dc-planner-autosave';
 let autosaveEnabled = localStorage.getItem(AUTOSAVE_STORAGE) !== 'off';
 function cloudProjectKey(){ return `dc-planner-cloud-project-${supabaseClient.auth?.getSession ? 'v1' : 'v1'}`; }
+const ROOM_KEYS=['rackUnits','rackWidth','rackGap','rackDepth','defaultRowGap','lastUToTray','defaultSlack','rows','racks','cables','trays','trayLinks','trayRackLinks','structureLocked'];
+function roomDataFromState(){const data={};ROOM_KEYS.forEach(k=>{data[k]=JSON.parse(JSON.stringify(state[k]));});return data;}
+function applyRoomData(data){if(!data)return;ROOM_KEYS.forEach(k=>{if(data[k]!==undefined)state[k]=JSON.parse(JSON.stringify(data[k]));});state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];normalizeState();}
+function syncActiveRoom(){if(!Array.isArray(state.rooms)||!state.rooms.length)return;const room=state.rooms.find(r=>r.id===state.activeRoomId)||state.rooms[0];if(!room)return;state.activeRoomId=room.id;room.data=roomDataFromState();room.updatedAt=new Date().toISOString();}
+function ensureRooms(){if(Array.isArray(state.rooms)&&state.rooms.length){if(!state.activeRoomId||!state.rooms.some(r=>r.id===state.activeRoomId))state.activeRoomId=state.rooms[0].id;return;}state.rooms=[{id:uid('room'),name:'Sala 1',data:roomDataFromState()}];state.activeRoomId=state.rooms[0].id;}
+function switchRoom(roomId){ensureRooms();const target=state.rooms.find(r=>r.id===roomId);if(!target)return;if(target.id===state.activeRoomId){updateRoomUI();return;}syncActiveRoom();applyRoomData(target.data);state.activeRoomId=target.id;pan=null;updateRoomUI();renderAll();initHistory();toast(`Sala aberta: ${target.name}`);}
+function addRoom(){ensureRooms();const name=prompt('Nome da nova sala:','Sala '+(state.rooms.length+1));if(!name||!name.trim())return;syncActiveRoom();const base={rackUnits:state.rackUnits,rackWidth:state.rackWidth,rackGap:state.rackGap,rackDepth:state.rackDepth,defaultRowGap:state.defaultRowGap,lastUToTray:state.lastUToTray,defaultSlack:state.defaultSlack,rows:[],racks:[],cables:[],trays:[],trayLinks:[],trayRackLinks:[],structureLocked:false};const room={id:uid('room'),name:name.trim(),data:base,updatedAt:new Date().toISOString()};state.rooms.push(room);state.activeRoomId=room.id;applyRoomData(base);updateRoomUI();renderAll();initHistory();toast(`Sala criada: ${room.name}`);}
+function renameCurrentRoom(){ensureRooms();const room=state.rooms.find(r=>r.id===state.activeRoomId);if(!room)return;const name=prompt('Novo nome da sala:',room.name);if(!name||!name.trim())return;room.name=name.trim();room.updatedAt=new Date().toISOString();updateRoomUI();save();toast('Sala renomeada');}
+function closeRoomMenu(){document.getElementById('roomMenu')?.remove();}
+function showRoomMenu(){
+  closeRoomMenu();
+  const anchor=$('btnRenameRoom');
+  const control=$('btnRenameRoom')?.closest('.room-control');
+  if(!anchor||!control)return;
+  const menu=document.createElement('div');
+  menu.id='roomMenu';
+  menu.className='room-menu';
+  menu.innerHTML='<button type=\"button\" data-room-action=\"rename\"><span>✎</span>Renomear sala</button><button type=\"button\" data-room-action=\"delete\" class=\"danger\"><span>⌫</span>Excluir sala</button>';
+  document.body.appendChild(menu);
+  const r=control.getBoundingClientRect();
+  const width=178;
+  menu.style.left=Math.max(8,Math.min(window.innerWidth-width-8,r.right-width))+'px';
+  menu.style.top=(r.bottom+6)+'px';
+  menu.querySelector('[data-room-action=rename]').onclick=()=>{closeRoomMenu();renameCurrentRoom();};
+  menu.querySelector('[data-room-action=delete]').onclick=()=>{closeRoomMenu();deleteCurrentRoom();};
+}
+function deleteCurrentRoom(){
+  ensureRooms();
+  if(state.rooms.length<=1){toast('O projeto precisa ter pelo menos uma sala.');return;}
+  const current=state.rooms.find(r=>r.id===state.activeRoomId);
+  if(!current)return;
+  if(!confirm(`Excluir a sala \"${current.name}\"?\n\nTodos os racks, calhas e cabos desta sala serão excluídos. Essa ação não pode ser desfeita.`))return;
+  syncActiveRoom();
+  const index=state.rooms.findIndex(r=>r.id===current.id);
+  const wasActive=current.id===state.activeRoomId;
+  state.rooms.splice(index,1);
+  if(wasActive){
+    const next=state.rooms[Math.min(index,state.rooms.length-1)];
+    state.activeRoomId=next.id;
+    applyRoomData(next.data);
+    pan=null;
+    updateRoomUI();
+    renderAll(false);
+    initHistory();
+  }
+  updateRoomUI();
+  save();
+  toast(`Sala excluída: ${current.name}`);
+}
+function updateRoomUI(){ensureRooms();const room=state.rooms.find(r=>r.id===state.activeRoomId)||state.rooms[0];if(!room)return;state.activeRoomId=room.id;const select=$('roomSelect');if(select){select.innerHTML=state.rooms.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');select.value=room.id;}const name=$('plannerRoomName');if(name)name.textContent=room.name;}
 function projectCloudPayload(){
+  syncActiveRoom();
   const copy=JSON.parse(JSON.stringify(state));
   delete copy.selected; delete copy.multiSelected; delete copy.trayMultiSelected;
   return copy;
@@ -131,7 +182,11 @@ async function loadProjectFromCloud(projectId=null){
       localStorage.setItem(`${STORAGE}-cloud-id`,cloudProjectId);
       Object.assign(state,data.data);
       if(data.name) state.projectName=data.name;
+      ensureRooms();
+      const active=state.rooms.find(r=>r.id===state.activeRoomId)||state.rooms[0];
+      if(active?.data) applyRoomData(active.data);
       normalizeState();
+      updateRoomUI();
       applyTheme();
       lastCloudSnapshot=projectSnapshotForCloud();
       cloudDirty=false;
@@ -163,7 +218,7 @@ async function fetchCloudProjects(){
 }
 function projectStats(project){
   const d=project?.data||{};
-  return {rows:Array.isArray(d.rows)?d.rows.length:0,racks:Array.isArray(d.racks)?d.racks.length:0,cables:Array.isArray(d.cables)?d.cables.length:0,trays:Array.isArray(d.trays)?d.trays.length:0};
+  const rooms=Array.isArray(d.rooms)?d.rooms:[];let rows=0,racks=0,cables=0,trays=0;rooms.forEach(r=>{const x=r.data||{};rows+=Array.isArray(x.rows)?x.rows.length:0;racks+=Array.isArray(x.racks)?x.racks.length:0;cables+=Array.isArray(x.cables)?x.cables.length:0;trays+=Array.isArray(x.trays)?x.trays.length:0;});if(!rooms.length){rows=Array.isArray(d.rows)?d.rows.length:0;racks=Array.isArray(d.racks)?d.racks.length:0;cables=Array.isArray(d.cables)?d.cables.length:0;trays=Array.isArray(d.trays)?d.trays.length:0;}return {rooms:rooms.length||1,rows,racks,cables,trays};
 }
 function formatProjectDate(v){
   if(!v)return 'Sem data';
@@ -195,7 +250,7 @@ async function renderDashboardProjects(){
       return `<article class="project-card" data-project-card="${esc(project.id)}">
         <div class="project-card-head"><div style="display:flex;gap:12px;align-items:flex-start"><div class="project-icon">📁</div><div><h3 class="project-name">${esc(project.name||'Projeto sem nome')}</h3><div class="project-date">Atualizado ${esc(formatProjectDate(project.updated_at))}</div></div></div>
           <div class="project-menu"><button class="btn ghost" data-project-menu="${esc(project.id)}" title="Mais opções">⋮</button></div></div>
-        <div class="project-stats"><span><b>${st.rows}</b> fileira${st.rows===1?'':'s'}</span><span><b>${st.racks}</b> rack${st.racks===1?'':'s'}</span><span><b>${st.cables}</b> cabo${st.cables===1?'':'s'}</span><span><b>${st.trays}</b> calha${st.trays===1?'':'s'}</span></div>
+        <div class="project-stats"><span><b>${st.rooms}</b> sala${st.rooms===1?'':'s'}</span><span><b>${st.rows}</b> fileira${st.rows===1?'':'s'}</span><span><b>${st.racks}</b> rack${st.racks===1?'':'s'}</span><span><b>${st.cables}</b> cabo${st.cables===1?'':'s'}</span><span><b>${st.trays}</b> calha${st.trays===1?'':'s'}</span></div>
         <div class="project-actions"><button class="btn primary" data-project-open="${esc(project.id)}">Abrir</button></div>
       </article>`;
     }).join('');
@@ -249,7 +304,7 @@ async function openCloudProject(id){
 }
 function resetStateForNewProject(name='Data Center'){
   const keepTheme=state.theme;
-  state.projectName=name;state.rackUnits=48;state.rackWidth=.60;state.rackDepth=1.20;state.rackGap=0;state.defaultRowGap=1.20;state.lastUToTray=1.00;state.defaultSlack=10;state.rows=[];state.racks=[];state.cables=[];state.trays=[];state.trayLinks=[];state.trayRackLinks=[];state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];state.theme=keepTheme;
+  state.projectName=name;state.rackUnits=48;state.rackWidth=.60;state.rackDepth=1.20;state.rackGap=0;state.defaultRowGap=1.20;state.lastUToTray=1.00;state.defaultSlack=10;state.rows=[];state.racks=[];state.cables=[];state.trays=[];state.trayLinks=[];state.trayRackLinks=[];state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];state.theme=keepTheme;state.rooms=[];state.activeRoomId=null;ensureRooms();
   cloudProjectId=null;
   lastCloudSnapshot=null;
   cloudDirty=true;
@@ -396,7 +451,7 @@ const state = {
   defaultSlack: 10,
   rows: [], racks: [], cables: [], trays: [], trayLinks: [], selected: null, multiSelected: [], trayMultiSelected: [],
   theme: localStorage.getItem(THEME_STORAGE) || localStorage.getItem('dc-theme') || 'dark',
-  structureLocked: false
+  structureLocked: false, rooms: [], activeRoomId: null
 };
 let pan = null;
 const VIEW_PAD = 700;
@@ -537,6 +592,9 @@ function load(){
   if(!Number.isFinite(Number(state.rackDepth))) state.rackDepth=1.20;
   state.rackDepth=Math.max(0.1,Number(state.rackDepth));
   if(state.theme!=='light'&&state.theme!=='dark')state.theme='dark';
+  ensureRooms();
+  const active=state.rooms.find(r=>r.id===state.activeRoomId)||state.rooms[0];
+  if(active?.data) applyRoomData(active.data);
   applyTheme();
   normalizeState();
 }
@@ -2187,7 +2245,7 @@ async function exportCablesXLSX(){
 
 function renderCables(){const el=$('cablesList');$('cableCount').textContent=state.cables.length;if(!state.cables.length){el.innerHTML='<div class="empty">Nenhum cabo cadastrado.</div>';return;}el.innerHTML=state.cables.map(c=>{const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack);const invalid=!cableUnitValidation(c).valid;return`<div class="cable-item ${state.selected?.type==='cable'&&state.selected.id===c.id?'selected':''} ${invalid?'invalid':''}" data-cable="${c.id}"><div class="cable-name">${invalid?'⚠ ':''}${esc(c.name)}</div><div class="cable-meta">${esc(rowForRack(o)?.name||'?')} / ${esc(o?.name||'?')} U${c.originU} → ${esc(rowForRack(d)?.name||'?')} / ${esc(d?.name||'?')} U${c.destU}</div></div>`;}).join('');el.querySelectorAll('[data-cable]').forEach(x=>x.onclick=e=>{e.stopPropagation();state.multiSelected=[];state.selected={type:'cable',id:x.dataset.cable};renderAll();});}
 function ensureFields(){$('projectName').value=state.projectName;$('rowCount').value=state.rows.length;$('defaultRacks').value=state.rows[0]?.rackCount??0;$('rackUnits').value=state.rackUnits;$('rackWidth').value=state.rackWidth;$('rackDepth').value=state.rackDepth;$('rackGap').value=state.rackGap;$('defaultRowGap').value=state.defaultRowGap;$('lastUToTray').value=state.lastUToTray;$('defaultSlack').value=state.defaultSlack;}
-function renderAll(persist=true){ensureFields();buildRowsPanel();render();renderProperties();renderCables();updateStructureControls();updateProjectSummary();updateMinimap();if(persist)save();updateHistoryButtons();}
+function renderAll(persist=true){ensureFields();updateRoomUI();buildRowsPanel();render();renderProperties();renderCables();updateStructureControls();updateProjectSummary();updateMinimap();if(persist)save();updateHistoryButtons();}
 
 function clearRackMultiSelection(){ state.multiSelected=[]; if(state.selected?.type==='rack') state.selected=null; }
 function svgLocalPoint(clientX,clientY){
@@ -2492,6 +2550,12 @@ async function newProject(){
 }
 
 function bind(){
+  $('roomSelect')?.addEventListener('change',e=>switchRoom(e.target.value));
+  $('btnAddRoom')?.addEventListener('click',addRoom);
+  $('btnRenameRoom')?.addEventListener('click',showRoomMenu);
+  document.addEventListener('click',e=>{if(!e.target.closest('#roomMenu')&&!e.target.closest('#btnRenameRoom'))closeRoomMenu();});
+  window.addEventListener('resize',closeRoomMenu);
+  window.addEventListener('scroll',closeRoomMenu,true);
   load();renderAll(false);initHistory();setupPan();setupMinimap();
   // Toggle da barra lateral: estado visual persistido localmente.
   const sidebarKey='dccp_sidebar_collapsed';
