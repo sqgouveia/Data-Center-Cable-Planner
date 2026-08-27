@@ -66,15 +66,15 @@
 <header class="topbar" id="mainTopbar">
   <div class="brand"><div class="brandmark">DC</div><div><h1>Data Center Cable Planner</h1><span>Planejamento visual de racks, calhas e cabeamento</span></div></div>
   <div class="actions">
-    <button id="btnUndo" class="btn ghost" title="Desfazer (Ctrl+Z)" disabled>↶ Desfazer</button>
-    <button id="btnRedo" class="btn ghost" title="Refazer (Ctrl+Y)" disabled>↷ Refazer</button>
-    <button id="btnTheme" class="btn ghost">☾ Tema</button>
-    <button id="btnProjects" class="btn ghost">▦ Projetos</button>
+<div class="history-group" aria-label="Histórico"><button id="btnUndo" class="btn ghost" title="Desfazer (Ctrl+Z)" disabled><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H13"/></svg></button><button id="btnRedo" class="btn ghost" title="Refazer (Ctrl+Y)" disabled><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 1 0 0 11H11"/></svg></button></div>
+    <button id="btnTheme" class="btn ghost ui-icon-label" title="Alternar tema"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.5 8.5 0 1 0 20.5 15.2Z"/></svg><span>Tema</span></button>
+    <button id="btnProjects" class="btn ghost ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Projetos</span></button>
     <div class="autosave-control" title="Salvamento automático na nuvem"><span id="autosaveLabel">Autosave</span><label class="switch-toggle"><input id="autosaveToggle" type="checkbox" aria-label="Desativar salvamento automático"><span class="switch-slider"></span></label></div>
-    <button id="btnSave" class="btn ghost">💾 Salvar na nuvem</button>
-    <button id="btnImportProject" class="btn ghost">⇩ Importar projeto</button>
-    <button id="btnExport" class="btn ghost">⇧ Exportar projeto</button>
-    <span id="authUserEmail" class="auth-user-email"></span><button id="btnLogout" class="btn ghost" title="Sair da conta">↪ Sair</button>
+    <span id="cloudStatus" class="cloud-status topbar-cloud-status" data-status="saved">✓ Salvo na nuvem</span>
+    <button id="btnSave" class="btn ghost ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></svg><span>Salvar na nuvem</span></button>
+    <button id="btnImportProject" class="btn ghost ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg><span>Importar projeto</span></button>
+    <button id="btnExport" class="btn ghost ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V9M7 12l5-5 5 5M5 4h14"/></svg><span>Exportar projeto</span></button>
+    <span id="authUserEmail" class="auth-user-email"></span><button id="btnLogout" class="btn ghost ui-icon-label" title="Sair da conta"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5v14h5M14 8l4 4-4 4M9 12h9"/></svg><span>Sair</span></button>
     <input id="projectInput" type="file" accept=".json,application/json" hidden>
   </div>
 </header>
@@ -96,25 +96,32 @@
       <button id="btnBuildRows" class="btn primary full">✓ Aplicar estrutura</button>
     </section>
     <section><div class="section-head"><h2>Fileiras</h2></div><div id="rowsPanel"></div></section>
-    <section><div class="section-head"><h2>Legenda</h2></div>
-      <div class="legend"><span><i class="dot rack"></i> Rack</span><span><i class="line tray"></i> Calha</span><span><i class="line route"></i> Rota selecionada</span><span><i class="dot crossing"></i> Passagem</span></div>
-    </section>
   </aside>
   <button id="sidebarToggle" class="sidebar-toggle" type="button" title="Recolher barra lateral" aria-label="Recolher barra lateral"><span id="sidebarToggleIcon">‹</span></button>
   <main class="workspace">
     <div class="toolbar">
-      <div class="toolbar-title"><div class="planner-project-info"><span class="project-label">Projeto</span><strong id="plannerProjectName">Data Center</strong><span id="cloudStatus" class="cloud-status" data-status="saved">✓ Salvo na nuvem</span></div></div>
+      <div class="toolbar-title"><div class="planner-project-info"><div class="planner-project-main"><strong id="plannerProjectName">Data Center</strong></div><div id="plannerProjectSummary" class="planner-project-summary"><span>0 fileiras</span><span>0 racks</span><span>0 calhas</span><span>0 cabos</span></div></div></div>
       <div class="toolbar-actions">
-                <button id="btnAddTray" class="btn">＋ Calha</button><button id="btnAddCable" class="btn">＋ Cabo</button>
-        <button id="btnImport" class="btn">⇩ Importar cabos XLSX</button>
-        <button id="btnTemplate" class="btn ghost">⇩ Template XLSX</button>
-        <button id="btnExportCables" class="btn">⇧ Exportar cabos XLSX</button>
+                <button id="btnAddTray" class="btn"><span class="ui-plus">+</span> Calha</button><button id="btnAddCable" class="btn"><span class="ui-plus">+</span> Cabo</button>
+        <button id="btnImport" class="btn ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg><span>Importar cabos</span></button>
+        <button id="btnTemplate" class="btn ghost ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"/><path d="M9 11h6M9 15h6M9 7h4"/></svg><span>Template</span></button>
+        <button id="btnExportCables" class="btn ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V9M7 12l5-5 5 5M5 4h14"/></svg><span>Exportar cabos</span></button>
         <input id="excelInput" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
       </div>
     </div>
     <div id="canvasWrap">
       <div id="canvasStage"><svg id="layout" xmlns="http://www.w3.org/2000/svg"></svg></div>
+      <button id="btnQuickSearch" class="canvas-tool-toggle search-toggle" type="button" title="Buscar (Ctrl+K)" aria-label="Buscar (Ctrl+K)">⌕</button>
+      <button id="minimapToggle" class="minimap-toggle" type="button" title="Mostrar mini mapa" aria-label="Mostrar mini mapa">⌗</button>
       <button id="structureLock" class="structure-lock" type="button" title="Bloquear estrutura" aria-label="Bloquear estrutura"><span id="structureLockIcon">🔓</span></button>
+      <div id="canvasZoomBar" class="canvas-zoom-bar" aria-label="Controle de zoom">
+        <button id="zoomOut" class="zoom-btn" type="button" title="Diminuir zoom" aria-label="Diminuir zoom">−</button>
+        <input id="zoomRange" class="zoom-range" type="range" min="55" max="250" value="100" step="1" aria-label="Zoom">
+        <button id="zoomIn" class="zoom-btn" type="button" title="Aumentar zoom" aria-label="Aumentar zoom">+</button>
+        <button id="zoomReset" class="zoom-value" type="button" title="Restaurar zoom para 100%" aria-label="Restaurar zoom para 100%">100%</button>
+        <button id="zoomFit" class="zoom-fit" type="button" title="Ajustar planta à tela" aria-label="Ajustar planta à tela">⤢</button>
+      </div>
+
     </div>
   </main>
   <aside class="sidebar right">
@@ -122,7 +129,7 @@
     <section class="cables-section"><div class="section-head"><h2>Cabos</h2><span id="cableCount" class="badge">0</span></div><div id="cablesList"></div></section>
   </aside>
 </div>
-<div id="toast"></div>
+<div id="quickSearchModal" class="modal-backdrop hidden" aria-hidden="true"><div class="quick-search-card" role="dialog" aria-modal="true" aria-labelledby="quickSearchTitle"><div class="quick-search-head"><div><h3 id="quickSearchTitle">Buscar no projeto</h3><span>Rack, calha ou cabo</span></div><button id="quickSearchClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div><div class="quick-search-input-wrap"><span>⌕</span><input id="quickSearchInput" type="search" autocomplete="off" placeholder="Digite um nome ou número..." /></div><div id="quickSearchResults" class="quick-search-results"><div class="empty">Digite para pesquisar.</div></div><div class="quick-search-footer"><span><kbd>↑</kbd><kbd>↓</kbd> navegar</span><span><kbd>Enter</kbd> abrir</span><span><kbd>Esc</kbd> fechar</span></div></div></div><div id="projectSummaryModal" class="modal-backdrop hidden" aria-hidden="true"><div class="summary-card" role="dialog" aria-modal="true" aria-labelledby="projectSummaryTitle"><div class="summary-head"><div><h3 id="projectSummaryTitle">Resumo do projeto</h3><span id="summaryProjectName">Data Center</span></div><button id="summaryClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div><div id="projectSummaryGrid" class="summary-grid"></div></div></div><div id="minimap" class="minimap hidden" aria-label="Mini mapa da planta"><div class="minimap-head"><span>Mini mapa</span><button id="minimapClose" class="iconbtn" type="button" title="Fechar mini mapa" aria-label="Fechar mini mapa">×</button></div><svg id="minimapSvg" xmlns="http://www.w3.org/2000/svg"></svg></div><div id="toast"></div>
 <div id="renameRowModal" class="modal-backdrop" aria-hidden="true">
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="renameRowTitle">
     <div class="modal-head"><div><h3 id="renameRowTitle">Renomear racks</h3><span>Renomeie todos os racks da fileira de uma só vez.</span></div><button id="renameCancelTop" class="iconbtn" title="Fechar">×</button></div>
@@ -143,5 +150,6 @@
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="app.js"></script>
+
 </body>
 </html>

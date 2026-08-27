@@ -1,14 +1,12 @@
-# Data Center Cable Planner
+# Data Center Cable Planner — Manual Route Test
 
-Versão baseada na última versão estável do projeto, com:
-- renomeação de racks em lote;
-- seleção múltipla de racks com Shift + arrastar;
-- seleção múltipla de calhas com Ctrl/Cmd + Shift + arrastar;
-- Ctrl/Cmd + clique para seleção múltipla individual;
-- seleção visual independente para racks e calhas;
-- propriedades, calhas, interligações e roteamento preservados.
+Versão de teste baseada na UI Redesign v1 sem legenda e com modo de roteamento.
 
-### Gestos de seleção
-- **Shift + arrastar:** seleciona somente racks.
-- **Ctrl + Shift + arrastar** (ou **Cmd + Shift** no macOS): seleciona somente calhas.
-- **Ctrl/Cmd + clique:** adiciona ou remove o objeto selecionado.
+## Novidade
+- Modo Automático: a rota é calculada pelo sistema; o botão manual de cálculo foi removido.
+- Modo Manual: clique em “Adicionar rack à rota”, depois clique nos racks intermediários desejados.
+- Cada rack intermediário só é aceito quando existe caminho pelas calhas a partir do último rack escolhido.
+- A rota manual final é validada trecho a trecho e desenhada sobre a infraestrutura existente.
+- É possível remover os racks intermediários ou limpar a rota.
+
+A lógica de racks, calhas, cabos, seleção, pan/zoom, sidebar, Supabase e demais recursos existentes foi preservada.

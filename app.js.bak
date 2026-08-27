@@ -173,7 +173,7 @@ function closeProjectMenus(){document.querySelectorAll('.project-menu-panel').fo
 function showDashboard(){
   appView='dashboard';
   $('dashboardScreen')?.classList.remove('hidden'); $('dashboardScreen')?.setAttribute('aria-hidden','false');
-  $('mainTopbar')?.classList.add('hidden'); document.querySelector('.app')?.classList.add('hidden'); $('minimap')?.classList.add('hidden'); $('minimapToggle')?.classList.add('hidden');
+  $('mainTopbar')?.classList.add('hidden'); document.querySelector('.app')?.classList.add('hidden');
   const email=supabaseClient.auth?.getUser ? null : null;
   $('dashboardUserEmail').textContent=$('authUserEmail')?.textContent||'';
   renderDashboardProjects();
@@ -181,7 +181,7 @@ function showDashboard(){
 function hideDashboard(){
   appView='planner';
   $('dashboardScreen')?.classList.add('hidden'); $('dashboardScreen')?.setAttribute('aria-hidden','true');
-  $('mainTopbar')?.classList.remove('hidden'); document.querySelector('.app')?.classList.remove('hidden'); $('minimapToggle')?.classList.remove('hidden'); if(localStorage.getItem('dccp_minimap_open')==='1') $('minimap')?.classList.remove('hidden');
+  $('mainTopbar')?.classList.remove('hidden'); document.querySelector('.app')?.classList.remove('hidden');
 }
 async function renderDashboardProjects(){
   const grid=$('projectsGrid'),empty=$('projectsEmpty');
@@ -1047,25 +1047,13 @@ function render(){
     }
   });
 
-  // Camada 1: corpos dos racks. O desenho visual fica levemente afastado,
-  // mas a área real de seleção continua usando a geometria completa do rack.
+  // Camada 1: corpos dos racks. As calhas ficam visualmente acima deles.
   state.racks.forEach(r=>{
     const q=rackRect(r,g),selected=state.multiSelected.includes(r.id) || (state.selected?.type==='rack'&&state.selected.id===r.id);
-    const inset=3;
-    const vx=q.x+inset, vy=q.y+inset, vw=Math.max(1,q.w-inset*2), vh=Math.max(1,q.h-inset*2);
-    const faceX=vx+5, faceY=vy+5, faceW=Math.max(1,vw-10), faceH=Math.max(1,vh-10);
-    const lineY=vy+22;
-    svg.insertAdjacentHTML('beforeend',`<g data-rack="${r.id}" class="rackg"><rect class="rack-hit" x="${q.x}" y="${q.y}" width="${q.w}" height="${q.h}" rx="8"/><rect class="rack-body ${selected?'selected':''}" x="${vx}" y="${vy}" width="${vw}" height="${vh}" rx="7"/><rect class="rack-face" x="${faceX}" y="${faceY}" width="${faceW}" height="${faceH}" rx="5"/><line class="rack-topline" x1="${vx+8}" y1="${lineY}" x2="${vx+vw-8}" y2="${lineY}"/><circle class="rack-led" cx="${vx+14}" cy="${vy+13}" r="2"/><circle class="rack-led" cx="${vx+21}" cy="${vy+13}" r="2"/><circle class="rack-led" cx="${vx+28}" cy="${vy+13}" r="2"/><circle class="rack-led" cx="${vx+35}" cy="${vy+13}" r="2"/></g>`);
+    svg.insertAdjacentHTML('beforeend',`<g data-rack="${r.id}" class="rackg"><rect class="rack-body ${selected?'selected':''}" x="${q.x}" y="${q.y}" width="${q.w}" height="${q.h}" rx="7"/></g>`);
   });
 
-  // Camada 2: informações dimensionais dos racks.
-  // Elas ficam antes das calhas para que a infraestrutura possa passar por cima.
-  state.racks.forEach(r=>{
-    const q=rackRect(r,g),c=rackCenter(r,g);
-    svg.insertAdjacentHTML('beforeend',`<g data-rack="${r.id}" class="rackg"><text class="svg-label" x="${c.x}" y="${q.y+q.h+14}" style="font-size:9px;text-anchor:middle">${r.units}U</text><text class="rack-width-label" x="${c.x}" y="${q.y+q.h+27}" text-anchor="middle">L ${num(r.width,state.rackWidth).toFixed(2)} m</text><text class="rack-depth-label" x="${c.x}" y="${q.y+q.h+40}" text-anchor="middle">P ${num(r.depth,state.rackDepth).toFixed(2)} m</text></g>`);
-  });
-
-  // Camada 3: calhas e seus nós. Elas ficam acima das informações dimensionais.
+  // Camada 2: calhas e seus nós. Elas sempre ficam por cima do corpo dos racks.
   state.trays.forEach(t=>{
     const selected=state.trayMultiSelected.includes(t.id) || (state.selected?.type==='tray'&&state.selected.id===t.id);
     const len=trayLengthMeters(t,g);
@@ -1087,10 +1075,10 @@ function render(){
     svg.insertAdjacentHTML('beforeend',`<circle class="tray-junction" cx="${ap.x}" cy="${ap.y}" r="4"/><circle class="tray-junction" cx="${bp.x}" cy="${bp.y}" r="4"/>`);
   });
 
-  // Camada 4: nomes dos racks ficam acima das calhas para manter a identificação legível.
+  // Camada 3: nomes e U dos racks ficam acima das calhas.
   state.racks.forEach(r=>{
-    const c=rackCenter(r,g);
-    svg.insertAdjacentHTML('beforeend',`<text class="rack-text" x="${c.x}" y="${c.y+4}">${esc(r.name)}</text>`);
+    const q=rackRect(r,g),c=rackCenter(r,g);
+    svg.insertAdjacentHTML('beforeend',`<g data-rack="${r.id}" class="rackg"><text class="rack-text" x="${c.x}" y="${c.y+4}">${esc(r.name)}</text><text class="svg-label" x="${c.x}" y="${q.y+q.h+14}" style="font-size:9px;text-anchor:middle">${r.units}U</text><text class="rack-width-label" x="${c.x}" y="${q.y+q.h+27}" text-anchor="middle">L ${num(r.width,state.rackWidth).toFixed(2)} m</text><text class="rack-depth-label" x="${c.x}" y="${q.y+q.h+40}" text-anchor="middle">P ${num(r.depth,state.rackDepth).toFixed(2)} m</text></g>`);
   });
 
   // Caixas de seleção múltipla. Shift = racks; Ctrl/Cmd+Shift = calhas.
@@ -1113,15 +1101,7 @@ function render(){
   // Assim uma calha que passa sobre um rack continua selecionável.
   svg.querySelectorAll('[data-rack]').forEach(el=>el.addEventListener('click',e=>{
     e.stopPropagation();
-    const id=el.dataset.rack;
-    if(state.selected?.type==='cable' && state.cables.some(c=>c.id===state.selected.id && c.routeMode==='manual') && window.__manualRoutePicking){
-      const c=state.cables.find(x=>x.id===state.selected.id);
-      const check=validateManualRouteCandidate(c,id);
-      if(check.ok){c.via.push(id);window.__manualRoutePicking=false;refreshVisuals();renderProperties();toast(`Rack ${rackNameById(id)} adicionado à rota`);}
-      else toast(check.message);
-      return;
-    }
-    const multi=e.ctrlKey||e.metaKey;
+    const id=el.dataset.rack, multi=e.ctrlKey||e.metaKey;
     state.trayMultiSelected=[];
     if(multi){
       const set=new Set(state.multiSelected);
@@ -1602,15 +1582,8 @@ function renderCableProperties(p,c){
   <div class="grid2"><label>Rack destino<select id="cbDR">${opts}</select></label><label>U destino<input id="cbDU" class="${duInvalid?'input-error':''}" type="number" min="1" max="${duMax}" value="${c.destU}"><small id="cbDUError" class="field-error">${duInvalid?`Máximo: ${duMax}U.`:''}</small></label></div>
   ${!v.valid?`<div class="validation-error">⚠ ${v.errors.map(esc).join('<br>')}</div>`:''}
   <label>Folga (%)<input id="cbSlack" type="number" min="0" step="1" value="${c.slack??state.defaultSlack}"></label>
-  <div class="result" id="cableResult"></div><div class="route-tools"><b>Roteamento</b><div class="help">Automática: o sistema encontra o caminho pelas calhas. Manual: escolha os racks intermediários e o sistema valida cada trecho.</div>
-   <label class="route-mode-label">Modo<select id="routeMode"><option value="automatic" ${(c.routeMode||'automatic')==='automatic'?'selected':''}>Automática</option><option value="manual" ${c.routeMode==='manual'?'selected':''}>Manual</option></select></label>
-   <div id="manualRoutePanel" class="manual-route-panel ${c.routeMode==='manual'?'':'hidden'}">
-     <div class="manual-route-status" id="manualRouteStatus"></div>
-     <button class="btn primary" id="pickRouteRack" type="button">Adicionar rack à rota</button>
-     <div id="manualRouteList"></div>
-     <button class="btn ghost" id="clearManualRoute" type="button" ${c.via?.length?'':'disabled'}>Limpar rota manual</button>
-   </div>
-   <button class="btn danger" id="delCable">Excluir cabo</button></div>`;
+  <div class="result" id="cableResult"></div><div class="route-tools"><b>Rota</b><div class="help">A rota automática utiliza somente as calhas e interligações existentes.</div>
+   <button class="btn primary" id="autoRoute" ${v.valid?'':'disabled'}>Usar rota automática</button><button class="btn danger" id="delCable">Excluir cabo</button></div>`;
   $('cbOR').value=c.originRack;$('cbDR').value=c.destRack;
   const sync=()=>{refreshVisuals();renderProperties();};
   $('cbType').onchange=()=>{c.type=$('cbType').value;sync();};
@@ -1620,11 +1593,10 @@ function renderCableProperties(p,c){
   $('cbDU').oninput=()=>{c.destU=Math.floor(num($('cbDU').value,0));refreshCableValidation(c);updateCableResult(c);refreshVisuals();};
   $('cbOU').onchange=()=>{renderProperties();};
   $('cbDU').onchange=()=>{renderProperties();};
-  $('routeMode').onchange=()=>{c.routeMode=$('routeMode').value; if(c.routeMode==='automatic'){c.via=[];window.__manualRoutePicking=false;} refreshVisuals();renderProperties();};
-  bindManualRouteControls(c);
   $('cbSlack').onchange=()=>{c.slack=Math.max(0,num($('cbSlack').value,0));refreshVisuals();renderProperties();};
   $('cbName').onchange=()=>{c.name=$('cbName').value.trim()||c.name;refreshVisuals();renderProperties();};
-  $('delCable').onclick=()=>{state.cables=state.cables.filter(x=>x.id!==c.id);state.selected=null;window.__manualRoutePicking=false;renderAll();toast('Cabo removido');};
+  $('autoRoute').onclick=()=>{const path=shortestPathRacks(c);if(path.length===2&&path[0].id===c.originRack&&path[1].id===c.destRack){c.via=[];refreshVisuals();renderProperties();toast('Rota automática calculada pelas calhas');}else if(c.originRack===c.destRack){c.via=[];refreshVisuals();renderProperties();}else toast('Não existe rota pelas calhas cadastradas');};
+  $('delCable').onclick=()=>{state.cables=state.cables.filter(x=>x.id!==c.id);state.selected=null;renderAll();toast('Cabo removido');};
    updateCableResult(c);
 }
 function renderViaList(c){const el=$('viaList');if(!el)return;el.innerHTML='';(c.via||[]).forEach((id,i)=>{const d=document.createElement('div');d.className='route-node';d.innerHTML=`<select data-via="${i}">${state.racks.map(r=>`<option value="${r.id}" ${r.id===id?'selected':''}>${esc(rowForRack(r)?.name||'')} / ${esc(r.name)}</option>`).join('')}</select><button class="btn small danger" data-via-del="${i}">×</button>`;el.appendChild(d);});el.querySelectorAll('[data-via]').forEach(s=>s.onchange=()=>{c.via[+s.dataset.via]=s.value;refreshVisuals();renderProperties();});el.querySelectorAll('[data-via-del]').forEach(b=>b.onclick=()=>{c.via.splice(+b.dataset.viaDel,1);refreshVisuals();renderProperties();});}
@@ -1880,79 +1852,18 @@ function routePointsForAutomatic(c,g){
 function dedupeRoutePoints(pts){
   const out=[];pts.forEach(p=>{if(!out.length||Math.hypot(p.x-out[out.length-1].x,p.y-out[out.length-1].y)>0.5)out.push(p);});return out;
 }
-function routeBetweenRacks(aId,bId,c){
-  const temp={...c,originRack:aId,destRack:bId,via:[]};
-  const res=calcAutomaticTrayLength(temp);
-  if(!res.reachable)return null;
-  const graph=buildRouteGraph(temp);
-  const pts=routePointsForAutomatic(temp,graph);
-  return {reachable:true,length:res.length,path:res.path,points:pts};
-}
-function manualRouteSequence(c){
-  const ids=[c.originRack,...(c.via||[]),c.destRack];
-  return ids.filter((id,i)=>id && ids.indexOf(id)===i || i===ids.length-1);
-}
-function manualRouteData(c){
-  if(c.originRack===c.destRack)return {reachable:true,length:0,points:[],segments:[]};
-  const ids=[c.originRack,...(c.via||[]),c.destRack];
-  let total=0,points=[],segments=[];
-  for(let i=1;i<ids.length;i++){
-    const seg=routeBetweenRacks(ids[i-1],ids[i],c);
-    if(!seg)return {reachable:false,length:0,points:[],segments,failedFrom:ids[i-1],failedTo:ids[i]};
-    total+=seg.length; segments.push(seg);
-    if(seg.points.length){
-      if(points.length && Math.hypot(points[points.length-1].x-seg.points[0].x,points[points.length-1].y-seg.points[0].y)<0.5) points.push(...seg.points.slice(1));
-      else points.push(...seg.points);
-    }
-  }
-  return {reachable:true,length:total,points:dedupeRoutePoints(points),segments};
-}
 function computeRoute(c,g){
-  if(c.routeMode==='manual') return manualRouteData(c).points;
+  // Manual waypoints never bypass infrastructure. Recalculate the automatic
+  // shortest route so every rendered cable remains on the tray network.
   return routePointsForAutomatic(c,g);
-}
-function validateManualRouteCandidate(c,rackId){
-  if(!rackId || rackId===c.originRack || rackId===c.destRack || (c.via||[]).includes(rackId))return {ok:false,message:'Esse rack não pode ser adicionado à rota.'};
-  const seq=[c.originRack,...(c.via||[])];
-  const from=seq[seq.length-1];
-  const seg=routeBetweenRacks(from,rackId,c);
-  if(!seg)return {ok:false,message:`Não existe caminho pelas calhas entre ${rackNameById(from)} e ${rackNameById(rackId)}.`};
-  return {ok:true};
-}
-function rackNameById(id){const r=state.racks.find(x=>x.id===id);return r?.name||id||'?';}
-function bindManualRouteControls(c){
-  const pick=$('pickRouteRack'),clear=$('clearManualRoute');
-  if(pick)pick.onclick=()=>{if(c.routeMode!=='manual')return;window.__manualRoutePicking=!window.__manualRoutePicking;pick.classList.toggle('active',!!window.__manualRoutePicking);pick.textContent=window.__manualRoutePicking?'Clique em um rack…':'Adicionar rack à rota';renderManualRouteUI(c);};
-  if(clear)clear.onclick=()=>{c.via=[];window.__manualRoutePicking=false;refreshVisuals();renderProperties();toast('Rota manual limpa');};
-  renderManualRouteUI(c);
-}
-function renderManualRouteUI(c){
-  const panel=$('manualRoutePanel'),list=$('manualRouteList'),status=$('manualRouteStatus');
-  if(!panel||!list)return;
-  panel.classList.toggle('hidden',c.routeMode!=='manual');
-  list.innerHTML=(c.via||[]).map((id,i)=>`<div class="route-node"><span class="route-index">${i+1}</span><span>${esc(rackNameById(id))}</span><button class="btn small danger" data-manual-via-del="${i}">×</button></div>`).join('');
-  list.querySelectorAll('[data-manual-via-del]').forEach(b=>b.onclick=()=>{c.via.splice(+b.dataset.manualViaDel,1);window.__manualRoutePicking=false;refreshVisuals();renderProperties();});
-  const md=manualRouteData(c);
-  if(status){status.textContent=md.reachable?(c.via?.length?`Rota válida: ${[c.originRack,...c.via,c.destRack].map(rackNameById).join(' → ')}`:'Nenhum rack intermediário selecionado.'):`Rota impossível: ${rackNameById(md.failedFrom)} → ${rackNameById(md.failedTo)}`;status.className='manual-route-status '+(md.reachable?'valid':'invalid');}
-  const clear=$('clearManualRoute');if(clear)clear.disabled=!(c.via||[]).length;
 }
 function calcCable(c){
   const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack);
   if(!o||!d)return{v1:0,v2:0,tray:0,base:0,slack:0,total:0,reachable:false,path:[]};
-  const manual=c.routeMode==='manual';
-  const md=manual?manualRouteData(c):null;
-  const rr=manual?{reachable:md.reachable,length:md.length,path:[]} : calcAutomaticTrayLength(c),reachable=rr.reachable;
-  const graph=reachable&&!manual?buildRouteGraph(c):null;
-  let v1=0,v2=0,tray=manual?Math.max(0,md.length):0;
-  if(manual){
-    if(md.reachable&&md.segments.length){
-      const first=md.segments[0],last=md.segments[md.segments.length-1];
-      const tempFirst={...c,originRack:c.originRack,destRack:(c.via?.[0]||c.destRack),via:[]};
-      const tempLast={...c,originRack:(c.via?.[c.via.length-1]||c.originRack),destRack:c.destRack,via:[]};
-      const rf=calcAutomaticTrayLength(tempFirst),rl=calcAutomaticTrayLength(tempLast);
-      v1=rf.reachable?rf.length:0; v2=rl.reachable?rl.length:0; tray=Math.max(0,md.length-v1-v2);
-    }
-  } else if(reachable&&graph){
+  const rr=calcAutomaticTrayLength(c),reachable=rr.reachable;
+  const graph=reachable?buildRouteGraph(c):null;
+  let v1=0,v2=0,tray=0;
+  if(reachable&&graph){
     const ids=rr.path;
     for(let i=1;i<ids.length;i++){
       const a=graph.nodes.get(ids[i-1]),b=graph.nodes.get(ids[i]),e=(graph.edges.get(ids[i-1])||[]).find(x=>x.id===ids[i]);
@@ -2187,7 +2098,7 @@ async function exportCablesXLSX(){
 
 function renderCables(){const el=$('cablesList');$('cableCount').textContent=state.cables.length;if(!state.cables.length){el.innerHTML='<div class="empty">Nenhum cabo cadastrado.</div>';return;}el.innerHTML=state.cables.map(c=>{const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack);const invalid=!cableUnitValidation(c).valid;return`<div class="cable-item ${state.selected?.type==='cable'&&state.selected.id===c.id?'selected':''} ${invalid?'invalid':''}" data-cable="${c.id}"><div class="cable-name">${invalid?'⚠ ':''}${esc(c.name)}</div><div class="cable-meta">${esc(rowForRack(o)?.name||'?')} / ${esc(o?.name||'?')} U${c.originU} → ${esc(rowForRack(d)?.name||'?')} / ${esc(d?.name||'?')} U${c.destU}</div></div>`;}).join('');el.querySelectorAll('[data-cable]').forEach(x=>x.onclick=e=>{e.stopPropagation();state.multiSelected=[];state.selected={type:'cable',id:x.dataset.cable};renderAll();});}
 function ensureFields(){$('projectName').value=state.projectName;$('rowCount').value=state.rows.length;$('defaultRacks').value=state.rows[0]?.rackCount??0;$('rackUnits').value=state.rackUnits;$('rackWidth').value=state.rackWidth;$('rackDepth').value=state.rackDepth;$('rackGap').value=state.rackGap;$('defaultRowGap').value=state.defaultRowGap;$('lastUToTray').value=state.lastUToTray;$('defaultSlack').value=state.defaultSlack;}
-function renderAll(persist=true){ensureFields();buildRowsPanel();render();renderProperties();renderCables();updateStructureControls();updateProjectSummary();updateMinimap();if(persist)save();updateHistoryButtons();}
+function renderAll(persist=true){ensureFields();buildRowsPanel();render();renderProperties();renderCables();updateStructureControls();if(persist)save();updateHistoryButtons();}
 
 function clearRackMultiSelection(){ state.multiSelected=[]; if(state.selected?.type==='rack') state.selected=null; }
 function svgLocalPoint(clientX,clientY){
@@ -2276,7 +2187,6 @@ function setupPan(){
     p.y=Math.max(b.minY,Math.min(b.maxY,p.y));
     stage.style.transform=`translate3d(${p.x}px,${p.y}px,0) scale(${p.zoom})`;
     stage.style.transformOrigin='0 0';
-    if(window.__updateMinimap) window.__updateMinimap();
   };
   const begin=(e)=>{
     if(e.button!==0 || e.target.closest('[data-rack]') || e.target.closest('[data-tray]'))return;
@@ -2365,134 +2275,18 @@ function setupPan(){
   };
   wrap.addEventListener('pointerdown',begin,{passive:false});
   wrap.addEventListener('wheel',zoomAt,{passive:false});
-  window.__applyCanvasPan=apply; window.__updateMinimap=()=>updateMinimap();
+  window.__applyCanvasPan=apply;
   window.__zoomIn=()=>{const evt={clientX:wrap.clientWidth/2,clientY:wrap.clientHeight/2,deltaY:-1,ctrlKey:false,preventDefault(){}};zoomAt(evt);};
-
-  const zoomRange=$('zoomRange'), zoomValue=$('zoomReset');
-  const syncZoomUI=()=>{
-    const pct=Math.round((p.zoom||1)*100);
-    if(zoomRange) zoomRange.value=String(Math.max(55,Math.min(250,pct)));
-    if(zoomValue) zoomValue.textContent=`${pct}%`;
-  };
-  const setZoomAtCenter=(z)=>{
-    const newZoom=clampZoom(Number(z)||1), oldZoom=p.zoom||1;
-    if(newZoom===oldZoom){syncZoomUI();return;}
-    const mx=wrap.clientWidth/2, my=wrap.clientHeight/2;
-    const localX=(mx-p.x)/oldZoom, localY=(my-p.y)/oldZoom;
-    p.zoom=newZoom; p.x=mx-localX*newZoom; p.y=my-localY*newZoom; apply(); syncZoomUI();
-  };
-  const fitToView=()=>{
-    const svg=$('layout');
-    if(!svg)return;
-    // Fit the actual drawn plant, not the oversized internal canvas padding.
-    const els=[...svg.querySelectorAll('.rack-body,.rack-face,.rack-text,.rack-width-label,.rack-depth-label,.svg-label,.tray-line,.tray-link,.tray-node,.tray-length,.cross-front,.cross-back,.route-line')];
-    let box=null;
-    for(const el of els){
-      try{ const b=el.getBBox(); if(!b.width && !b.height) continue;
-        if(!box) box={x:b.x,y:b.y,x2:b.x+b.width,y2:b.y+b.height};
-        else {box.x=Math.min(box.x,b.x);box.y=Math.min(box.y,b.y);box.x2=Math.max(box.x2,b.x+b.width);box.y2=Math.max(box.y2,b.y+b.height);}
-      }catch(_){}
-    }
-    if(!box)return;
-    const margin=56;
-    const bw=Math.max(1,box.x2-box.x), bh=Math.max(1,box.y2-box.y);
-    const z=clampZoom(Math.min((wrap.clientWidth-margin*2)/bw,(wrap.clientHeight-margin*2)/bh));
-    p.zoom=z;
-    p.x=(wrap.clientWidth-(box.x+box.x2)*z)/2;
-    p.y=(wrap.clientHeight-(box.y+box.y2)*z)/2;
-    apply(); syncZoomUI();
-  };
-  // Prevent the canvas pan handler from stealing pointer interaction with the zoom UI.
-  const zoomBar=$('canvasZoomBar');
-  zoomBar?.addEventListener('pointerdown',e=>e.stopPropagation());
-  // Remove focus when the pointer leaves the control so :focus-within does not
-  // keep the zoom bar expanded after dragging/clicking the slider.
-  zoomBar?.addEventListener('pointerleave',()=>{
-    const ae=document.activeElement;
-    if(ae && zoomBar.contains(ae) && typeof ae.blur==='function') ae.blur();
-  });
-  zoomBar?.addEventListener('mouseleave',()=>{
-    const ae=document.activeElement;
-    if(ae && zoomBar.contains(ae) && typeof ae.blur==='function') ae.blur();
-  });
-  zoomRange?.addEventListener('input',e=>setZoomAtCenter(Number(e.target.value)/100));
-  $('zoomOut')?.addEventListener('click',()=>setZoomAtCenter((p.zoom||1)/1.12));
-  $('zoomIn')?.addEventListener('click',()=>setZoomAtCenter((p.zoom||1)*1.12));
-  zoomValue?.addEventListener('click',()=>setZoomAtCenter(1));
-  $('zoomFit')?.addEventListener('click',fitToView);
-  window.__syncZoomUI=syncZoomUI; window.__fitCanvas=fitToView;
-  requestAnimationFrame(()=>{apply();syncZoomUI();});
+  requestAnimationFrame(apply);
 }
 
-
-function projectSummaryStats(){
-  return {rows:state.rows.length,racks:state.racks.length,trays:state.trays.length,cables:state.cables.length};
-}
-function updateProjectSummary(){
-  const s=projectSummaryStats(), inline=$('plannerProjectSummary');
-  if(inline) inline.innerHTML=`<span>${s.rows} ${s.rows===1?'fileira':'fileiras'}</span><span>${s.racks} ${s.racks===1?'rack':'racks'}</span><span>${s.trays} ${s.trays===1?'calha':'calhas'}</span><span>${s.cables} ${s.cables===1?'cabo':'cabos'}</span>`;
-  const grid=$('projectSummaryGrid'), name=$('summaryProjectName');
-  if(name) name.textContent=state.projectName||'Data Center';
-  if(grid){ const items=[['▤','Fileiras',s.rows],['▥','Racks',s.racks],['━','Calhas',s.trays],['⌁','Cabos',s.cables]]; grid.innerHTML=items.map(([icon,label,value])=>`<div class="summary-metric"><span class="summary-metric-icon">${icon}</span><div><strong>${value}</strong><span>${label}</span></div></div>`).join(''); }
-}
-function openProjectSummary(){ updateProjectSummary(); }
-function closeProjectSummary(){}
-
-function searchableItems(query){
-  const q=String(query||'').trim().toLowerCase(); if(!q)return [];
-  const items=[];
-  state.racks.forEach(r=>{const row=rowForRack(r); const hay=[r.name,row?.name,`rack ${r.name}`].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q))items.push({type:'rack',id:r.id,label:r.name||'Rack',meta:row?.name||'Fileira'});});
-  state.trays.forEach(t=>{const hay=[t.name,`calha ${t.name}`].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q))items.push({type:'tray',id:t.id,label:t.name||'Calha',meta:'Calha'});});
-  state.cables.forEach(c=>{const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack); const hay=[c.name,`cabo ${c.name}`,o?.name,d?.name].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q))items.push({type:'cable',id:c.id,label:c.name||'Cabo',meta:`${o?.name||'?'} → ${d?.name||'?'}`});});
-  return items.slice(0,30);
-}
-let quickSearchIndex=0, quickSearchItems=[];
-function renderQuickSearchResults(query){
-  const el=$('quickSearchResults'); if(!el)return; quickSearchItems=searchableItems(query);quickSearchIndex=Math.max(0,Math.min(quickSearchIndex,quickSearchItems.length-1));
-  if(!String(query||'').trim()){el.innerHTML='<div class="empty">Digite para pesquisar.</div>';return;}
-  if(!quickSearchItems.length){el.innerHTML='<div class="empty">Nenhum resultado encontrado.</div>';return;}
-  el.innerHTML=quickSearchItems.map((x,i)=>`<button type="button" class="quick-result ${i===quickSearchIndex?'active':''}" data-search-type="${x.type}" data-search-id="${esc(x.id)}"><span class="quick-result-icon">${x.type==='rack'?'▥':x.type==='tray'?'━':'⌁'}</span><span><strong>${esc(x.label)}</strong><small>${esc(x.meta)}</small></span><b>${x.type==='rack'?'Rack':x.type==='tray'?'Calha':'Cabo'}</b></button>`).join('');
-  el.querySelectorAll('[data-search-id]').forEach(b=>b.addEventListener('click',()=>activateSearchResult(b.dataset.searchType,b.dataset.searchId)));
-}
-function centerOnPoint(pt){
-  const wrap=$('canvasWrap'),p=window.__canvasPan;if(!wrap||!p||!pt)return; const zoom=p.zoom||1; p.x=wrap.clientWidth/2-pt.x*zoom;p.y=wrap.clientHeight/2-pt.y*zoom; window.__applyCanvasPan?.();
-}
-function activateSearchResult(type,id){
-  const g=geometry(); state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];
-  if(type==='rack'){const r=state.racks.find(x=>x.id===id);if(!r)return;state.selected={type:'rack',id};state.multiSelected=[id];centerOnPoint(rackCenter(r,g));}
-  else if(type==='tray'){const t=state.trays.find(x=>x.id===id);if(!t)return;state.selected={type:'tray',id};state.trayMultiSelected=[id];centerOnPoint({x:(t.x1+t.x2)/2,y:(t.y1+t.y2)/2});}
-  else {const c=state.cables.find(x=>x.id===id);if(!c)return;state.selected={type:'cable',id};const pts=computeRoute(c,g);if(pts.length)centerOnPoint({x:pts.reduce((a,p)=>a+p.x,0)/pts.length,y:pts.reduce((a,p)=>a+p.y,0)/pts.length});}
-  closeQuickSearch();renderAll(false);requestAnimationFrame(()=>window.__applyCanvasPan?.());
-}
-function openQuickSearch(){const m=$('quickSearchModal');if(!m)return;m.classList.remove('hidden');m.classList.add('open');m.setAttribute('aria-hidden','false');const i=$('quickSearchInput');if(i){i.value='';renderQuickSearchResults('');requestAnimationFrame(()=>i.focus());}}
-function closeQuickSearch(){const m=$('quickSearchModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
-
-function updateMinimap(){
-  const box=$('minimap'),svg=$('minimapSvg'),wrap=$('canvasWrap'); if(!box||!svg||!wrap)return;
-  const g=geometry(); if(!state.racks.length){svg.innerHTML='<text x="50%" y="50%" text-anchor="middle" class="minimap-empty">Sem racks</text>';return;}
-  const pad=10,w=box.clientWidth||190,h=Math.max(110,(box.clientHeight||150)-34), sx=(w-pad*2)/Math.max(1,g.w), sy=(h-pad*2)/Math.max(1,g.h), sc=Math.min(sx,sy), ox=(w-g.w*sc)/2, oy=(h-g.h*sc)/2;
-  const X=x=>ox+x*sc,Y=y=>oy+y*sc;
-  let out=`<rect class="minimap-bg" x="0" y="0" width="${w}" height="${h}"/>`;
-  state.trays.forEach(t=>{out+=`<line class="minimap-tray" x1="${X(t.x1)}" y1="${Y(t.y1)}" x2="${X(t.x2)}" y2="${Y(t.y2)}"/>`;});
-  state.racks.forEach(r=>{const q=rackRect(r,g);out+=`<rect class="minimap-rack ${state.multiSelected.includes(r.id)?'selected':''}" x="${X(q.x)}" y="${Y(q.y)}" width="${Math.max(2,q.w*sc)}" height="${Math.max(3,q.h*sc)}"/>`;});
-  const p=window.__canvasPan||{x:0,y:0,zoom:1},z=p.zoom||1; const vx=Math.max(0,(-p.x)/z),vy=Math.max(0,(-p.y)/z),vw=wrap.clientWidth/z,vh=wrap.clientHeight/z;
-  out+=`<rect class="minimap-viewport" x="${X(vx)}" y="${Y(vy)}" width="${Math.max(4,vw*sc)}" height="${Math.max(4,vh*sc)}"/>`;
-  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.innerHTML=out;svg.dataset.ox=ox;svg.dataset.oy=oy;svg.dataset.scale=sc;svg.dataset.gw=g.w;svg.dataset.gh=g.h;
-}
-function setupMinimap(){
-  const toggle=$('minimapToggle'),box=$('minimap'),svg=$('minimapSvg'); if(!toggle||!box||!svg)return;
-  const setOpen=open=>{box.classList.toggle('hidden',!open);localStorage.setItem('dccp_minimap_open',open?'1':'0');if(open)requestAnimationFrame(updateMinimap);};
-  toggle.addEventListener('click',()=>setOpen(box.classList.contains('hidden')));$('minimapClose')?.addEventListener('click',()=>setOpen(false));
-  svg.addEventListener('pointerdown',e=>{const sc=Number(svg.dataset.scale)||1,ox=Number(svg.dataset.ox)||0,oy=Number(svg.dataset.oy)||0,g=geometry(),pt={x:(e.offsetX-ox)/sc,y:(e.offsetY-oy)/sc};const wrap=$('canvasWrap'),p=window.__canvasPan;if(!wrap||!p)return;const z=p.zoom||1;p.x=wrap.clientWidth/2-pt.x*z;p.y=wrap.clientHeight/2-pt.y*z;window.__applyCanvasPan?.();updateMinimap();e.preventDefault();});
-  if(localStorage.getItem('dccp_minimap_open')==='1')box.classList.remove('hidden'); else box.classList.add('hidden');
-}
 async function newProject(){
   if(!confirm('Criar um novo projeto? O projeto atual continuará salvo na nuvem.'))return;
   await createNewCloudProject();
 }
 
 function bind(){
-  load();renderAll(false);initHistory();setupPan();setupMinimap();
+  load();renderAll(false);initHistory();setupPan();
   // Toggle da barra lateral: estado visual persistido localmente.
   const sidebarKey='dccp_sidebar_collapsed';
   const appShell=document.querySelector('.app');
@@ -2500,39 +2294,18 @@ function bind(){
   const sidebarToggleIcon=$('sidebarToggleIcon');
   const setSidebarCollapsed=(collapsed,persist=true)=>{
     if(!appShell||!sidebarToggle)return;
-    const wrap=$('canvasWrap');
-    // Keep the racks at the exact same screen coordinates when the sidebar changes width.
-    // The canvas viewport itself moves horizontally with the grid column, so compensate
-    // the pan by the opposite amount after the layout transition.
-    const beforeLeft=wrap?.getBoundingClientRect().left ?? 0;
-    const pan=window.__canvasPan;
-    const beforeX=pan?.x ?? 0;
     appShell.classList.toggle('sidebar-collapsed',!!collapsed);
     if(sidebarToggleIcon)sidebarToggleIcon.textContent=collapsed?'›':'‹';
     sidebarToggle.title=collapsed?'Expandir barra lateral':'Recolher barra lateral';
     sidebarToggle.setAttribute('aria-label',collapsed?'Expandir barra lateral':'Recolher barra lateral');
     if(persist)localStorage.setItem(sidebarKey,collapsed?'1':'0');
-    requestAnimationFrame(()=>{
-      if(wrap&&pan){
-        const afterLeft=wrap.getBoundingClientRect().left;
-        pan.x=beforeX+(beforeLeft-afterLeft);
-        window.__applyCanvasPan?.();
-      }
-      window.__updateMinimap?.();
-    });
+    requestAnimationFrame(()=>window.__applyCanvasPan&&window.__applyCanvasPan());
   };
   if(sidebarToggle){
     const savedSidebar=localStorage.getItem(sidebarKey)==='1';
     setSidebarCollapsed(savedSidebar,false);
     sidebarToggle.addEventListener('click',()=>setSidebarCollapsed(!appShell?.classList.contains('sidebar-collapsed')));
   }
-  const openSearch=()=>openQuickSearch();
-  $('btnQuickSearch')?.addEventListener('click',openSearch);
-  $('quickSearchClose')?.addEventListener('click',closeQuickSearch); $('summaryClose')?.addEventListener('click',closeProjectSummary);
-  $('quickSearchModal')?.addEventListener('click',e=>{if(e.target.id==='quickSearchModal')closeQuickSearch();}); $('projectSummaryModal')?.addEventListener('click',e=>{if(e.target.id==='projectSummaryModal')closeProjectSummary();});
-  $('quickSearchInput')?.addEventListener('input',e=>{quickSearchIndex=0;renderQuickSearchResults(e.target.value);});
-  $('quickSearchInput')?.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();if(quickSearchItems.length){quickSearchIndex=(quickSearchIndex+1)%quickSearchItems.length;renderQuickSearchResults(e.target.value);}}else if(e.key==='ArrowUp'){e.preventDefault();if(quickSearchItems.length){quickSearchIndex=(quickSearchIndex-1+quickSearchItems.length)%quickSearchItems.length;renderQuickSearchResults(e.target.value);}}else if(e.key==='Enter'&&quickSearchItems[quickSearchIndex]){e.preventDefault();activateSearchResult(quickSearchItems[quickSearchIndex].type,quickSearchItems[quickSearchIndex].id);}});
-  window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openQuickSearch();}else if(e.key==='Escape'){if($('quickSearchModal')?.classList.contains('open'))closeQuickSearch();else if($('projectSummaryModal')?.classList.contains('open'))closeProjectSummary();}});
   $('structureLock')?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();setStructureLock(!isStructureLocked(),true);toast(isStructureLocked()?'Estrutura bloqueada':'Estrutura desbloqueada');});
   updateStructureControls();
   if($('btnProjects'))$('btnProjects').onclick=async()=>{
