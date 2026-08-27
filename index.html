@@ -6,15 +6,75 @@
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<header class="topbar">
+<div id="authScreen" class="auth-screen" aria-hidden="false">
+  <div class="auth-card">
+    <button id="authTheme" class="auth-theme-btn" type="button" title="Alternar tema" aria-label="Alternar tema">☾</button>
+    <div class="auth-brand"><div class="brandmark">DC</div><div><h1>Data Center Cable Planner</h1><span>Planejamento profissional de racks, calhas e cabeamento</span></div></div>
+    <div id="authLoginView" class="auth-view">
+      <h2>Entrar</h2><p class="auth-subtitle">Acesse seu Data Center Cable Planner.</p>
+      <form id="loginForm" class="auth-form">
+        <label>E-mail<input id="loginEmail" type="email" autocomplete="email" required placeholder="voce@empresa.com"></label>
+        <label>Senha<input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Sua senha"></label>
+        <div id="loginError" class="auth-message error"></div>
+        <button class="btn primary full" type="submit" id="btnLogin">Entrar</button>
+      </form>
+      <div class="auth-links"><button type="button" class="linkbtn" id="showSignup">Criar uma conta</button><button type="button" class="linkbtn" id="showForgot">Esqueci minha senha</button></div>
+    </div>
+    <div id="authSignupView" class="auth-view hidden">
+      <h2>Criar conta</h2><p class="auth-subtitle">Crie seu acesso ao Cable Planner.</p>
+      <form id="signupForm" class="auth-form">
+        <label>E-mail<input id="signupEmail" type="email" autocomplete="email" required placeholder="voce@empresa.com"></label>
+        <label>Senha<input id="signupPassword" type="password" autocomplete="new-password" minlength="6" required placeholder="Mínimo de 6 caracteres"></label>
+        <label>Confirmar senha<input id="signupPassword2" type="password" autocomplete="new-password" minlength="6" required placeholder="Repita sua senha"></label>
+        <div id="signupMessage" class="auth-message"></div>
+        <button class="btn primary full" type="submit" id="btnSignup">Criar conta</button>
+      </form>
+      <div class="auth-links"><button type="button" class="linkbtn" id="showLoginFromSignup">Já tenho uma conta</button></div>
+    </div>
+    <div id="authForgotView" class="auth-view hidden">
+      <h2>Recuperar senha</h2><p class="auth-subtitle">Enviaremos um link para redefinir sua senha.</p>
+      <form id="forgotForm" class="auth-form">
+        <label>E-mail<input id="forgotEmail" type="email" autocomplete="email" required placeholder="voce@empresa.com"></label>
+        <div id="forgotMessage" class="auth-message"></div>
+        <button class="btn primary full" type="submit" id="btnForgot">Enviar link</button>
+      </form>
+      <div class="auth-links"><button type="button" class="linkbtn" id="showLoginFromForgot">Voltar para entrar</button></div>
+    </div>
+    <div id="authResetView" class="auth-view hidden">
+      <h2>Nova senha</h2><p class="auth-subtitle">Defina uma nova senha para sua conta.</p>
+      <form id="resetForm" class="auth-form">
+        <label>Nova senha<input id="resetPassword" type="password" autocomplete="new-password" minlength="6" required></label>
+        <label>Confirmar senha<input id="resetPassword2" type="password" autocomplete="new-password" minlength="6" required></label>
+        <div id="resetMessage" class="auth-message"></div>
+        <button class="btn primary full" type="submit" id="btnResetPassword">Salvar nova senha</button>
+      </form>
+    </div>
+    <div id="authLoading" class="auth-loading hidden">Verificando sessão...</div>
+  </div>
+</div>
+<div id="dashboardScreen" class="dashboard-screen hidden" aria-hidden="true">
+  <div class="dashboard-shell">
+    <div class="dashboard-head">
+      <div class="dashboard-brand"><div class="brandmark">DC</div><div><h1>Data Center Cable Planner</h1><span>Seus projetos</span></div></div>
+      <div class="dashboard-user"><span id="dashboardUserEmail"></span><button id="dashboardTheme" class="btn ghost" title="Alternar tema">☾ Tema</button><button id="dashboardLogout" class="btn ghost">↪ Sair</button></div>
+    </div>
+    <div class="dashboard-toolbar"><div><h2>Meus projetos</h2><p>Abra, duplique, renomeie ou exclua seus projetos.</p></div><button id="dashboardNewProject" class="btn primary">＋ Novo projeto</button></div>
+    <div id="projectsGrid" class="projects-grid"></div>
+    <div id="projectsEmpty" class="dashboard-empty hidden"><div class="empty-icon">＋</div><h3>Nenhum projeto ainda</h3><p>Crie seu primeiro projeto para começar.</p><button id="dashboardNewProjectEmpty" class="btn primary">＋ Criar projeto</button></div>
+  </div>
+</div>
+<header class="topbar" id="mainTopbar">
   <div class="brand"><div class="brandmark">DC</div><div><h1>Data Center Cable Planner</h1><span>Planejamento visual de racks, calhas e cabeamento</span></div></div>
   <div class="actions">
     <button id="btnUndo" class="btn ghost" title="Desfazer (Ctrl+Z)" disabled>↶ Desfazer</button>
     <button id="btnRedo" class="btn ghost" title="Refazer (Ctrl+Y)" disabled>↷ Refazer</button>
     <button id="btnTheme" class="btn ghost">☾ Tema</button>
-    <button id="btnSave" class="btn ghost">💾 Salvar</button>
+    <button id="btnProjects" class="btn ghost">▦ Projetos</button>
+    <div class="autosave-control" title="Salvamento automático na nuvem"><span id="autosaveLabel">Autosave</span><label class="switch-toggle"><input id="autosaveToggle" type="checkbox" aria-label="Desativar salvamento automático"><span class="switch-slider"></span></label></div>
+    <button id="btnSave" class="btn ghost">💾 Salvar na nuvem</button>
     <button id="btnImportProject" class="btn ghost">⇩ Importar projeto</button>
     <button id="btnExport" class="btn ghost">⇧ Exportar projeto</button>
+    <span id="authUserEmail" class="auth-user-email"></span><button id="btnLogout" class="btn ghost" title="Sair da conta">↪ Sair</button>
     <input id="projectInput" type="file" accept=".json,application/json" hidden>
   </div>
 </header>
@@ -40,9 +100,10 @@
       <div class="legend"><span><i class="dot rack"></i> Rack</span><span><i class="line tray"></i> Calha</span><span><i class="line route"></i> Rota selecionada</span><span><i class="dot crossing"></i> Passagem</span></div>
     </section>
   </aside>
+  <button id="sidebarToggle" class="sidebar-toggle" type="button" title="Recolher barra lateral" aria-label="Recolher barra lateral"><span id="sidebarToggleIcon">‹</span></button>
   <main class="workspace">
     <div class="toolbar">
-      <div><b>Planta superior</b><span id="canvasHint">Arraste o fundo para navegar. Use a roda do mouse para zoom. Clique em um rack para editar. Ctrl/Cmd + clique seleciona múltiplos racks ou calhas; Shift + arraste seleciona racks; Ctrl + Shift + arraste seleciona calhas. As alterações são salvas automaticamente.</span></div>
+      <div class="toolbar-title"><div class="planner-project-info"><span class="project-label">Projeto</span><strong id="plannerProjectName">Data Center</strong><span id="cloudStatus" class="cloud-status" data-status="saved">✓ Salvo na nuvem</span></div></div>
       <div class="toolbar-actions">
                 <button id="btnAddTray" class="btn">＋ Calha</button><button id="btnAddCable" class="btn">＋ Cabo</button>
         <button id="btnImport" class="btn">⇩ Importar cabos XLSX</button>
@@ -53,6 +114,7 @@
     </div>
     <div id="canvasWrap">
       <div id="canvasStage"><svg id="layout" xmlns="http://www.w3.org/2000/svg"></svg></div>
+      <button id="structureLock" class="structure-lock" type="button" title="Bloquear estrutura" aria-label="Bloquear estrutura"><span id="structureLockIcon">🔓</span></button>
     </div>
   </main>
   <aside class="sidebar right">
@@ -77,6 +139,7 @@
     <div class="form-actions"><button id="renameCancel" class="btn ghost">Cancelar</button><button id="renameApply" class="btn primary">✓ Aplicar renomeação</button></div>
   </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="app.js"></script>

@@ -1,5 +1,384 @@
+
+// --- Supabase authentication -------------------------------------------------
+const SUPABASE_URL = 'https://qfkygzzzavtvfupsohxu.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_t0XfFbIv0NkmC2GorCR7rw_jkif-gBA';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true }
+});
+let appStarted = false;
+let authInitialized = false;
+let appView = null; // 'dashboard' or 'planner'
+
+
+let cloudReady = false;
+let cloudProjectId = null;
+let cloudSaveTimer = null;
+let cloudSaveInFlight = false;
+let cloudSaveQueued = false;
+let cloudDirty = false;
+let cloudStatus = 'saved';
+let lastCloudSnapshot = null;
+const AUTOSAVE_STORAGE = 'dc-planner-autosave';
+let autosaveEnabled = localStorage.getItem(AUTOSAVE_STORAGE) !== 'off';
+function cloudProjectKey(){ return `dc-planner-cloud-project-${supabaseClient.auth?.getSession ? 'v1' : 'v1'}`; }
+function projectCloudPayload(){
+  const copy=JSON.parse(JSON.stringify(state));
+  delete copy.selected; delete copy.multiSelected; delete copy.trayMultiSelected;
+  return copy;
+}
+function projectSnapshotForCloud(){ return JSON.stringify(projectCloudPayload()); }
+function setCloudStatus(status){
+  cloudStatus=status;
+  const el=$('cloudStatus');
+  if(!el)return;
+  const map={saved:['✓','Salvo na nuvem','saved'],saving:['⟳','Salvando...','saving'],pending:['●','Alterações não salvas','pending'],error:['⚠','Não sincronizado','error']};
+  const v=map[status]||map.saved;
+  el.textContent=`${v[0]} ${v[1]}`; el.dataset.status=v[2]; el.title=v[1];
+}
+function updatePlannerProjectName(){
+  const el=$('plannerProjectName');
+  if(el)el.textContent=String(state.projectName||'Data Center');
+}
+function markCloudDirty(){
+  const snap=projectSnapshotForCloud();
+  cloudDirty=lastCloudSnapshot!==snap;
+  if(cloudDirty)setCloudStatus('pending');
+  return cloudDirty;
+}
+function scheduleCloudSave(){
+  if(!cloudReady) return;
+  markCloudDirty();
+  if(!autosaveEnabled) return;
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer=setTimeout(()=>saveProjectToCloud(false),900);
+}
+function updateAutosaveUI(){
+  const toggle=$('autosaveToggle');
+  const label=$('autosaveLabel');
+  if(toggle) toggle.checked=autosaveEnabled;
+  if(label) label.textContent=autosaveEnabled?'Autosave':'Autosave';
+  if(toggle){
+    toggle.title=autosaveEnabled?'Desativar salvamento automático':'Ativar salvamento automático';
+    toggle.setAttribute('aria-label',toggle.title);
+  }
+}
+function setAutosaveEnabled(enabled){
+  autosaveEnabled=!!enabled;
+  localStorage.setItem(AUTOSAVE_STORAGE,autosaveEnabled?'on':'off');
+  clearTimeout(cloudSaveTimer);
+  updateAutosaveUI();
+  updatePlannerProjectName();
+  setCloudStatus(cloudDirty?'pending':'saved');
+  if(autosaveEnabled && cloudReady) scheduleCloudSave();
+  toast(autosaveEnabled?'Autosave ativado':'Autosave desativado');
+}
+
+async function saveProjectToCloud(showToast=true){
+  if(!cloudReady) return false;
+  if(!cloudProjectId && !state.projectName) return false;
+  if(lastCloudSnapshot===projectSnapshotForCloud() && cloudProjectId){ cloudDirty=false; setCloudStatus('saved'); return true; }
+  setCloudStatus('saving');
+  if(cloudSaveInFlight){ cloudSaveQueued=true; return; }
+  cloudSaveInFlight=true;
+  try{
+    const {data:{user}}=await supabaseClient.auth.getUser();
+    if(!user) return;
+    const payload=projectCloudPayload();
+    const name=String(state.projectName||'Data Center').trim()||'Data Center';
+    let result;
+    if(cloudProjectId){
+      result=await supabaseClient.from('projects').update({name,data:payload,updated_at:new Date().toISOString()}).eq('id',cloudProjectId).eq('user_id',user.id).select('id').single();
+      if(result.error && (result.error.code==='PGRST116' || result.error.code==='22P02')) cloudProjectId=null;
+    }
+    if(!cloudProjectId){
+      result=await supabaseClient.from('projects').insert({user_id:user.id,name,data:payload}).select('id').single();
+      if(!result.error) cloudProjectId=result.data.id;
+    }
+    if(result?.error) throw result.error;
+    localStorage.setItem(`${STORAGE}-cloud-id`,cloudProjectId);
+    lastCloudSnapshot=projectSnapshotForCloud();
+    cloudDirty=false;
+    setCloudStatus('saved');
+    if(showToast) toast('Projeto salvo na nuvem');
+    return true;
+  }catch(err){
+    console.error('Supabase project save:',err);
+    cloudDirty=true;
+    setCloudStatus('error');
+    if(showToast) toast('Não foi possível salvar na nuvem');
+    return false;
+  }finally{
+    cloudSaveInFlight=false;
+    if(cloudSaveQueued){cloudSaveQueued=false;scheduleCloudSave();}
+  }
+}
+async function loadProjectFromCloud(projectId=null){
+  cloudReady=false;
+  try{
+    const {data:{user}}=await supabaseClient.auth.getUser();
+    if(!user) return null;
+    let query=supabaseClient.from('projects').select('id,name,data,updated_at').eq('user_id',user.id);
+    if(projectId) query=query.eq('id',projectId);
+    else {
+      const savedId=localStorage.getItem(`${STORAGE}-cloud-id`);
+      if(savedId) query=query.eq('id',savedId);
+      query=query.order('updated_at',{ascending:false}).limit(1);
+    }
+    const {data,error}=await query.maybeSingle();
+    if(error) throw error;
+    if(data?.data){
+      cloudProjectId=data.id;
+      localStorage.setItem(`${STORAGE}-cloud-id`,cloudProjectId);
+      Object.assign(state,data.data);
+      if(data.name) state.projectName=data.name;
+      normalizeState();
+      applyTheme();
+      lastCloudSnapshot=projectSnapshotForCloud();
+      cloudDirty=false;
+      setCloudStatus('saved');
+      updatePlannerProjectName();
+      return data;
+    }
+    cloudProjectId=null;
+    lastCloudSnapshot=null;
+    cloudDirty=false;
+    setCloudStatus('saved');
+    localStorage.removeItem(`${STORAGE}-cloud-id`);
+    return null;
+  }catch(err){
+    console.error('Supabase project load:',err);
+    toast('Projeto local mantido; não foi possível sincronizar a nuvem');
+    return null;
+  }finally{
+    cloudReady=true;
+  }
+}
+
+async function fetchCloudProjects(){
+  const {data:{user}}=await supabaseClient.auth.getUser();
+  if(!user) return [];
+  const {data,error}=await supabaseClient.from('projects').select('id,name,data,created_at,updated_at').eq('user_id',user.id).order('updated_at',{ascending:false});
+  if(error) throw error;
+  return data||[];
+}
+function projectStats(project){
+  const d=project?.data||{};
+  return {rows:Array.isArray(d.rows)?d.rows.length:0,racks:Array.isArray(d.racks)?d.racks.length:0,cables:Array.isArray(d.cables)?d.cables.length:0,trays:Array.isArray(d.trays)?d.trays.length:0};
+}
+function formatProjectDate(v){
+  if(!v)return 'Sem data';
+  try{return new Intl.DateTimeFormat('pt-BR',{dateStyle:'medium',timeStyle:'short'}).format(new Date(v));}catch(_){return v;}
+}
+function closeProjectMenus(){document.querySelectorAll('.project-menu-panel').forEach(x=>x.remove());}
+function showDashboard(){
+  appView='dashboard';
+  $('dashboardScreen')?.classList.remove('hidden'); $('dashboardScreen')?.setAttribute('aria-hidden','false');
+  $('mainTopbar')?.classList.add('hidden'); document.querySelector('.app')?.classList.add('hidden');
+  const email=supabaseClient.auth?.getUser ? null : null;
+  $('dashboardUserEmail').textContent=$('authUserEmail')?.textContent||'';
+  renderDashboardProjects();
+}
+function hideDashboard(){
+  appView='planner';
+  $('dashboardScreen')?.classList.add('hidden'); $('dashboardScreen')?.setAttribute('aria-hidden','true');
+  $('mainTopbar')?.classList.remove('hidden'); document.querySelector('.app')?.classList.remove('hidden');
+}
+async function renderDashboardProjects(){
+  const grid=$('projectsGrid'),empty=$('projectsEmpty');
+  if(!grid)return;
+  grid.innerHTML='<div class="dashboard-loading">Carregando projetos...</div>'; empty?.classList.add('hidden');
+  try{
+    const projects=await fetchCloudProjects();
+    if(!projects.length){grid.innerHTML='';empty?.classList.remove('hidden');return;}
+    grid.innerHTML=projects.map(project=>{
+      const st=projectStats(project);
+      return `<article class="project-card" data-project-card="${esc(project.id)}">
+        <div class="project-card-head"><div style="display:flex;gap:12px;align-items:flex-start"><div class="project-icon">📁</div><div><h3 class="project-name">${esc(project.name||'Projeto sem nome')}</h3><div class="project-date">Atualizado ${esc(formatProjectDate(project.updated_at))}</div></div></div>
+          <div class="project-menu"><button class="btn ghost" data-project-menu="${esc(project.id)}" title="Mais opções">⋮</button></div></div>
+        <div class="project-stats"><span><b>${st.rows}</b> fileira${st.rows===1?'':'s'}</span><span><b>${st.racks}</b> rack${st.racks===1?'':'s'}</span><span><b>${st.cables}</b> cabo${st.cables===1?'':'s'}</span><span><b>${st.trays}</b> calha${st.trays===1?'':'s'}</span></div>
+        <div class="project-actions"><button class="btn primary" data-project-open="${esc(project.id)}">Abrir</button></div>
+      </article>`;
+    }).join('');
+    grid.querySelectorAll('[data-project-open]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openCloudProject(b.dataset.projectOpen);}));
+    grid.querySelectorAll('[data-project-menu]').forEach(b=>b.addEventListener('click',e=>{
+      e.preventDefault(); e.stopPropagation(); closeProjectMenus();
+      const project=projects.find(x=>String(x.id)===String(b.dataset.projectMenu));
+      if(!project)return;
+      const panel=document.createElement('div'); panel.className='project-menu-panel';
+      panel.innerHTML='<button type="button" data-action="rename">Renomear</button><button type="button" data-action="duplicate">Duplicar</button><button type="button" data-action="export">Exportar projeto</button><button type="button" class="danger" data-action="delete">Excluir</button>';
+      b.parentElement.appendChild(panel);
+      const bindAction=(selector,fn)=>panel.querySelector(selector).addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();fn(project);});
+      bindAction('[data-action="rename"]',renameCloudProject);
+      bindAction('[data-action="duplicate"]',duplicateCloudProject);
+      bindAction('[data-action="export"]',exportCloudProject);
+      bindAction('[data-action="delete"]',deleteCloudProject);
+    }));
+  }catch(err){console.error('Dashboard projects:',err);grid.innerHTML='<div class="dashboard-error">Não foi possível carregar seus projetos. Verifique sua conexão e tente novamente.</div>';}
+}
+function centerCanvasOnContent(){
+  const wrap=$('canvasWrap'),stage=$('canvasStage'),svg=$('layout');
+  if(!wrap||!stage||!svg||!state.racks.length)return;
+  requestAnimationFrame(()=>{
+    const els=[...svg.querySelectorAll('.rack-body, .tray-line')];
+    if(!els.length)return;
+    let box=null;
+    for(const el of els){
+      try{const b=el.getBBox(); if(!box)box={x:b.x,y:b.y,right:b.x+b.width,bottom:b.y+b.height}; else {box.x=Math.min(box.x,b.x);box.y=Math.min(box.y,b.y);box.right=Math.max(box.right,b.x+b.width);box.bottom=Math.max(box.bottom,b.y+b.height);}}catch(_){}
+    }
+    if(!box)return;
+    const zoom=window.__canvasPan?.zoom||1;
+    const contentCx=(box.x+box.right)/2, contentCy=(box.y+box.bottom)/2;
+    const p=window.__canvasPan||(window.__canvasPan={x:0,y:0,zoom:1});
+    p.x=wrap.clientWidth/2-contentCx*zoom;
+    p.y=wrap.clientHeight/2-contentCy*zoom;
+    window.__applyCanvasPan?.();
+  });
+}
+
+async function openCloudProject(id){
+  closeProjectMenus();
+  try{
+    if(!appStarted){appStarted=true;bind();}
+    const project=await loadProjectFromCloud(id);
+    if(!project) throw new Error('Projeto não encontrado');
+    hideDashboard();
+    renderAll(false);initHistory();
+    centerCanvasOnContent();
+    toast('Projeto aberto');
+  }catch(err){console.error(err);toast('Não foi possível abrir o projeto');}
+}
+function resetStateForNewProject(name='Data Center'){
+  const keepTheme=state.theme;
+  state.projectName=name;state.rackUnits=48;state.rackWidth=.60;state.rackDepth=1.20;state.rackGap=0;state.defaultRowGap=1.20;state.lastUToTray=1.00;state.defaultSlack=10;state.rows=[];state.racks=[];state.cables=[];state.trays=[];state.trayLinks=[];state.trayRackLinks=[];state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];state.theme=keepTheme;
+  cloudProjectId=null;
+  lastCloudSnapshot=null;
+  cloudDirty=true;
+  setCloudStatus('pending');
+  updatePlannerProjectName();
+  localStorage.removeItem(`${STORAGE}-cloud-id`);
+  normalizeState();
+  localStorage.setItem(STORAGE,JSON.stringify(state));
+}
+async function createNewCloudProject(){
+  const name=prompt('Nome do novo projeto:','Data Center');
+  if(name===null)return;
+  if(!appStarted){appStarted=true;bind();}
+  resetStateForNewProject(String(name).trim()||'Data Center');
+  cloudReady=true;
+  await saveProjectToCloud(true);
+  renderAll(false);initHistory();hideDashboard();toast('Novo projeto criado');
+}
+async function renameCloudProject(project){
+  closeProjectMenus();
+  const name=prompt('Novo nome do projeto:',project.name||'Projeto');
+  if(name===null)return;
+  const next=String(name).trim();if(!next)return;
+  try{const {error}=await supabaseClient.from('projects').update({name:next,updated_at:new Date().toISOString()}).eq('id',project.id);if(error)throw error; if(cloudProjectId===project.id){state.projectName=next;updatePlannerProjectName();lastCloudSnapshot=projectSnapshotForCloud();cloudDirty=false;setCloudStatus('saved');} await renderDashboardProjects();toast('Projeto renomeado');}catch(err){console.error(err);toast('Não foi possível renomear o projeto');}
+}
+async function duplicateCloudProject(project){
+  closeProjectMenus();
+  try{const {data:{user}}=await supabaseClient.auth.getUser();if(!user)throw new Error('Sem sessão');const copy=JSON.parse(JSON.stringify(project.data||{}));copy.selected=null;copy.multiSelected=[];copy.trayMultiSelected=[];const name=(project.name||'Projeto')+' — cópia';const {data,error}=await supabaseClient.from('projects').insert({user_id:user.id,name,data:copy}).select('id').single();if(error)throw error;await renderDashboardProjects();toast('Projeto duplicado');}catch(err){console.error(err);toast('Não foi possível duplicar o projeto');}
+}
+function exportCloudProject(project){
+  closeProjectMenus();
+  const blob=new Blob([JSON.stringify({...project.data,projectName:project.name},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(project.name||'data-center')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+async function deleteCloudProject(project){
+  closeProjectMenus();
+  if(!confirm(`Excluir o projeto "${project.name||'Projeto'}"? Esta ação não pode ser desfeita.`))return;
+  try{const {error}=await supabaseClient.from('projects').delete().eq('id',project.id);if(error)throw error;if(cloudProjectId===project.id){cloudProjectId=null;localStorage.removeItem(`${STORAGE}-cloud-id`);}await renderDashboardProjects();toast('Projeto excluído');}catch(err){console.error(err);toast('Não foi possível excluir o projeto');}
+}
+
+function authRedirectUrl(){ return window.location.origin + window.location.pathname; }
+function authViews(){ return ['authLoginView','authSignupView','authForgotView','authResetView'].map(id=>$(id)).filter(Boolean); }
+function showAuthView(id){
+  authViews().forEach(v=>v.classList.toggle('hidden',v.id!==id));
+  ['loginError','signupMessage','forgotMessage','resetMessage'].forEach(id=>{const e=$(id);if(e)e.textContent='';e?.classList.remove('error','success');});
+}
+function authMessage(id,text,type=''){ const e=$(id); if(!e)return; e.textContent=text||''; e.classList.remove('error','success'); if(type)e.classList.add(type); }
+function setAuthBusy(id,busy,label){ const b=$(id); if(!b)return; b.disabled=busy; if(busy){b.dataset.original=b.textContent;b.textContent='Aguarde...';}else if(b.dataset.original){b.textContent=label||b.dataset.original;} }
+function lockApp(){ document.body.classList.add('auth-locked'); $('authScreen')?.classList.remove('hidden'); $('authScreen')?.setAttribute('aria-hidden','false'); }
+function unlockApp(user, forceDashboard=false){
+  if(user?.id){
+    STORAGE = `dc-planner-v7-user-${user.id}`;
+    const migrated = localStorage.getItem('dc-planner-v7-user-migrated');
+    if(!migrated){
+      try{
+        const old = localStorage.getItem(GLOBAL_STORAGE);
+        const userKey = STORAGE;
+        if(old && !localStorage.getItem(userKey)) localStorage.setItem(userKey,old);
+        localStorage.setItem('dc-planner-v7-user-migrated','1');
+      }catch(_){ }
+    }
+  }
+  document.body.classList.remove('auth-locked'); $('authScreen')?.classList.add('hidden'); $('authScreen')?.setAttribute('aria-hidden','true');
+  const e=$('authUserEmail'); if(e)e.textContent=user?.email||'';
+  $('dashboardUserEmail').textContent=user?.email||'';
+  updatePlannerProjectName();
+  if(forceDashboard || !appView) showDashboard();
+}
+
+async function startAuth(){
+  lockApp();
+  showAuthView('authLoginView');
+  $('dashboardNewProject').onclick=createNewCloudProject; $('dashboardNewProjectEmpty').onclick=createNewCloudProject; $('dashboardLogout').onclick=async()=>{await supabaseClient.auth.signOut();};
+  $('dashboardTheme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';applyTheme();localStorage.setItem(THEME_STORAGE,state.theme);toast(state.theme==='light'?'Tema claro':'Tema escuro');};
+  $('authTheme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';applyTheme();};
+  document.addEventListener('click',e=>{if(!e.target.closest('.project-menu'))closeProjectMenus();});
+  $('showSignup').onclick=()=>showAuthView('authSignupView');
+  $('showForgot').onclick=()=>{ $('forgotEmail').value=$('loginEmail')?.value||''; showAuthView('authForgotView'); };
+  $('showLoginFromSignup').onclick=()=>showAuthView('authLoginView');
+  $('showLoginFromForgot').onclick=()=>showAuthView('authLoginView');
+  $('loginForm').onsubmit=async e=>{
+    e.preventDefault(); authMessage('loginError',''); setAuthBusy('btnLogin',true);
+    const {error}=await supabaseClient.auth.signInWithPassword({email:$('loginEmail').value.trim(),password:$('loginPassword').value});
+    setAuthBusy('btnLogin',false,'Entrar');
+    if(error)authMessage('loginError',friendlyAuthError(error),'error');
+  };
+  $('signupForm').onsubmit=async e=>{
+    e.preventDefault(); const email=$('signupEmail').value.trim(),p1=$('signupPassword').value,p2=$('signupPassword2').value;
+    if(p1!==p2){authMessage('signupMessage','As senhas não coincidem.','error');return;}
+    setAuthBusy('btnSignup',true);
+    const {data,error}=await supabaseClient.auth.signUp({email,password:p1,options:{emailRedirectTo:authRedirectUrl()}});
+    setAuthBusy('btnSignup',false,'Criar conta');
+    if(error){authMessage('signupMessage',friendlyAuthError(error),'error');return;}
+    if(data.session)unlockApp(data.user); else authMessage('signupMessage','Conta criada. Verifique seu e-mail para confirmar a conta antes de entrar.','success');
+  };
+  $('forgotForm').onsubmit=async e=>{
+    e.preventDefault(); setAuthBusy('btnForgot',true);
+    const {error}=await supabaseClient.auth.resetPasswordForEmail($('forgotEmail').value.trim(),{redirectTo:authRedirectUrl()});
+    setAuthBusy('btnForgot',false,'Enviar link');
+    if(error)authMessage('forgotMessage',friendlyAuthError(error),'error'); else authMessage('forgotMessage','Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha.','success');
+  };
+  $('resetForm').onsubmit=async e=>{
+    e.preventDefault(); const p1=$('resetPassword').value,p2=$('resetPassword2').value;
+    if(p1!==p2){authMessage('resetMessage','As senhas não coincidem.','error');return;}
+    setAuthBusy('btnResetPassword',true); const {error}=await supabaseClient.auth.updateUser({password:p1});
+    setAuthBusy('btnResetPassword',false,'Salvar nova senha');
+    if(error)authMessage('resetMessage',friendlyAuthError(error),'error'); else {authMessage('resetMessage','Senha alterada com sucesso. Entrando...','success');setTimeout(()=>supabaseClient.auth.getSession(),700);}
+  };
+  $('btnLogout').onclick=async()=>{await supabaseClient.auth.signOut();};
+  supabaseClient.auth.onAuthStateChange((event,session)=>{
+    if(event==='PASSWORD_RECOVERY'){lockApp();showAuthView('authResetView');return;}
+    if(session?.user){ unlockApp(session.user, event==='SIGNED_IN' && !appStarted); } else if(event==='SIGNED_OUT'){ cloudReady=false; cloudProjectId=null; appStarted=false; $('dashboardScreen')?.classList.add('hidden'); $('mainTopbar')?.classList.remove('hidden'); document.querySelector('.app')?.classList.remove('hidden'); appView=null; lockApp(); showAuthView('authLoginView'); $('loginPassword').value=''; }
+  });
+  const {data:{session}}=await supabaseClient.auth.getSession();
+  if(session?.user)unlockApp(session.user); else { lockApp(); showAuthView('authLoginView'); }
+  authInitialized=true;
+}
+function friendlyAuthError(error){
+  const m=String(error?.message||'Erro de autenticação.');
+  const low=m.toLowerCase();
+  if(low.includes('invalid login credentials'))return 'E-mail ou senha incorretos.';
+  if(low.includes('email not confirmed'))return 'Confirme seu e-mail antes de entrar.';
+  if(low.includes('password should be at least'))return 'A senha precisa ter pelo menos 6 caracteres.';
+  if(low.includes('rate limit'))return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+  return m;
+}
+
 const U_MM = 44.45;
-const STORAGE = 'dc-planner-v7';
+const GLOBAL_STORAGE = 'dc-planner-v7';
+let STORAGE = GLOBAL_STORAGE;
 const LEGACY_STORAGE = 'dc-planner-v6';
 const THEME_STORAGE = 'dc-planner-theme';
 const $ = id => document.getElementById(id);
@@ -16,12 +395,42 @@ const state = {
   lastUToTray: 1.00,
   defaultSlack: 10,
   rows: [], racks: [], cables: [], trays: [], trayLinks: [], selected: null, multiSelected: [], trayMultiSelected: [],
-  theme: localStorage.getItem(THEME_STORAGE) || localStorage.getItem('dc-theme') || 'dark'
+  theme: localStorage.getItem(THEME_STORAGE) || localStorage.getItem('dc-theme') || 'dark',
+  structureLocked: false
 };
 let pan = null;
 const VIEW_PAD = 700;
 const ROW_GAP_VISUAL = 1.00;
 const history = { undo: [], redo: [], last: null, restoring: false, max: 80 };
+function isStructureLocked(){ return state.structureLocked===true; }
+function setStructureLock(locked, persist=true){
+  state.structureLocked=!!locked;
+  const btn=$('structureLock'), icon=$('structureLockIcon');
+  if(btn){
+    btn.classList.toggle('locked', state.structureLocked);
+    btn.title=state.structureLocked?'Desbloquear estrutura':'Bloquear estrutura';
+    btn.setAttribute('aria-label',btn.title);
+  }
+  if(icon) icon.textContent=state.structureLocked?'🔒':'🔓';
+  document.body.classList.toggle('structure-is-locked',state.structureLocked);
+  updateStructureControls();
+  renderProperties();
+  updateStructureControls();
+  if(persist) save();
+}
+function updateStructureControls(){
+  const disabled=isStructureLocked();
+  ['btnAddTray','btnBuildRows'].forEach(id=>{const el=$(id);if(el)el.disabled=disabled;});
+  document.querySelectorAll('[data-row-name],[data-row-count],[data-row-gap],[data-rename-row],[data-del-row]').forEach(el=>{el.disabled=disabled;el.setAttribute('aria-disabled',String(disabled));});
+  document.querySelectorAll('#properties input:not(#cbName):not(#cbType):not(#cbOR):not(#cbOU):not(#cbDR):not(#cbDU):not(#cbSlack), #properties select:not(#cbType):not(#cbOR):not(#cbDR), #properties button#delRack, #properties button#delTray, #properties button#applyBulkRack, #properties button#delSelectedRacks, #properties button#delSelectedTrays').forEach(el=>{el.disabled=disabled;});
+  const btn=$('structureLock'), icon=$('structureLockIcon');
+  if(btn){btn.classList.toggle('locked',disabled);btn.title=disabled?'Desbloquear estrutura':'Bloquear estrutura';btn.setAttribute('aria-label',btn.title);}
+  if(icon)icon.textContent=disabled?'🔒':'🔓';
+}
+function structureBlocked(){
+  if(isStructureLocked()){ toast('🔒 Estrutura bloqueada. Desbloqueie para alterar racks ou calhas.'); return true; }
+  return false;
+}
 function projectSnapshot(){
   const copy=JSON.parse(JSON.stringify(state));
   delete copy.selected;
@@ -38,6 +447,8 @@ function applyTheme(){
   localStorage.setItem(THEME_STORAGE,state.theme);
   const b=$('btnTheme');
   if(b){ b.textContent=light?'☀ Tema':'☾ Tema'; b.title=light?'Alternar para tema escuro':'Alternar para tema claro'; }
+  const db=$('dashboardTheme'); if(db){ db.textContent=light?'☀ Tema':'☾ Tema'; db.title=light?'Alternar para tema escuro':'Alternar para tema claro'; }
+  const ab=$('authTheme'); if(ab){ ab.textContent=light?'☀':'☾'; ab.title=light?'Alternar para tema escuro':'Alternar para tema claro'; ab.setAttribute('aria-label',ab.title); }
 }
 function initHistory(){
   history.undo=[]; history.redo=[]; history.last=projectSnapshot(); updateHistoryButtons();
@@ -84,6 +495,7 @@ function restoreSnapshot(snapshot){
   applyTheme();
   renderAll(false);
   localStorage.setItem(STORAGE,JSON.stringify(state));
+  scheduleCloudSave();
   updateHistoryButtons();
 }
 function undo(){
@@ -107,7 +519,7 @@ function uid(prefix){ return `${prefix}_${Math.random().toString(36).slice(2,9)}
 function esc(s){ return String(s ?? '').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function num(v,fallback=0){ const n=Number(v); return Number.isFinite(n)?n:fallback; }
 function toast(text){ const t=$('toast'); t.textContent=text; t.classList.add('show'); clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(()=>t.classList.remove('show'),1800); }
-function save(){ recordHistory(); localStorage.setItem(STORAGE,JSON.stringify(state)); localStorage.setItem(THEME_STORAGE,state.theme); applyTheme(); }
+function save(){ recordHistory(); localStorage.setItem(STORAGE,JSON.stringify(state)); localStorage.setItem(THEME_STORAGE,state.theme); applyTheme(); updatePlannerProjectName(); scheduleCloudSave(); }
 function load(){
   let saved=null;
   try { saved=JSON.parse(localStorage.getItem(STORAGE)); } catch(_){ }
@@ -144,6 +556,7 @@ function normalizeIndices(){
   });
 }
 function normalizeState(){
+  state.structureLocked=state.structureLocked===true;
   const rowIds=new Set(state.rows.map(r=>r.id));
   state.racks=state.racks.filter(r=>rowIds.has(r.rowId));
   state.racks.forEach(r=>{
@@ -197,13 +610,55 @@ function normalizeState(){
   state.trayMultiSelected=Array.isArray(state.trayMultiSelected)?state.trayMultiSelected.filter(id=>trayIds.has(id)):[];
   if(state.selected?.type==='tray' && !state.trayMultiSelected.includes(state.selected.id)) state.trayMultiSelected=[state.selected.id];
 }
-function initRows(){
-  state.rows=[]; state.racks=[]; state.trays=[]; state.trayLinks=[]; state.trayRackLinks=[]; state.cables=[]; state.selected=null; state.multiSelected=[]; state.trayMultiSelected=[];
-  const count=Math.max(0,Math.floor(num($('rowCount').value,0)));
-  const racks=Math.max(0,Math.floor(num($('defaultRacks').value,0)));
-  for(let i=0;i<count;i++) addRow(racks,i===0?0:num($('defaultRowGap').value,1.2));
-  renderAll(); toast('Estrutura criada');
+function rebuildStructureFromSettings(){
+  if(structureBlocked())return;
+  if(state.rows.length || state.racks.length || state.trays.length){
+    const ok=confirm('Reconstruir estrutura?\n\nRacks e calhas atuais serão recriados do zero usando as configurações atuais. Os cabos serão preservados quando origem e destino continuarem existindo.\n\nVocê poderá desfazer a reconstrução usando o botão Desfazer. Deseja continuar?');
+    if(!ok)return;
+  }
+
+  // Keep cable endpoint references by their physical row/rack slot before rebuilding.
+  // This lets cables survive a full structural rebuild even though rack IDs are recreated.
+  const oldRows=[...state.rows];
+  const oldRacks=[...state.racks];
+  const oldRackKey=new Map(oldRacks.map(r=>[r.id,`${oldRows.findIndex(row=>row.id===r.rowId)}:${r.index}`]));
+  const oldCables=Array.isArray(state.cables)?JSON.parse(JSON.stringify(state.cables)):[];
+  const oldTrayCount=state.trays.length;
+
+  state.projectName=$('projectName').value.trim()||'Data Center';
+  state.rackUnits=Math.max(1,Math.min(60,Math.floor(num($('rackUnits').value,48))));
+  state.rackWidth=Math.max(.1,num($('rackWidth').value,.6));
+  state.rackDepth=Math.max(.1,num($('rackDepth').value,1.2));
+  state.rackGap=Math.max(0,num($('rackGap').value,0));
+  state.defaultRowGap=Math.max(0,num($('defaultRowGap').value,1.2));
+  state.lastUToTray=Math.max(0,num($('lastUToTray').value,1));
+  state.defaultSlack=Math.max(0,num($('defaultSlack').value,0));
+
+  state.rows=[]; state.racks=[]; state.trays=[]; state.trayLinks=[]; state.trayRackLinks=[];
+  state.selected=null; state.multiSelected=[]; state.trayMultiSelected=[];
+
+  const count=Math.max(0,Math.min(30,Math.floor(num($('rowCount').value,0))));
+  const racks=Math.max(0,Math.min(100,Math.floor(num($('defaultRacks').value,0))));
+  for(let i=0;i<count;i++) addRow(racks,i===0?0:state.defaultRowGap);
+
+  // Map old cable endpoints to the newly-created rack IDs using row position + rack slot.
+  const newRackByKey=new Map(state.racks.map(r=>[`${state.rows.findIndex(row=>row.id===r.rowId)}:${r.index}`,r.id]));
+  let droppedCables=0;
+  state.cables=oldCables.map(c=>{
+    const originKey=oldRackKey.get(c.originRack), destKey=oldRackKey.get(c.destRack);
+    const originRack=newRackByKey.get(originKey), destRack=newRackByKey.get(destKey);
+    if(!originRack||!destRack){droppedCables++;return null;}
+    const via=(c.via||[]).map(id=>newRackByKey.get(oldRackKey.get(id))).filter(Boolean);
+    return {...c,originRack,destRack,via};
+  }).filter(Boolean);
+
+  normalizeState();
+  renderAll();
+  const msg=oldTrayCount?`Estrutura reconstruída. ${state.cables.length} cabo(s) preservado(s); ${oldTrayCount} calha(s) antiga(s) removida(s) e a estrutura foi recriada do zero.`:`Estrutura reconstruída. ${state.cables.length} cabo(s) preservado(s).`;
+  toast(droppedCables?`${msg} ${droppedCables} cabo(s) removido(s) por falta de origem/destino.`:msg);
 }
+
+function initRows(){ return rebuildStructureFromSettings(); }
 function addRow(rackCount=0,gap=state.defaultRowGap){
   const i=state.rows.length;
   const row={id:uid('row'),name:`Row-${i+1}`,rackCount:0,gap:i===0?0:Math.max(0,gap),depth:Math.max(0.1,num(state.rackDepth,1.20))};
@@ -219,6 +674,7 @@ function removeRackReferences(ids){
   state.cables.forEach(c=>c.via=(c.via||[]).filter(id=>!set.has(id)));
 }
 function resizeRow(rowId,count){
+  if(structureBlocked())return;
   const row=state.rows.find(r=>r.id===rowId); if(!row)return;
   count=Math.max(0,Math.min(100,Math.floor(count)));
   let rs=racksInRow(rowId);
@@ -238,6 +694,7 @@ function resizeRow(rowId,count){
   normalizeIndices(); renderAll(); toast(`Racks de ${row.name} atualizados`);
 }
 function deleteRow(id){
+  if(structureBlocked())return;
   const row=state.rows.find(r=>r.id===id); if(!row)return;
   const ids=racksInRow(id).map(r=>r.id);
   state.rows=state.rows.filter(r=>r.id!==id);
@@ -256,7 +713,7 @@ function buildRowsPanel(){
       ${state.rows.indexOf(row)>0?`<label>Distância para a fileira anterior (m)<input data-row-gap="${row.id}" type="number" min="0" step="0.01" value="${row.gap||0}"></label>`:''}`;
     p.appendChild(d);
   });
-  p.querySelectorAll('[data-row-name]').forEach(e=>e.onchange=()=>{
+  p.querySelectorAll('[data-row-name]').forEach(e=>e.onchange=()=>{if(structureBlocked())return;
     const r=state.rows.find(x=>x.id===e.dataset.rowName);
     if(!r)return;
     const oldName=r.name;
@@ -273,10 +730,10 @@ function buildRowsPanel(){
     normalizeIndices();
     renderAll();
   });
-  p.querySelectorAll('[data-row-count]').forEach(e=>e.onchange=()=>resizeRow(e.dataset.rowCount,num(e.value,0)));
-  p.querySelectorAll('[data-row-gap]').forEach(e=>e.onchange=()=>{const r=state.rows.find(x=>x.id===e.dataset.rowGap);if(!r)return;r.gap=Math.max(0,num(e.value,0));renderAll();});
-  p.querySelectorAll('[data-rename-row]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();openRenameRowModal(e.dataset.renameRow);});
-  p.querySelectorAll('[data-del-row]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();deleteRow(e.dataset.delRow);});
+  p.querySelectorAll('[data-row-count]').forEach(e=>e.onchange=()=>{if(structureBlocked())return;resizeRow(e.dataset.rowCount,num(e.value,0));});
+  p.querySelectorAll('[data-row-gap]').forEach(e=>e.onchange=()=>{if(structureBlocked())return;const r=state.rows.find(x=>x.id===e.dataset.rowGap);if(!r)return;r.gap=Math.max(0,num(e.value,0));renderAll();});
+  p.querySelectorAll('[data-rename-row]').forEach(e=>e.onclick=ev=>{if(structureBlocked())return;ev.stopPropagation();openRenameRowModal(e.dataset.renameRow);});
+  p.querySelectorAll('[data-del-row]').forEach(e=>e.onclick=ev=>{if(structureBlocked())return;ev.stopPropagation();deleteRow(e.dataset.delRow);});
 }
 
 function openRenameRowModal(rowId){
@@ -322,6 +779,7 @@ function updateRenamePreview(){
   $('renameApply').disabled=!!err;
 }
 function applyRenameRow(){
+  if(structureBlocked())return;
   const rowId=$('renameRowId').value;
   const row=state.rows.find(r=>r.id===rowId); if(!row)return;
   const racks=racksInRow(rowId), names=buildRenameNames();
@@ -543,6 +1001,7 @@ function syncAttachedTrayEndpoints(g){
 function trayLengthPx(t){return Math.hypot(num(t.x2)-num(t.x1),num(t.y2)-num(t.y1));}
 function trayLengthMeters(t,g){syncAttachedTrayEndpoints(g);return trayLengthPx(t)/Math.max(1,g.scale);}
 function createIndependentTray(g,x1,y1,x2,y2){
+  if(structureBlocked())return;
   const t={id:uid('tray'),name:`Calha ${state.trays.length+1}`,x1,y1,x2,y2,width:.10};
   state.trays.push(t);state.multiSelected=[];state.trayMultiSelected=[t.id];state.selected={type:'tray',id:t.id};renderAll();toast('Calha independente criada');
 }
@@ -572,8 +1031,18 @@ function render(){
       const gap=Math.max(0,num(row.gap,0));
       const upperBottom=prev.y+(rowDepth(prev)*g.scale);
       const lowerTop=cur.y;
-      const x=Math.max(g.x0+40, g.x0-8);
-      svg.insertAdjacentHTML('beforeend',`<line class="row-gap-dim" x1="${x}" y1="${upperBottom}" x2="${x}" y2="${lowerTop}"/><line class="row-gap-tick" x1="${x-6}" y1="${upperBottom}" x2="${x+6}" y2="${upperBottom}"/><line class="row-gap-tick" x1="${x-6}" y1="${lowerTop}" x2="${x+6}" y2="${lowerTop}"/><text class="row-gap-label" x="${x+8}" y="${(upperBottom+lowerTop)/2+3}">${gap.toFixed(2)} m</text>`);
+      // Dimension line is intentionally placed outside the racks/fileira labels.
+      // The extension lines point from the rack edge to the external dimension,
+      // keeping the gap itself visually free even when rows are very close.
+      const xDim=Math.max(40, g.x0-88);
+      const xExt=g.x0-50;
+      const midY=(upperBottom+lowerTop)/2;
+      svg.insertAdjacentHTML('beforeend',`<line class="row-gap-dim" x1="${xDim}" y1="${upperBottom}" x2="${xDim}" y2="${lowerTop}"/>`
+        +`<line class="row-gap-ext" x1="${xDim}" y1="${upperBottom}" x2="${xExt}" y2="${upperBottom}"/>`
+        +`<line class="row-gap-ext" x1="${xDim}" y1="${lowerTop}" x2="${xExt}" y2="${lowerTop}"/>`
+        +`<line class="row-gap-tick" x1="${xDim-5}" y1="${upperBottom}" x2="${xDim+5}" y2="${upperBottom}"/>`
+        +`<line class="row-gap-tick" x1="${xDim-5}" y1="${lowerTop}" x2="${xDim+5}" y2="${lowerTop}"/>`
+        +`<text class="row-gap-label" x="${xDim-9}" y="${midY+3}" text-anchor="end">${gap.toFixed(2)} m</text>`);
     }
   });
 
@@ -698,6 +1167,7 @@ function render(){
     }
     state.selected={type:'tray',id};
     render();
+    if(structureBlocked()){ return; }
     const zoom=(window.__canvasPan&&Number.isFinite(window.__canvasPan.zoom))?window.__canvasPan.zoom:1;
     if(node){
       const end=node;
@@ -924,6 +1394,7 @@ function renderProperties(){
   if(state.multiSelected.length>1){
     const count=state.multiSelected.length;
     p.innerHTML=`<div class="prop-title">${count} racks selecionados</div>
+      ${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. As propriedades dos racks estão somente para consulta.</div>':''}
       <div class="help">As propriedades abaixo serão aplicadas a todos os racks selecionados. Deixe um campo vazio para não alterá-lo. Largura e profundidade mantêm cada rack centrado.</div>
       <div class="grid2"><label>Qtd. U<input id="bulkUnits" type="number" min="1" max="60" placeholder="Não alterar"></label><label>Largura (m)<input id="bulkWidth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label></div>
       <div class="grid2"><label>Profundidade (m)<input id="bulkDepth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label><label>Distância até o próximo (m)<input id="bulkGap" type="number" min="0" step="0.01" placeholder="Não alterar"></label></div>
@@ -931,7 +1402,7 @@ function renderProperties(){
       <button class="btn primary full" id="applyBulkRack">✓ Aplicar propriedades</button>
       <button class="btn danger full" id="delSelectedRacks">Excluir ${count} racks selecionados</button>
       <button class="btn ghost full" id="clearSelectedRacks">Limpar seleção</button>`;
-    $('applyBulkRack').onclick=()=>{
+    $('applyBulkRack').onclick=()=>{if(structureBlocked())return;
       const ids=new Set(state.multiSelected);
       const unitsVal=$('bulkUnits').value.trim(), widthVal=$('bulkWidth').value.trim(), depthVal=$('bulkDepth').value.trim(), gapVal=$('bulkGap').value.trim(), riseVal=$('bulkRise').value.trim();
       if(!unitsVal&&!widthVal&&!depthVal&&!gapVal&&!riseVal){toast('Informe pelo menos uma propriedade');return;}
@@ -944,7 +1415,7 @@ function renderProperties(){
       });
       refreshVisuals();renderProperties();toast(`${count} racks atualizados`);
     };
-    $('delSelectedRacks').onclick=deleteSelectedRacks;
+    $('delSelectedRacks').onclick=()=>{if(!structureBlocked())deleteSelectedRacks();};
     $('clearSelectedRacks').onclick=()=>{state.multiSelected=[];state.selected=null;renderAll();};
     return;
   }
@@ -953,6 +1424,7 @@ function renderProperties(){
     const r=state.racks.find(x=>x.id===state.selected.id); if(!r){state.selected=null;return renderProperties();}
     const row=rowForRack(r);
     p.innerHTML=`<div class="prop-title">${esc(r.name)}</div>
+      ${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. Desbloqueie para alterar este rack.</div>':''}
       <label>Nome<input id="prName" value="${esc(r.name)}"></label>
       <div class="grid2"><label>Qtd. U<input id="prUnits" type="number" min="1" max="60" value="${r.units}"></label><label>Largura (m)<input id="prWidth" type="number" min="0.1" step="0.01" value="${r.width}"></label></div>
       <div class="grid2"><label>Profundidade (m)<input id="prDepth" type="number" min="0.1" step="0.01" value="${r.depth??state.rackDepth}"></label><label>Distância até o próximo (m)<input id="prGapAfter" type="number" min="0" step="0.01" value="${r.gapAfter??state.rackGap}"></label></div>
@@ -960,9 +1432,9 @@ function renderProperties(){
       <div class="help">A distância acima é específica deste rack e vale para o espaço até o próximo rack da mesma fileira. A altura até a calha também é individual e será usada no cálculo dos cabos deste rack.</div>
       <button class="btn danger full" id="delRack">Excluir rack</button>
       <div class="help autosave">As alterações do rack são salvas automaticamente.</div>`;
-    if($('prName'))$('prName').onchange=()=>{r.name=$('prName').value.trim();refreshVisuals();renderProperties();};
-    if($('prUnits'))$('prUnits').onchange=()=>{r.units=Math.max(1,Math.min(60,Math.floor(num($('prUnits').value,state.rackUnits))));refreshVisuals();renderProperties();};
-    if($('prWidth'))$('prWidth').onchange=()=>{
+    if($('prName'))$('prName').onchange=()=>{if(structureBlocked())return;r.name=$('prName').value.trim();refreshVisuals();renderProperties();};
+    if($('prUnits'))$('prUnits').onchange=()=>{if(structureBlocked())return;r.units=Math.max(1,Math.min(60,Math.floor(num($('prUnits').value,state.rackUnits))));refreshVisuals();renderProperties();};
+    if($('prWidth'))$('prWidth').onchange=()=>{if(structureBlocked())return;
       const oldWidth=Math.max(.1,num(r.width,state.rackWidth));
       const nextWidth=Math.max(.1,num($('prWidth').value,state.rackWidth));
       // Keep the rack centered while changing its width. The offset is the
@@ -971,7 +1443,7 @@ function renderProperties(){
       r.width=nextWidth;
       refreshVisuals();renderProperties();
     };
-    if($('prDepth'))$('prDepth').onchange=()=>{
+    if($('prDepth'))$('prDepth').onchange=()=>{if(structureBlocked())return;
       const oldDepth=Math.max(.1,num(r.depth,state.rackDepth));
       const nextDepth=Math.max(.1,num($('prDepth').value,state.rackDepth));
       // Keep the rack centered vertically while changing its depth.
@@ -979,9 +1451,9 @@ function renderProperties(){
       r.depth=nextDepth;
       refreshVisuals();renderProperties();
     };
-    if($('prGapAfter'))$('prGapAfter').onchange=()=>{r.gapAfter=Math.max(0,num($('prGapAfter').value,state.rackGap));refreshVisuals();renderProperties();};
-    if($('prRiseToTray'))$('prRiseToTray').onchange=()=>{r.riseToTray=Math.max(0,num($('prRiseToTray').value,state.lastUToTray));refreshVisuals();renderProperties();};
-    if($('delRack'))$('delRack').onclick=()=>{
+    if($('prGapAfter'))$('prGapAfter').onchange=()=>{if(structureBlocked())return;r.gapAfter=Math.max(0,num($('prGapAfter').value,state.rackGap));refreshVisuals();renderProperties();};
+    if($('prRiseToTray'))$('prRiseToTray').onchange=()=>{if(structureBlocked())return;r.riseToTray=Math.max(0,num($('prRiseToTray').value,state.lastUToTray));refreshVisuals();renderProperties();};
+    if($('delRack'))$('delRack').onclick=()=>{if(structureBlocked())return;
       if(!confirm(`Excluir o rack ${r.name||''}?`))return;
       const parentRow=rowForRack(r);
       removeRackReferences([r.id]);
@@ -1001,13 +1473,14 @@ function renderProperties(){
     const g=geometry();
     const currentLength=trayLengthMeters(t,g);
     p.innerHTML=`<div class="prop-title">${esc(t.name||'Calha')}</div>
+      ${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. Desbloqueie para alterar esta calha.</div>':''}
       <label>Nome<input id="trName" value="${esc(t.name||'Calha')}"></label>
       <label>Comprimento da calha (m)<input id="trLength" type="number" min="0.01" step="0.01" value="${currentLength.toFixed(2)}"></label>
       <div class="help">Calha independente: não está vinculada a nenhuma fileira ou rack. Pode existir sozinha em qualquer área do ambiente.</div>
       <div class="result"><div class="metric"><span>Comprimento atual</span><b>${currentLength.toFixed(2)} m</b></div></div>
       <button class="btn danger full" id="delTray">Excluir calha</button>`;
-    $('trName').onchange=e=>{t.name=e.target.value.trim()||'Calha';save();renderAll();};
-    $('trLength').onchange=e=>{
+    $('trName').onchange=e=>{if(structureBlocked())return;t.name=e.target.value.trim()||'Calha';save();renderAll();};
+    $('trLength').onchange=e=>{if(structureBlocked())return;
       const target=Math.max(0.01,num(e.target.value,currentLength));
       const dx=num(t.x2)-num(t.x1),dy=num(t.y2)-num(t.y1),px=Math.hypot(dx,dy);
       if(px<1e-6){t.x2=num(t.x1)+target*Math.max(1,g.scale);t.y2=num(t.y1);}
@@ -1018,7 +1491,7 @@ function renderProperties(){
       }
       autoJoinIntersectingTrays(t.id);save();renderAll();
     };
-    $('delTray').onclick=()=>{state.trays=state.trays.filter(x=>x.id!==t.id);state.selected=null;save();renderAll();toast('Calha removida');};
+    $('delTray').onclick=()=>{if(structureBlocked())return;state.trays=state.trays.filter(x=>x.id!==t.id);state.selected=null;save();renderAll();toast('Calha removida');};
     return;
   }
   if(state.selected.type==='cable')renderCableProperties(p,state.cables.find(x=>x.id===state.selected.id));
@@ -1357,6 +1830,7 @@ function calcCable(c){
 }
 function refreshVisuals(){normalizeState();render();renderCables();save();}
 function addRackToRow(rowId){
+  if(structureBlocked())return;
   const row=state.rows.find(r=>r.id===rowId); if(!row)return;
   const occupied=new Set(racksInRow(rowId).map(r=>r.index));
   let idx=0; while(occupied.has(idx))idx++;
@@ -1575,7 +2049,7 @@ async function exportCablesXLSX(){
 
 function renderCables(){const el=$('cablesList');$('cableCount').textContent=state.cables.length;if(!state.cables.length){el.innerHTML='<div class="empty">Nenhum cabo cadastrado.</div>';return;}el.innerHTML=state.cables.map(c=>{const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack);const invalid=!cableUnitValidation(c).valid;return`<div class="cable-item ${state.selected?.type==='cable'&&state.selected.id===c.id?'selected':''} ${invalid?'invalid':''}" data-cable="${c.id}"><div class="cable-name">${invalid?'⚠ ':''}${esc(c.name)}</div><div class="cable-meta">${esc(rowForRack(o)?.name||'?')} / ${esc(o?.name||'?')} U${c.originU} → ${esc(rowForRack(d)?.name||'?')} / ${esc(d?.name||'?')} U${c.destU}</div></div>`;}).join('');el.querySelectorAll('[data-cable]').forEach(x=>x.onclick=e=>{e.stopPropagation();state.multiSelected=[];state.selected={type:'cable',id:x.dataset.cable};renderAll();});}
 function ensureFields(){$('projectName').value=state.projectName;$('rowCount').value=state.rows.length;$('defaultRacks').value=state.rows[0]?.rackCount??0;$('rackUnits').value=state.rackUnits;$('rackWidth').value=state.rackWidth;$('rackDepth').value=state.rackDepth;$('rackGap').value=state.rackGap;$('defaultRowGap').value=state.defaultRowGap;$('lastUToTray').value=state.lastUToTray;$('defaultSlack').value=state.defaultSlack;}
-function renderAll(persist=true){ensureFields();buildRowsPanel();render();renderProperties();renderCables();if(persist)save();updateHistoryButtons();}
+function renderAll(persist=true){ensureFields();buildRowsPanel();render();renderProperties();renderCables();updateStructureControls();if(persist)save();updateHistoryButtons();}
 
 function clearRackMultiSelection(){ state.multiSelected=[]; if(state.selected?.type==='rack') state.selected=null; }
 function svgLocalPoint(clientX,clientY){
@@ -1619,6 +2093,7 @@ function selectTraysInBox(b){
 }
 
 function deleteSelectedTrays(){
+  if(structureBlocked())return;
   const ids=[...new Set(state.trayMultiSelected)].filter(id=>state.trays.some(t=>t.id===id));
   if(ids.length<2)return;
   if(!confirm(`Excluir ${ids.length} calhas selecionadas?`))return;
@@ -1631,6 +2106,7 @@ function deleteSelectedTrays(){
 }
 
 function deleteSelectedRacks(){
+  if(structureBlocked())return;
   const ids=[...new Set(state.multiSelected)].filter(id=>state.racks.some(r=>r.id===id));
   if(ids.length<2)return;
   if(!confirm(`Excluir ${ids.length} racks selecionados?`))return;
@@ -1755,25 +2231,46 @@ function setupPan(){
   requestAnimationFrame(apply);
 }
 
-function newProject(){
-  if(!confirm('Criar um novo projeto e apagar o atual?'))return;
-  const keepTheme=state.theme;
-  localStorage.removeItem(STORAGE);
-  localStorage.removeItem(LEGACY_STORAGE);
-  state.projectName='Data Center';state.rackUnits=48;state.rackWidth=.60;state.rackDepth=1.20;state.rackGap=0;state.defaultRowGap=1.20;state.lastUToTray=1.00;state.defaultSlack=10;state.rows=[];state.racks=[];state.cables=[];state.trays=[];state.trayLinks=[];state.trayRackLinks=[];state.selected=null;state.multiSelected=[];state.theme=keepTheme;
-  normalizeState();
-  localStorage.setItem(STORAGE,JSON.stringify(state));
-  initHistory();
-  renderAll(false);
-  applyTheme();
-  toast('Novo projeto criado');
+async function newProject(){
+  if(!confirm('Criar um novo projeto? O projeto atual continuará salvo na nuvem.'))return;
+  await createNewCloudProject();
 }
 
 function bind(){
   load();renderAll(false);initHistory();setupPan();
+  // Toggle da barra lateral: estado visual persistido localmente.
+  const sidebarKey='dccp_sidebar_collapsed';
+  const appShell=document.querySelector('.app');
+  const sidebarToggle=$('sidebarToggle');
+  const sidebarToggleIcon=$('sidebarToggleIcon');
+  const setSidebarCollapsed=(collapsed,persist=true)=>{
+    if(!appShell||!sidebarToggle)return;
+    appShell.classList.toggle('sidebar-collapsed',!!collapsed);
+    if(sidebarToggleIcon)sidebarToggleIcon.textContent=collapsed?'›':'‹';
+    sidebarToggle.title=collapsed?'Expandir barra lateral':'Recolher barra lateral';
+    sidebarToggle.setAttribute('aria-label',collapsed?'Expandir barra lateral':'Recolher barra lateral');
+    if(persist)localStorage.setItem(sidebarKey,collapsed?'1':'0');
+    requestAnimationFrame(()=>window.__applyCanvasPan&&window.__applyCanvasPan());
+  };
+  if(sidebarToggle){
+    const savedSidebar=localStorage.getItem(sidebarKey)==='1';
+    setSidebarCollapsed(savedSidebar,false);
+    sidebarToggle.addEventListener('click',()=>setSidebarCollapsed(!appShell?.classList.contains('sidebar-collapsed')));
+  }
+  $('structureLock')?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();setStructureLock(!isStructureLocked(),true);toast(isStructureLocked()?'Estrutura bloqueada':'Estrutura desbloqueada');});
+  updateStructureControls();
+  if($('btnProjects'))$('btnProjects').onclick=async()=>{
+    if(cloudDirty){
+      const wantsSave=confirm('Existem alterações não salvas na nuvem. Deseja salvar antes de voltar para Projetos?');
+      if(wantsSave){ const ok=await saveProjectToCloud(true); if(!ok)return; }
+      else { const leave=confirm('Voltar sem salvar pode deixar alterações apenas neste navegador. Deseja continuar?'); if(!leave)return; }
+    }
+    showDashboard();
+  };
+
   requestAnimationFrame(()=>window.__applyCanvasPan&&window.__applyCanvasPan());
-  $('btnBuildRows').onclick=()=>{state.projectName=$('projectName').value.trim()||'Data Center';state.rackUnits=Math.max(1,Math.min(60,Math.floor(num($('rackUnits').value,48))));state.rackWidth=Math.max(.1,num($('rackWidth').value,.6));state.rackDepth=Math.max(.1,num($('rackDepth').value,1.2));state.rackGap=Math.max(0,num($('rackGap').value,0));state.defaultRowGap=Math.max(0,num($('defaultRowGap').value,1.2));state.lastUToTray=Math.max(0,num($('lastUToTray').value,1));state.defaultSlack=Math.max(0,num($('defaultSlack').value,0));const target=Math.max(0,Math.min(30,Math.floor(num($('rowCount').value,0)))),dr=Math.max(0,Math.min(100,Math.floor(num($('defaultRacks').value,0))));while(state.rows.length<target)addRow(dr,state.defaultRowGap);while(state.rows.length>target){const row=state.rows[state.rows.length-1],ids=racksInRow(row.id).map(r=>r.id);state.rows.pop();state.racks=state.racks.filter(r=>r.rowId!==row.id);removeRackReferences(ids);}normalizeState();renderAll();toast('Estrutura atualizada');};
-  $('btnAddTray').onclick=()=>{ const g=geometry(); const y=g.rows.length?g.rows[0].y-80:VIEW_PAD; createIndependentTray(g,g.x0,y,g.x0+Math.max(240,g.scale*3),y); };
+  $('btnBuildRows').onclick=rebuildStructureFromSettings;
+  $('btnAddTray').onclick=()=>{ if(structureBlocked())return; const g=geometry(); const y=g.rows.length?g.rows[0].y-80:VIEW_PAD; createIndependentTray(g,g.x0,y,g.x0+Math.max(240,g.scale*3),y); };
   $('btnAddCable').onclick=addCable;$('btnImport').onclick=()=>$('excelInput').click();
   $('btnTemplate').onclick=downloadCableTemplate;
   $('btnExportCables').onclick=exportCablesXLSX;
@@ -1781,10 +2278,14 @@ function bind(){
   $('btnTheme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';applyTheme();localStorage.setItem(THEME_STORAGE,state.theme);toast(state.theme==='light'?'Tema claro':'Tema escuro');};
   $('btnUndo').onclick=undo; $('btnRedo').onclick=redo;
   window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();}else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();}});
-  $('btnSave').onclick=()=>{save();toast('Projeto salvo no navegador');};
+  $('btnSave').onclick=async()=>{ save(); await saveProjectToCloud(true); };
+  $('autosaveToggle')?.addEventListener('change',e=>setAutosaveEnabled(e.target.checked));
+  updateAutosaveUI();
+  updatePlannerProjectName();
+  setCloudStatus(cloudDirty?'pending':'saved');
   $('btnExport').onclick=()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(state.projectName||'data-center')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
-  $('btnImportProject').onclick=()=>$('projectInput').click();
-  $('projectInput').onchange=e=>{const f=e.target.files[0];if(f)importProject(f);e.target.value='';};
+  $('btnImportProject').onclick=()=>{if(structureBlocked())return;$('projectInput').click();};
+  $('projectInput').onchange=e=>{const f=e.target.files[0];if(f&&!isStructureLocked())importProject(f);e.target.value='';};
   $('btnReset').onclick=newProject;
   $('renameApply').onclick=applyRenameRow;
   $('renameCancel').onclick=closeRenameRowModal;
@@ -1796,4 +2297,4 @@ function bind(){
   window.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('renameRowModal').classList.contains('open'))closeRenameRowModal();});
   window.addEventListener('resize',()=>{render();});
 }
-bind();
+startAuth();
