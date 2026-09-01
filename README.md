@@ -1,12 +1,5 @@
-# Data Center Cable Planner — Manual Route Test
+# Data Center Cable Planner — v50.8
 
-Versão de teste baseada na UI Redesign v1 sem legenda e com modo de roteamento.
+Base: v50.7, sem modo convidado adicional além do modo offline já existente.
 
-## Novidade
-- Modo Automático: a rota é calculada pelo sistema; o botão manual de cálculo foi removido.
-- Modo Manual: clique em “Adicionar rack à rota”, depois clique nos racks intermediários desejados.
-- Cada rack intermediário só é aceito quando existe caminho pelas calhas a partir do último rack escolhido.
-- A rota manual final é validada trecho a trecho e desenhada sobre a infraestrutura existente.
-- É possível remover os racks intermediários ou limpar a rota.
-
-A lógica de racks, calhas, cabos, seleção, pan/zoom, sidebar, Supabase e demais recursos existentes foi preservada.
+Correção: Exportar projeto agora sincroniza a sala ativa e exporta o payload completo do projeto. Isso garante a inclusão de racks, fileiras, assets, cabos, calhas, vínculos/conexões de calhas, salas, localizações e catálogos, além das demais configurações persistentes.

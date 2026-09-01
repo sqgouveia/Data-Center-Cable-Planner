@@ -17,6 +17,7 @@
         <label>Senha<input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Sua senha"></label>
         <div id="loginError" class="auth-message error"></div>
         <button class="btn primary full" type="submit" id="btnLogin">Entrar</button>
+        <button class="btn ghost full" type="button" id="btnGuest">Entrar como convidado</button>
       </form>
       <div class="auth-links"><button type="button" class="linkbtn" id="showSignup">Criar uma conta</button><button type="button" class="linkbtn" id="showForgot">Esqueci minha senha</button></div>
     </div>
@@ -69,7 +70,7 @@
 <div class="history-group" aria-label="Histórico"><button id="btnUndo" class="btn ghost" title="Desfazer (Ctrl+Z)" disabled><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H13"/></svg></button><button id="btnRedo" class="btn ghost" title="Refazer (Ctrl+Y)" disabled><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 1 0 0 11H11"/></svg></button></div>
     <button id="btnTheme" class="btn ghost ui-icon-label" title="Alternar tema"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.5 8.5 0 1 0 20.5 15.2Z"/></svg><span>Tema</span></button>
     <button id="btnProjects" class="btn ghost ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Projetos</span></button>
-    <div class="room-control" title="Sala atual"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V7l8-4 8 4v13"/><path d="M9 20v-5h6v5"/></svg><select id="roomSelect" aria-label="Selecionar sala"></select><button id="btnAddRoom" class="iconbtn topbar-room-add" type="button" title="Adicionar sala" aria-label="Adicionar sala">＋</button><button id="btnRenameRoom" class="iconbtn topbar-room-add" type="button" title="Renomear sala" aria-label="Renomear sala">✎</button></div>
+    <div class="room-control" title="Localização e sala"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V7l8-4 8 4v13"/><path d="M9 20v-5h6v5"/></svg><select id="locationSelect" aria-label="Selecionar localização"></select><span class="room-control-separator">/</span><select id="roomSelect" aria-label="Selecionar sala"></select><button id="btnLocations" class="btn ghost topbar-location-btn" type="button" title="Gerenciar localizações"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.2 7-12A7 7 0 1 0 5 9c0 6.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg><span>Localizações</span></button></div>
     <div class="autosave-control" title="Salvamento automático na nuvem"><span id="autosaveLabel">Autosave</span><label class="switch-toggle"><input id="autosaveToggle" type="checkbox" aria-label="Desativar salvamento automático"><span class="switch-slider"></span></label></div>
     <span id="cloudStatus" class="cloud-status topbar-cloud-status" data-status="saved">✓ Salvo na nuvem</span>
     <button id="btnSave" class="btn ghost ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></svg><span>Salvar na nuvem</span></button>
@@ -96,14 +97,14 @@
       <label>Folga padrão (%)<input id="defaultSlack" type="number" min="0" step="1" value="10"></label>
       <button id="btnBuildRows" class="btn primary full">✓ Aplicar estrutura</button>
     </section>
-    <section><div class="section-head"><h2>Fileiras</h2></div><div id="rowsPanel"></div></section>
+    <section><div class="section-head"><h2>Fileiras</h2><button id="btnAddRow" class="btn primary small" type="button">＋ Adicionar fileira</button></div><div id="rowsPanel"></div></section>
   </aside>
   <button id="sidebarToggle" class="sidebar-toggle" type="button" title="Recolher barra lateral" aria-label="Recolher barra lateral"><span id="sidebarToggleIcon">‹</span></button>
   <main class="workspace">
     <div class="toolbar">
-      <div class="toolbar-title"><div class="planner-project-info"><div class="planner-project-main"><strong id="plannerProjectName">Data Center</strong><span class="planner-room-separator">/</span><strong id="plannerRoomName" class="planner-room-name">Sala 1</strong></div><div id="plannerProjectSummary" class="planner-project-summary"><span>0 fileiras</span><span>0 racks</span><span>0 calhas</span><span>0 cabos</span></div></div></div>
+      <div class="toolbar-title"><div class="planner-project-info"><div class="planner-project-main"><strong id="plannerProjectName">Data Center</strong><span class="planner-room-separator">/</span><strong id="plannerLocationName" class="planner-location-name">DC AZ1</strong><span class="planner-room-separator">/</span><strong id="plannerRoomName" class="planner-room-name">Sala 1</strong></div><div id="plannerProjectSummary" class="planner-project-summary"><span>0 fileiras</span><span>0 racks</span><span>0 calhas</span><span>0 cabos</span></div></div></div>
       <div class="toolbar-actions">
-                <button id="btnAddTray" class="btn"><span class="ui-plus">+</span> Calha</button><button id="btnAddCable" class="btn"><span class="ui-plus">+</span> Cabo</button>
+                <button id="btnAddTray" class="btn"><span class="ui-plus">+</span> Calha</button><button id="btnAddCable" class="btn"><span class="ui-plus">+</span> Cabo</button><button id="btnAssets" class="btn ghost ui-icon-label" type="button" title="Abrir inventário de assets"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>Assets</span></button>
         <button id="btnImport" class="btn ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg><span>Importar cabos</span></button>
         <button id="btnTemplate" class="btn ghost ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"/><path d="M9 11h6M9 15h6M9 7h4"/></svg><span>Template</span></button>
         <button id="btnExportCables" class="btn ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V9M7 12l5-5 5 5M5 4h14"/></svg><span>Exportar cabos</span></button>
@@ -131,6 +132,151 @@
   </aside>
 </div>
 <div id="quickSearchModal" class="modal-backdrop hidden" aria-hidden="true"><div class="quick-search-card" role="dialog" aria-modal="true" aria-labelledby="quickSearchTitle"><div class="quick-search-head"><div><h3 id="quickSearchTitle">Buscar no projeto</h3><span>Rack, calha ou cabo</span></div><button id="quickSearchClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div><div class="quick-search-input-wrap"><span>⌕</span><input id="quickSearchInput" type="search" autocomplete="off" placeholder="Digite um nome ou número..." /></div><div id="quickSearchResults" class="quick-search-results"><div class="empty">Digite para pesquisar.</div></div><div class="quick-search-footer"><span><kbd>↑</kbd><kbd>↓</kbd> navegar</span><span><kbd>Enter</kbd> abrir</span><span><kbd>Esc</kbd> fechar</span></div></div></div><div id="projectSummaryModal" class="modal-backdrop hidden" aria-hidden="true"><div class="summary-card" role="dialog" aria-modal="true" aria-labelledby="projectSummaryTitle"><div class="summary-head"><div><h3 id="projectSummaryTitle">Resumo do projeto</h3><span id="summaryProjectName">Data Center</span></div><button id="summaryClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div><div id="projectSummaryGrid" class="summary-grid"></div></div></div><div id="minimap" class="minimap hidden" aria-label="Mini mapa da planta"><div class="minimap-head"><span>Mini mapa</span><button id="minimapClose" class="iconbtn" type="button" title="Fechar mini mapa" aria-label="Fechar mini mapa">×</button></div><svg id="minimapSvg" xmlns="http://www.w3.org/2000/svg"></svg></div><div id="toast"></div>
+
+<div id="assetsModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card assets-card" role="dialog" aria-modal="true" aria-labelledby="assetsTitle">
+    <div class="modal-head"><div><h3 id="assetsTitle">Inventário de assets</h3><span>Inventário do projeto</span></div><button id="assetsClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div>
+    <div class="assets-toolbar"><input id="assetsSearch" type="search" placeholder="Buscar por nome, modelo, asset tag ou rack..." autocomplete="off"><div class="assets-toolbar-actions"><button id="assetsCatalogs" class="btn ghost small" type="button">⚙ Cadastros</button><button id="assetsBulk" class="btn ghost small" type="button">＋ Cadastro em massa</button><button id="assetsNew" class="btn primary small" type="button">＋ Novo asset</button></div></div>
+    <div class="assets-summary"><span><b id="assetsCount">0</b> encontrados</span><span>Ativos: <b id="assetsActiveCount">0</b></span><span>Arquivados: <b id="assetsArchivedCount">0</b></span></div>
+    <div class="assets-table-wrap"><div class="assets-table-head"><span>Asset Tag</span><span>Nome</span><span>Tipo</span><span>Fabricante</span><span>Modelo</span><span>Serial Number</span><span>Localização</span><span>Rack</span><span>U</span><span>Qtd. U</span><span>Status</span><span>Substatus</span><span>Ações</span></div><div id="assetsList" class="assets-list"></div></div>
+  </div>
+</div>
+<div id="assetHistoryModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card asset-history-card" role="dialog" aria-modal="true" aria-labelledby="assetHistoryTitle">
+    <div class="modal-head"><div><h3 id="assetHistoryTitle">Histórico do asset</h3><span id="assetHistorySubtitle">Alterações registradas na nuvem.</span></div><div class="modal-head-actions"><button id="assetHistoryExport" class="btn ghost small" type="button" title="Exportar histórico deste asset">↓ Exportar histórico</button><button id="assetHistoryClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div></div>
+    <div id="assetHistoryList" class="asset-history-list"><div class="empty">Selecione um asset para ver o histórico.</div></div>
+  </div>
+</div>
+<div id="assetCatalogModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card asset-catalog-card" role="dialog" aria-modal="true" aria-labelledby="assetCatalogTitle">
+    <div class="modal-head catalog-modal-head"><div><h3 id="assetCatalogTitle">Catálogo de equipamentos</h3><span>Gerencie tipos, fabricantes e modelos usados no inventário.</span></div><div class="catalog-head-actions"><button id="assetCatalogClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div></div>
+    <div class="catalog-grid">
+      <section class="catalog-section">
+        <div class="catalog-section-head"><div><h4>Tipos de ativo</h4><small>Classificação dos equipamentos</small></div><div class="catalog-section-actions"><button type="button" class="btn ghost small" data-catalog-template="types">↓ Modelo</button><button type="button" class="btn ghost small" data-catalog-import="types">↑ Importar</button><button type="button" class="btn primary small catalog-add-btn" data-catalog-add="types">＋ Adicionar</button></div></div>
+        <div class="catalog-search"><span>⌕</span><input id="catalogTypeSearch" type="search" placeholder="Buscar tipo..." autocomplete="off"></div>
+        <div id="catalogTypes" class="catalog-list"></div>
+      </section>
+      <section class="catalog-section">
+        <div class="catalog-section-head"><div><h4>Fabricantes</h4><small>Marcas disponíveis</small></div><div class="catalog-section-actions"><button type="button" class="btn ghost small" data-catalog-template="manufacturers">↓ Modelo</button><button type="button" class="btn ghost small" data-catalog-import="manufacturers">↑ Importar</button><button type="button" class="btn primary small catalog-add-btn" data-catalog-add="manufacturers">＋ Adicionar</button></div></div>
+        <div class="catalog-search"><span>⌕</span><input id="catalogManufacturerSearch" type="search" placeholder="Buscar fabricante..." autocomplete="off"></div>
+        <div id="catalogManufacturers" class="catalog-list"></div>
+      </section>
+      <section class="catalog-section catalog-model-section">
+        <div class="catalog-section-head"><div><h4>Modelos</h4><small>Cada modelo pertence a um tipo e fabricante</small></div><div class="catalog-section-actions"><button type="button" class="btn ghost small" data-catalog-template="models">↓ Modelo</button><button type="button" class="btn ghost small" data-catalog-import="models">↑ Importar</button><button type="button" class="btn primary small catalog-add-btn" id="catalogModelAdd">＋ Adicionar</button></div></div>
+        <div class="catalog-filter-row"><label>Tipo<select id="catalogModelType"><option value="">Todos os tipos</option></select></label><label>Fabricante<select id="catalogModelManufacturer"><option value="">Todos os fabricantes</option></select></label></div>
+        <div class="catalog-search"><span>⌕</span><input id="catalogModelSearch" type="search" placeholder="Buscar modelo..." autocomplete="off"></div>
+        <div id="catalogModels" class="catalog-list"></div>
+      </section>
+      <section class="catalog-section catalog-status-section">
+        <div class="catalog-section-head"><div><h4>Status</h4><small>Situação dos equipamentos</small></div><div class="catalog-section-actions"><button type="button" class="btn ghost small" data-catalog-template="statuses">↓ Modelo</button><button type="button" class="btn ghost small" data-catalog-import="statuses">↑ Importar</button><button type="button" class="btn primary small catalog-add-btn" data-catalog-add="statuses">＋ Adicionar</button></div></div>
+        <div class="catalog-search"><span>⌕</span><input id="catalogStatusSearch" type="search" placeholder="Buscar status..." autocomplete="off"></div>
+        <div id="catalogStatuses" class="catalog-list"></div>
+      </section>
+      <section class="catalog-section catalog-status-section">
+        <div class="catalog-section-head"><div><h4>Substatus</h4><small>Detalhamento da situação</small></div><div class="catalog-section-actions"><button type="button" class="btn ghost small" data-catalog-template="substatuses">↓ Modelo</button><button type="button" class="btn ghost small" data-catalog-import="substatuses">↑ Importar</button><button type="button" class="btn primary small catalog-add-btn" data-catalog-add="substatuses">＋ Adicionar</button></div></div>
+        <div class="catalog-search"><span>⌕</span><input id="catalogSubstatusSearch" type="search" placeholder="Buscar substatus..." autocomplete="off"></div>
+        <div id="catalogSubstatuses" class="catalog-list"></div>
+      </section>
+      <section class="catalog-section catalog-locations-section" style="grid-column:span 2">
+        <div class="catalog-section-head"><div><h4>Localizações</h4><small>Data centers, salas e estoques</small></div><button type="button" class="btn primary small" id="catalogLocationAdd">＋ Data Center</button></div>
+        <div class="catalog-search"><span>⌕</span><input id="catalogLocationSearch" type="search" placeholder="Buscar localização, sala ou estoque..." autocomplete="off"></div><div id="catalogLocations" class="catalog-list"></div>
+      </section>
+    </div>
+    <div class="catalog-note"><span>i</span><p>Um modelo só pode ser usado com o tipo e fabricante aos quais foi cadastrado. Isso mantém o inventário consistente.</p></div>
+  </div>
+</div>
+<input id="catalogImportFile" type="file" accept=".xlsx,.xls,.csv" hidden>
+<input id="assetsImportFile" type="file" accept=".xlsx,.xls,.csv" hidden>
+<div id="assetsImportModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card assets-import-card" role="dialog" aria-modal="true" aria-labelledby="assetsImportTitle">
+    <div class="modal-head"><div><h3 id="assetsImportTitle">Importar Assets</h3><span>Importe equipamentos por Excel ou CSV com validação antes de salvar.</span></div><button id="assetsImportClose" class="iconbtn" type="button">×</button></div>
+    <div id="assetsImportDrop" class="assets-import-drop"><div class="assets-import-icon">⇩</div><b>Arraste seu arquivo aqui</b><span>ou</span><button id="assetsImportChoose" class="btn primary small" type="button">Selecionar arquivo</button><small>XLSX, XLS ou CSV</small></div>
+    <div class="assets-import-template-help"><span>Não possui uma planilha?</span><button id="assetsImportTemplate" class="btn ghost small" type="button">↓ Baixar modelo Excel</button></div>
+    <div id="assetsImportFileInfo" class="assets-import-file hidden"></div>
+    <div id="assetsImportMapping" class="assets-import-mapping hidden"></div>
+    <div class="form-actions"><button id="assetsImportCancel" class="btn ghost" type="button">Cancelar</button><button id="assetsImportContinue" class="btn primary" type="button" disabled>Continuar</button></div>
+  </div>
+</div>
+
+<div id="importPreviewModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card import-preview-card" role="dialog" aria-modal="true" aria-labelledby="importPreviewTitle">
+    <div class="modal-head"><div><h3 id="importPreviewTitle">Pré-visualização da importação</h3><span id="importPreviewSubtitle">Confira os dados antes de importar.</span></div><button id="importPreviewClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div>
+    <div id="importPreviewSummary" class="import-preview-summary"></div>
+    <div id="importPreviewErrors" class="import-preview-errors hidden"></div>
+    <div id="importPreviewTable" class="import-preview-table"></div>
+    <div class="form-actions"><button id="importPreviewCancel" class="btn ghost" type="button">Cancelar</button><button id="importPreviewConfirm" class="btn primary" type="button" disabled>Importar</button></div>
+  </div>
+</div>
+<div id="catalogEditorModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card catalog-editor-card" role="dialog" aria-modal="true" aria-labelledby="catalogEditorTitle">
+    <div class="modal-head"><div><h3 id="catalogEditorTitle">Novo cadastro</h3><span id="catalogEditorSubtitle">Cadastre um valor para o inventário.</span></div><button id="catalogEditorClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div>
+    <input id="catalogEditorKind" type="hidden"><input id="catalogEditorId" type="hidden">
+    <label>Nome<input id="catalogEditorName" type="text" placeholder="Digite o nome" autocomplete="off"></label>
+    <div id="catalogEditorTypeWrap" class="hidden"><label>Tipo<select id="catalogEditorType"></select></label></div>
+    <div id="catalogEditorManufacturerWrap" class="hidden"><label>Fabricante<select id="catalogEditorManufacturer"></select></label></div>
+    <div class="catalog-editor-help">Modelos são vinculados ao tipo e ao fabricante selecionados.</div>
+    <div class="form-actions"><button id="catalogEditorCancel" class="btn ghost" type="button">Cancelar</button><button id="catalogEditorSave" class="btn primary" type="button">✓ Salvar</button></div>
+  </div>
+</div>
+<div id="assetsBulkModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card bulk-assets-card" role="dialog" aria-modal="true" aria-labelledby="assetsBulkTitle">
+    <div class="modal-head"><div><h3 id="assetsBulkTitle">Cadastro em massa de assets</h3><span>Cadastre vários equipamentos de uma só vez.</span></div><button id="assetsBulkClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div>
+    <div id="assetsBulkChooser" class="bulk-assets-chooser">
+      <div class="bulk-chooser-title">Como deseja cadastrar os assets?</div>
+      <div class="bulk-chooser-grid">
+        <button id="assetsBulkManual" class="bulk-chooser-card" type="button"><span class="bulk-chooser-icon">＋</span><strong>Digitar vários</strong><small>Preencha os equipamentos diretamente na tabela.</small></button>
+        <button id="assetsBulkImport" class="bulk-chooser-card" type="button"><span class="bulk-chooser-icon">⇩</span><strong>Importar Excel / CSV</strong><small>Use uma planilha existente e valide antes de salvar.</small></button>
+      </div>
+      <button id="assetsBulkTemplate" class="bulk-chooser-template" type="button">↓ Baixar modelo Excel</button>
+    </div>
+    <div id="assetsBulkEditor" class="hidden">
+    <div class="bulk-assets-help"><span>ⓘ</span><span><b>As U são controladas pelo sistema.</b> Ao escolher o rack, aparecem somente as U livres. A quantidade de U também é considerada para evitar sobreposição.</span></div>
+    <div class="bulk-assets-toolbar"><button id="assetsBulkAddRow" class="btn ghost small" type="button">＋ Adicionar linha</button><span id="assetsBulkSummary" class="muted"></span></div>
+    <div class="bulk-assets-table-wrap"><table class="bulk-assets-table"><colgroup><col data-col="name"><col data-col="type"><col data-col="manufacturer"><col data-col="model"><col data-col="tag"><col data-col="serial"><col data-col="location"><col data-col="rack"><col data-col="u"><col data-col="height"><col data-col="status"><col data-col="substatus"><col data-col="actions"></colgroup><thead><tr><th data-col="name">Nome *</th><th data-col="type">Tipo</th><th data-col="manufacturer">Fabricante</th><th data-col="model">Modelo</th><th data-col="tag">Asset Tag</th><th data-col="serial">Serial Number *</th><th data-col="location">Localização</th><th data-col="rack">Rack</th><th data-col="u">U Inicial</th><th data-col="height">Qtd. U</th><th data-col="status">Status</th><th data-col="substatus">Substatus</th><th data-col="actions"></th></tr></thead><tbody id="assetsBulkBody"></tbody></table></div>
+    <div class="form-actions"><button id="assetsBulkBack" class="btn ghost" type="button">← Voltar</button><button id="assetsBulkCancel" class="btn ghost" type="button">Cancelar</button><button id="assetsBulkSave" class="btn primary" type="button">✓ Validar e cadastrar</button></div>
+    </div>
+  </div>
+</div>
+<div id="assetEditModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card asset-edit-card" role="dialog" aria-modal="true" aria-labelledby="assetEditTitle">
+    <div class="modal-head"><div><h3 id="assetEditTitle">Novo asset</h3><span>Cadastro do equipamento</span></div><button id="assetEditCancelTop" class="iconbtn" type="button" aria-label="Fechar">×</button></div>
+    <form id="assetEditForm">
+      <input id="assetEditId" type="hidden">
+      <label>Nome<input id="assetName" required placeholder="Ex.: Switch Core 01"></label>
+      <div class="grid2"><label>Tipo<select id="assetType"></select></label><label>Status<select id="assetStatus"></select></label></div>
+      <div class="grid2"><label>Substatus<select id="assetSubstatus"></select></label><label>Fabricante<select id="assetManufacturer"></select></label></div>
+      <div class="grid2"><label>Modelo<select id="assetModel"></select></label><label>Asset Tag<input id="assetTag" placeholder="Ex.: SW-001"></label></div>
+      <div class="grid2"><label>Serial Number<input id="assetSerial" required placeholder="Obrigatório"></label><label>Localização<select id="assetLocation"></select></label></div>
+      <div class="grid2"><label>Rack<select id="assetRack"></select></label><label>U inicial<input id="assetUStart" type="number" min="1" max="60" value="1"></label></div><div class="grid2"><label>Quantidade de U<input id="assetUHeight" type="number" min="1" max="60" value="1"></label><div></div></div>
+      <div class="help">O sistema impede sobreposição de equipamentos no mesmo rack e valida o limite de U do rack.</div>
+      <div class="form-actions"><button id="assetEditCancel" class="btn ghost" type="button">Cancelar</button><button class="btn primary" type="submit">✓ Salvar asset</button></div>
+    </form>
+  </div>
+</div>
+<div id="bayfaceModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card bayface-card" role="dialog" aria-modal="true" aria-labelledby="bayfaceTitle">
+    <div class="modal-head"><div><h3 id="bayfaceTitle">Bayface</h3><span>Inventário físico do rack</span></div><button id="bayfaceClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div>
+    <div id="bayfaceContent"></div>
+  </div>
+</div>
+<div id="bayfaceAssetPickerModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card bayface-picker-card" role="dialog" aria-modal="true" aria-labelledby="bayfaceAssetPickerTitle">
+    <div class="modal-head">
+      <div><h3 id="bayfaceAssetPickerTitle">Adicionar asset ao rack</h3><span id="bayfaceAssetPickerSubtitle">Selecione um asset já cadastrado e disponível.</span></div>
+      <button id="bayfaceAssetPickerClose" class="iconbtn" type="button" aria-label="Fechar">×</button>
+    </div>
+    <div class="bayface-picker-toolbar">
+      <div class="bayface-picker-search"><span>⌕</span><input id="bayfaceAssetPickerSearch" type="search" autocomplete="off" placeholder="Buscar por nome, tag, modelo, fabricante ou serial..."></div>
+      <span id="bayfaceAssetPickerCount" class="bayface-picker-count">0 assets</span>
+    </div>
+    <div class="bayface-picker-table-wrap">
+      <div class="bayface-picker-table-head">
+        <span>Asset Tag</span><span>Nome</span><span>Tipo</span><span>Fabricante</span><span>Modelo</span><span>Serial Number</span><span>Localização</span><span>Status</span><span>Substatus</span><span>Qtd. U</span><span></span>
+      </div>
+      <div id="bayfaceAssetPickerList" class="bayface-picker-list"></div>
+    </div>
+  </div>
+</div>
 <div id="renameRowModal" class="modal-backdrop" aria-hidden="true">
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="renameRowTitle">
     <div class="modal-head"><div><h3 id="renameRowTitle">Renomear racks</h3><span>Renomeie todos os racks da fileira de uma só vez.</span></div><button id="renameCancelTop" class="iconbtn" title="Fechar">×</button></div>
@@ -150,7 +296,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-<script src="app.js"></script>
+<script src="jszip.min.js"></script>
+<script src="app.js?v=48?v=46?v=45"></script>
 
 </body>
 </html>
