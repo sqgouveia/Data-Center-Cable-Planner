@@ -6,7 +6,6 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLI
   auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true }
 });
 let appStarted = false;
-let guestMode = false;
 let authInitialized = false;
 let appView = null; // 'dashboard' or 'planner'
 
@@ -21,7 +20,6 @@ let cloudStatus = 'saved';
 let lastCloudSnapshot = null;
 const AUTOSAVE_STORAGE = 'dc-planner-autosave';
 let autosaveEnabled = localStorage.getItem(AUTOSAVE_STORAGE) !== 'off';
-function cloudProjectKey(){ return `dc-planner-cloud-project-${supabaseClient.auth?.getSession ? 'v1' : 'v1'}`; }
 const ROOM_KEYS=['rackUnits','rackWidth','rackGap','rackDepth','defaultRowGap','lastUToTray','defaultSlack','rows','racks','cables','trays','trayLinks','trayRackLinks','structureLocked','snapToEdges'];
 function roomDataFromState(){const data={};ROOM_KEYS.forEach(k=>{data[k]=cloneData(state[k]);});return data;}
 function applyRoomData(data){if(!data)return;ROOM_KEYS.forEach(k=>{if(data[k]!==undefined)state[k]=cloneData(data[k]);});state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];normalizeState();}
@@ -37,55 +35,10 @@ function migrateGlobalAssets(){
   state.assets.forEach(a=>{if(a&&a.roomId&&!state.rooms.some(r=>r.id===a.roomId)) {a.roomId=null;a.rackId=null;}});
 }
 function ensureRooms(){
-  if(Array.isArray(state.rooms)&&state.rooms.length){state.rooms.forEach(r=>{r.data=r.data||{};});if(!state.activeRoomId||!state.rooms.some(r=>r.id===state.activeRoomId))state.activeRoomId=state.rooms[0].id;migrateGlobalAssets();return;}
-  state.rooms=[{id:uid('room'),name:'Sala 1',data:roomDataFromState()}];state.activeRoomId=state.rooms[0].id;migrateGlobalAssets();
+  if(Array.isArray(state.rooms)&&state.rooms.length){state.rooms.forEach(r=>{r.data=r.data||{};r.coolingCapacityW=Number.isFinite(Number(r.coolingCapacityW))?Math.max(0,Number(r.coolingCapacityW)):0;});if(!state.activeRoomId||!state.rooms.some(r=>r.id===state.activeRoomId))state.activeRoomId=state.rooms[0].id;migrateGlobalAssets();return;}
+  state.rooms=[{id:uid('room'),name:'Sala 1',coolingCapacityW:0,data:roomDataFromState()}];state.activeRoomId=state.rooms[0].id;migrateGlobalAssets();
 }
 function switchRoom(roomId){ensureRooms();const target=state.rooms.find(r=>r.id===roomId);if(!target)return;if(target.id===state.activeRoomId){updateRoomUI();return;}syncActiveRoom();persistHistoryContext();applyRoomData(target.data);state.activeRoomId=target.id;pan=null;initHistory(cloudProjectId,state.activeRoomId);updateRoomUI();renderAll(false);scheduleCloudSave();toast(`Sala aberta: ${target.name}`);}
-function addRoom(){ensureRooms();const name=prompt('Nome da nova sala:','Sala '+(state.rooms.length+1));if(!name||!name.trim())return;syncActiveRoom();const base={rackUnits:state.rackUnits,rackWidth:state.rackWidth,rackGap:state.rackGap,rackDepth:state.rackDepth,defaultRowGap:state.defaultRowGap,lastUToTray:state.lastUToTray,defaultSlack:state.defaultSlack,rows:[],racks:[],cables:[],trays:[],trayLinks:[],trayRackLinks:[],structureLocked:false,snapToEdges:true};normalizeLocations();const parent=state.locations[0];const room={id:uid('room'),name:name.trim(),locationId:parent?.id||null,data:base,updatedAt:new Date().toISOString()};state.rooms.push(room);if(parent&&!parent.rooms.includes(room.id))parent.rooms.push(room.id);state.activeRoomId=room.id;applyRoomData(base);initHistory(cloudProjectId,state.activeRoomId,true);updateRoomUI();renderAll(false);scheduleCloudSave();toast(`Sala criada: ${room.name}`);}
-function renameCurrentRoom(){ensureRooms();const room=state.rooms.find(r=>r.id===state.activeRoomId);if(!room)return;const name=prompt('Novo nome da sala:',room.name);if(!name||!name.trim())return;room.name=name.trim();room.updatedAt=new Date().toISOString();updateRoomUI();save();toast('Sala renomeada');}
-function closeRoomMenu(){document.getElementById('roomMenu')?.remove();}
-function showRoomMenu(){
-  closeRoomMenu();
-  const anchor=$('btnRenameRoom');
-  const control=$('btnRenameRoom')?.closest('.room-control');
-  if(!anchor||!control)return;
-  const menu=document.createElement('div');
-  menu.id='roomMenu';
-  menu.className='room-menu';
-  menu.innerHTML='<button type=\"button\" data-room-action=\"rename\"><span>✎</span>Renomear sala</button><button type=\"button\" data-room-action=\"delete\" class=\"danger\"><span>⌫</span>Excluir sala</button>';
-  document.body.appendChild(menu);
-  const r=control.getBoundingClientRect();
-  const width=178;
-  menu.style.left=Math.max(8,Math.min(window.innerWidth-width-8,r.right-width))+'px';
-  menu.style.top=(r.bottom+6)+'px';
-  menu.querySelector('[data-room-action=rename]').onclick=()=>{closeRoomMenu();renameCurrentRoom();};
-  menu.querySelector('[data-room-action=delete]').onclick=()=>{closeRoomMenu();deleteCurrentRoom();};
-}
-function deleteCurrentRoom(){
-  ensureRooms();
-  if(state.rooms.length<=1){toast('O projeto precisa ter pelo menos uma sala.');return;}
-  const current=state.rooms.find(r=>r.id===state.activeRoomId);
-  if(!current)return;
-  if(!confirm(`Excluir a sala \"${current.name}\"?\n\nTodos os racks, calhas e cabos desta sala serão excluídos. Essa ação não pode ser desfeita.`))return;
-  syncActiveRoom();
-  // Assets are project-level records. Removing a room only removes their location, never the asset itself.
-  state.assets.forEach(a=>{if(a.roomId===current.id){a.roomId=null;a.rackId=null;}});
-  const index=state.rooms.findIndex(r=>r.id===current.id);
-  const wasActive=current.id===state.activeRoomId;
-  state.rooms.splice(index,1);
-  if(wasActive){
-    const next=state.rooms[Math.min(index,state.rooms.length-1)];
-    state.activeRoomId=next.id;
-    applyRoomData(next.data);
-    pan=null;
-    updateRoomUI();
-    renderAll(false);
-    initHistory(cloudProjectId);
-  }
-  updateRoomUI();
-  save();
-  toast(`Sala excluída: ${current.name}`);
-}
 function fitTopbarSelect(el){
   if(!el)return;
   const option=el.options?.[el.selectedIndex];
@@ -97,15 +50,57 @@ function fitTopbarSelect(el){
   const width=Math.ceil(ctx.measureText(text).width)+48;
   el.style.width=Math.max(78,width)+'px';
 }
+// --- Dropdown estilizado para <select> (o navegador não permite estilizar
+// a lista aberta de um <select> nativo). O <select> real continua no DOM
+// como fonte de verdade dos valores; este botão só espelha a seleção.
+function closeStyledSelectPanels(){document.querySelectorAll('.dc-select-panel').forEach(p=>p.remove());document.querySelectorAll('.dc-select-btn[aria-expanded="true"]').forEach(b=>b.setAttribute('aria-expanded','false'));}
+function syncSelectButton(selectId,btnId){
+  const sel=$(selectId), btn=$(btnId);
+  if(!sel||!btn)return;
+  const opt=sel.options[sel.selectedIndex];
+  const label=btn.querySelector('.dc-select-label');
+  if(label)label.textContent=opt?opt.textContent:'—';
+}
+function openStyledSelectPanel(selectId,btnId){
+  const sel=$(selectId), btn=$(btnId);
+  if(!sel||!btn)return;
+  const alreadyOpen=btn.getAttribute('aria-expanded')==='true';
+  closeStyledSelectPanels();
+  if(alreadyOpen)return;
+  const panel=document.createElement('div');
+  panel.className='dc-select-panel';
+  panel.setAttribute('role','listbox');
+  panel.innerHTML=[...sel.options].map(o=>`<button type="button" role="option" data-value="${esc(o.value)}" aria-selected="${o.value===sel.value}">${esc(o.textContent)}</button>`).join('');
+  document.body.appendChild(panel);
+  const r=btn.getBoundingClientRect();
+  const pw=panel.offsetWidth||190;
+  panel.style.left=Math.max(8,Math.min(window.innerWidth-pw-8,r.left))+'px';
+  panel.style.top=(r.bottom+6)+'px';
+  requestAnimationFrame(()=>panel.classList.add('open'));
+  btn.setAttribute('aria-expanded','true');
+  panel.querySelectorAll('button').forEach(o=>o.addEventListener('click',ev=>{
+    ev.preventDefault();ev.stopPropagation();
+    sel.value=o.dataset.value;
+    sel.dispatchEvent(new Event('change',{bubbles:true}));
+    closeStyledSelectPanels();
+    btn.focus();
+  }));
+}
+function bindStyledSelect(selectId,btnId){
+  const btn=$(btnId);
+  if(!btn||btn.dataset.bound)return;
+  btn.dataset.bound='1';
+  btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openStyledSelectPanel(selectId,btnId);});
+}
 function updateRoomUI(){
   ensureRooms(); normalizeLocations();
   const room=state.rooms.find(r=>r.id===state.activeRoomId)||state.rooms[0]; if(!room)return;
   state.activeRoomId=room.id;
   const loc=state.locations.find(l=>l.id===room.locationId)||state.locations[0];
   const locSelect=$('locationSelect');
-  if(locSelect){locSelect.innerHTML=state.locations.map(l=>`<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('');locSelect.value=loc?.id||'';fitTopbarSelect(locSelect);}
+  if(locSelect){locSelect.innerHTML=state.locations.map(l=>`<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('');locSelect.value=loc?.id||'';fitTopbarSelect(locSelect);syncSelectButton('locationSelect','locationSelectBtn');}
   const select=$('roomSelect');
-  if(select){const rooms=loc?(loc.rooms||[]).map(id=>state.rooms.find(r=>r.id===id)).filter(Boolean):state.rooms;select.innerHTML=rooms.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');select.value=room.id;fitTopbarSelect(select);}
+  if(select){const rooms=loc?(loc.rooms||[]).map(id=>state.rooms.find(r=>r.id===id)).filter(Boolean):state.rooms;select.innerHTML=rooms.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');select.value=room.id;fitTopbarSelect(select);syncSelectButton('roomSelect','roomSelectBtn');}
   const name=$('plannerRoomName');if(name)name.textContent=room.name;
   const locationName=$('plannerLocationName');if(locationName)locationName.textContent=loc?.name||'Sem localização';
   const project=$('plannerProjectName');if(project)project.textContent=state.projectName||'Data Center';
@@ -133,9 +128,7 @@ function setCloudStatus(status){
   cloudStatus=status;
   const el=$('cloudStatus');
   if(!el)return;
-  const map=guestMode
-    ? {saved:['●','Modo convidado — somente offline','guest'],saving:['●','Modo convidado — somente offline','guest'],pending:['●','Modo convidado — somente offline','guest'],error:['●','Modo convidado — somente offline','guest']}
-    : {saved:['✓','Salvo na nuvem','saved'],saving:['⟳','Salvando...','saving'],pending:['●','Alterações não salvas','pending'],error:['⚠','Não sincronizado','error']};
+  const map={saved:['✓','Salvo na nuvem','saved'],saving:['⟳','Salvando...','saving'],pending:['●','Alterações não salvas','pending'],error:['⚠','Não sincronizado','error']};
   const v=map[status]||map.saved;
   el.textContent=`${v[0]} ${v[1]}`; el.dataset.status=v[2]; el.title=v[1];
 }
@@ -147,7 +140,8 @@ function updatePlannerProjectName(){
 const ASSET_LOG_FIELDS = {
   name:'Nome', type:'Tipo', manufacturer:'Fabricante', model:'Modelo', assetTag:'Asset Tag', serial:'Serial Number',
   locationType:'Tipo de localização', locationName:'Localização', locationId:'Localização (ID)', stockId:'Estoque', roomId:'Sala', rackId:'Rack',
-  uStart:'U inicial', uHeight:'Quantidade de U', status:'Status', substatus:'Substatus'
+  uStart:'U inicial', uHeight:'Quantidade de U', status:'Status', substatus:'Substatus', ports:'Portas', powerW:'Potência (W)', weightKg:'Peso (kg)',
+  purchaseDate:'Data de compra', warrantyExpiration:'Vencimento da garantia', endOfLife:'Fim de vida (EOL)'
 };
 const ASSET_LOG_HIDDEN_FIELDS = new Set(['locationId','stockId','roomId']);
 function assetLogComparable(v){
@@ -185,6 +179,17 @@ function assetLogDiff(oldAsset,newAsset){
   const changes=[];
   for(const key of Object.keys(ASSET_LOG_FIELDS)){
     if(ASSET_LOG_HIDDEN_FIELDS.has(key)) continue;
+    if(key==='ports'){
+      const oldLabels=(oldAsset?.ports||[]).map(p=>p.label);
+      const newLabels=(newAsset?.ports||[]).map(p=>p.label);
+      const removed=oldLabels.filter(l=>!newLabels.includes(l));
+      const added=newLabels.filter(l=>!oldLabels.includes(l));
+      if(!removed.length && !added.length) continue;
+      const oldValue=removed.length?`Removida(s): ${removed.join(', ')}`:'—';
+      const newValue=added.length?`Adicionada(s): ${added.join(', ')}`:'—';
+      changes.push({field:key,field_label:ASSET_LOG_FIELDS[key],old_value:oldValue,new_value:newValue,old_value_raw:oldValue,new_value_raw:newValue});
+      continue;
+    }
     const before=assetLogComparable(oldAsset?.[key]);
     const after=assetLogComparable(newAsset?.[key]);
     if(before!==after){
@@ -211,29 +216,57 @@ function formatAssetHistoryChange(change,row){
   };
 }
 const assetAuditRecent = new Map();
-async function recordAssetAudit({action,asset,before=null,after=null,changes=[]}){
+let pendingAssetAuditEntries = [];
+function recordAssetAudit({action,asset,before=null,after=null,changes=[]}){
+  if(!asset?.id)return false;
+  const normalizedChanges=Array.isArray(changes)?changes:[];
+  const actionName=String(action);
+  // UPDATE sem nenhuma alteração real não deve gerar evento de auditoria.
+  if(actionName==='UPDATE' && normalizedChanges.length===0)return false;
+  // Evita registros duplicados por duplo clique/duplo submit no mesmo instante.
+  const dedupePayload=JSON.stringify({asset_id:String(asset.id),action:actionName,changes:normalizedChanges});
+  const dedupeKey=btoa(unescape(encodeURIComponent(dedupePayload)));
+  const now=Date.now();
+  const last=assetAuditRecent.get(dedupeKey)||0;
+  if(now-last<1500)return false;
+  assetAuditRecent.set(dedupeKey,now);
+  // Fica pendente localmente; só é gravado na nuvem no momento em que o
+  // projeto for salvo de fato (autosave ou botão Salvar) — histórico não
+  // deve existir sobre um estado que nunca chegou a ser persistido.
+  pendingAssetAuditEntries.push({
+    action:actionName,
+    asset_id:String(asset.id),
+    asset_snapshot:cloneData(after||asset||null),
+    changes:normalizedChanges,
+    changed_at:new Date().toISOString()
+  });
+  return true;
+}
+async function flushAssetAuditQueue(){
+  if(!pendingAssetAuditEntries.length)return;
+  if(!cloudProjectId)return; // projeto ainda não tem id na nuvem; mantém a fila para a próxima tentativa
+  const entries=pendingAssetAuditEntries;
   try{
-    if(!cloudProjectId||!asset?.id)return false;
-    const normalizedChanges=Array.isArray(changes)?changes:[];
-    const actionName=String(action);
-    // UPDATE sem nenhuma alteração real não deve gerar evento de auditoria.
-    if(actionName==='UPDATE' && normalizedChanges.length===0)return false;
     const {data:{user}}=await supabaseClient.auth.getUser();
-    if(!user)return false;
-    // Evita registros duplicados por duplo clique/duplo submit no mesmo instante.
-    const dedupePayload=JSON.stringify({project_id:cloudProjectId,asset_id:String(asset.id),user_id:user.id,action:actionName,changes:normalizedChanges});
-    const dedupeKey=btoa(unescape(encodeURIComponent(dedupePayload)));
-    const now=Date.now();
-    const last=assetAuditRecent.get(dedupeKey)||0;
-    if(now-last<1500)return false;
-    assetAuditRecent.set(dedupeKey,now);
-    const row={project_id:cloudProjectId,asset_id:String(asset.id),user_id:user.id,user_email:user.email||null,action:actionName,asset_snapshot:after||asset||null,changes:normalizedChanges,changed_at:new Date().toISOString()};
-    const {error}=await supabaseClient.from('asset_change_log').insert(row);
+    if(!user)return;
+    const rows=entries.map(e=>({
+      project_id:cloudProjectId,
+      asset_id:e.asset_id,
+      user_id:user.id,
+      user_email:user.email||null,
+      action:e.action,
+      asset_snapshot:e.asset_snapshot,
+      changes:e.changes,
+      changed_at:e.changed_at
+    }));
+    const {error}=await supabaseClient.from('asset_change_log').insert(rows);
     if(error)throw error;
-    return true;
+    // Remove só as entradas que de fato foram enviadas; se algo novo entrou
+    // na fila enquanto o insert estava em andamento, isso permanece pendente.
+    pendingAssetAuditEntries=pendingAssetAuditEntries.slice(entries.length);
   }catch(err){
-    console.error('Asset audit log:',err);
-    return false;
+    console.error('Asset audit log flush:',err);
+    // mantém a fila intacta para tentar novamente no próximo salvamento
   }
 }
 function assetHistoryFormatValue(v){
@@ -316,7 +349,7 @@ function markCloudDirty(){
   return cloudDirty;
 }
 function scheduleCloudSave(){
-  if(guestMode || !cloudReady) return;
+  if(!cloudReady) return;
   markCloudDirty();
   if(!autosaveEnabled) return;
   clearTimeout(cloudSaveTimer);
@@ -344,9 +377,9 @@ function setAutosaveEnabled(enabled){
 }
 
 async function saveProjectToCloud(showToast=true){
-  if(guestMode || !cloudReady) return false;
+  if(!cloudReady) return false;
   if(!cloudProjectId && !state.projectName) return false;
-  if(lastCloudSnapshot===projectSnapshotForCloud() && cloudProjectId){ cloudDirty=false; setCloudStatus('saved'); return true; }
+  if(lastCloudSnapshot===projectSnapshotForCloud() && cloudProjectId){ cloudDirty=false; setCloudStatus('saved'); flushAssetAuditQueue(); return true; }
   setCloudStatus('saving');
   if(cloudSaveInFlight){ cloudSaveQueued=true; return; }
   cloudSaveInFlight=true;
@@ -369,6 +402,7 @@ async function saveProjectToCloud(showToast=true){
     lastCloudSnapshot=projectSnapshotForCloud();
     cloudDirty=false;
     setCloudStatus('saved');
+    flushAssetAuditQueue();
     if(showToast) toast('Projeto salvo na nuvem');
     return true;
   }catch(err){
@@ -413,7 +447,6 @@ async function loadProjectFromCloud(projectId=null){
     if(data.name) state.projectName=data.name;
     if(raw.persistedUi?.theme==='light'||raw.persistedUi?.theme==='dark') state.theme=raw.persistedUi.theme;
     else state.theme=keepTheme;
-    if(typeof raw.persistedUi?.autosaveEnabled==='boolean') autosaveEnabled=raw.persistedUi.autosaveEnabled;
 
     // Normalize legacy/current schemas defensively. A malformed optional field
     // must not make the entire project unopenable.
@@ -446,6 +479,53 @@ async function loadProjectFromCloud(projectId=null){
   }
 }
 
+async function importProject(file){
+  try{
+    const text=await file.text();
+    let raw;
+    try{raw=JSON.parse(text);}catch(_){throw new Error('O arquivo não é um JSON válido.');}
+    if(!raw||typeof raw!=='object')throw new Error('Arquivo inválido.');
+    const ok=await uiConfirm('O conteúdo atual em edição será substituído pelos dados do arquivo importado.',{title:'Importar projeto?',confirmText:'Importar',danger:true});
+    if(!ok)return;
+
+    const keepTheme=state.theme;
+    const keepCatalogs=(state.assetCatalogs&&typeof state.assetCatalogs==='object')?state.assetCatalogs:null;
+    state.rows=[]; state.racks=[]; state.cables=[]; state.trays=[]; state.trayLinks=[]; state.trayRackLinks=[];
+    state.assets=[]; state.rooms=[]; state.locations=[]; state.selected=null; state.multiSelected=[]; state.trayMultiSelected=[];
+    state.structureLocked=false; state.snapToEdges=true;
+    Object.assign(state,cloneData(raw));
+    if(!state.assetCatalogs && keepCatalogs) state.assetCatalogs=keepCatalogs;
+    if(raw.persistedUi?.theme==='light'||raw.persistedUi?.theme==='dark') state.theme=raw.persistedUi.theme;
+    else state.theme=keepTheme;
+
+    // Normaliza esquemas legados/atuais defensivamente, igual ao carregamento
+    // de projetos da nuvem — um campo opcional malformado não pode inviabilizar
+    // a importação inteira.
+    state.rooms=Array.isArray(state.rooms)?state.rooms:[];
+    state.locations=Array.isArray(state.locations)?state.locations:[];
+    state.assets=Array.isArray(state.assets)?state.assets:[];
+    if(!state.assetCatalogs || typeof state.assetCatalogs!=='object') state.assetCatalogs={types:[...DEFAULT_ASSET_TYPES],manufacturers:[],models:[],statuses:[...DEFAULT_ASSET_STATUSES],substatuses:[...DEFAULT_ASSET_SUBSTATUSES]};
+    ensureRooms();
+    migrateGlobalAssets();
+    let active=state.rooms.find(r=>r.id===state.activeRoomId)||state.rooms[0];
+    if(active?.data) applyRoomData(active.data);
+    normalizeState();
+
+    pan=null;
+    initHistory(cloudProjectId,state.activeRoomId,true);
+    updateRoomUI();
+    applyTheme();
+    renderAll(false);
+    cloudDirty=true;
+    setCloudStatus('pending');
+    scheduleCloudSave();
+    updatePlannerProjectName();
+    toast('Projeto importado. Revise e salve para manter as alterações.');
+  }catch(err){
+    console.error('Import project:',err);
+    toast(`Não foi possível importar o arquivo: ${err?.message||'erro desconhecido'}`);
+  }
+}
 async function fetchCloudProjects(){
   const {data:{user}}=await supabaseClient.auth.getUser();
   if(!user) return [];
@@ -466,14 +546,13 @@ function showDashboard(){
   appView='dashboard';
   $('dashboardScreen')?.classList.remove('hidden'); $('dashboardScreen')?.setAttribute('aria-hidden','false');
   $('mainTopbar')?.classList.add('hidden'); document.querySelector('.app')?.classList.add('hidden'); $('minimap')?.classList.add('hidden'); $('minimapToggle')?.classList.add('hidden');
-  const email=supabaseClient.auth?.getUser ? null : null;
   $('dashboardUserEmail').textContent=$('authUserEmail')?.textContent||'';
   renderDashboardProjects();
 }
 function hideDashboard(){
   appView='planner';
   $('dashboardScreen')?.classList.add('hidden'); $('dashboardScreen')?.setAttribute('aria-hidden','true');
-  $('mainTopbar')?.classList.remove('hidden'); document.querySelector('.app')?.classList.remove('hidden'); $('minimapToggle')?.classList.remove('hidden'); if(localStorage.getItem('dccp_minimap_open')==='1') $('minimap')?.classList.remove('hidden');
+  $('mainTopbar')?.classList.remove('hidden'); document.querySelector('.app')?.classList.remove('hidden'); $('minimapToggle')?.classList.remove('hidden');
 }
 async function renderDashboardProjects(){
   const grid=$('projectsGrid'),empty=$('projectsEmpty');
@@ -497,8 +576,17 @@ async function renderDashboardProjects(){
       const project=projects.find(x=>String(x.id)===String(b.dataset.projectMenu));
       if(!project)return;
       const panel=document.createElement('div'); panel.className='project-menu-panel';
-      panel.innerHTML='<button type="button" data-action="rename">Renomear</button><button type="button" data-action="duplicate">Duplicar</button><button type="button" data-action="export">Exportar projeto</button><button type="button" class="danger" data-action="delete">Excluir</button>';
-      b.parentElement.appendChild(panel);
+      panel.innerHTML='<button type="button" data-action="rename"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Renomear</button>'
+        +'<button type="button" data-action="duplicate"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Duplicar</button>'
+        +'<button type="button" data-action="export"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg>Exportar projeto</button>'
+        +'<div class="menu-divider"></div>'
+        +'<button type="button" class="danger" data-action="delete"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Excluir</button>';
+      document.body.appendChild(panel);
+      const r=b.getBoundingClientRect();
+      const pw=panel.offsetWidth||190;
+      panel.style.left=Math.max(8,Math.min(window.innerWidth-pw-8,r.right-pw))+'px';
+      panel.style.top=(r.bottom+6)+'px';
+      requestAnimationFrame(()=>panel.classList.add('open'));
       const bindAction=(selector,fn)=>panel.querySelector(selector).addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();fn(project);});
       bindAction('[data-action="rename"]',renameCloudProject);
       bindAction('[data-action="duplicate"]',duplicateCloudProject);
@@ -547,7 +635,7 @@ async function openCloudProject(id){
 }
 function resetStateForNewProject(name='Data Center'){
   const keepTheme=state.theme;
-  state.projectName=name;state.rackUnits=48;state.rackWidth=.60;state.rackDepth=1.20;state.rackGap=0;state.defaultRowGap=1.20;state.lastUToTray=1.00;state.defaultSlack=10;state.rows=[];state.racks=[];state.cables=[];state.trays=[];state.trayLinks=[];state.trayRackLinks=[];state.assets=[];state.snapToEdges=true;state.assetCatalogs={types:[...DEFAULT_ASSET_TYPES],manufacturers:[],models:[],statuses:[...DEFAULT_ASSET_STATUSES],substatuses:[...DEFAULT_ASSET_SUBSTATUSES]}; state.locations=[];state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];state.theme=keepTheme;state.rooms=[];state.activeRoomId=null;ensureRooms();
+  state.projectName=name;state.rackUnits=48;state.rackWidth=.60;state.rackDepth=1.20;state.rackGap=0;state.rackPowerCapacityW=0;state.defaultRowGap=1.20;state.lastUToTray=1.00;state.defaultSlack=10;state.rows=[];state.racks=[];state.cables=[];state.trays=[];state.trayLinks=[];state.trayRackLinks=[];state.assets=[];state.snapToEdges=true;state.assetCatalogs={types:[...DEFAULT_ASSET_TYPES],manufacturers:[],models:[],statuses:[...DEFAULT_ASSET_STATUSES],substatuses:[...DEFAULT_ASSET_SUBSTATUSES]}; state.locations=[];state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];state.theme=keepTheme;state.rooms=[];state.activeRoomId=null;ensureRooms();
   cloudProjectId=null;
   lastCloudSnapshot=null;
   cloudDirty=true;
@@ -557,7 +645,7 @@ function resetStateForNewProject(name='Data Center'){
   normalizeState();
 }
 async function createNewCloudProject(){
-  const name=prompt('Nome do novo projeto:','Data Center');
+  const name=await uiPrompt('Dê um nome para o novo projeto.','Data Center',{title:'Novo projeto',label:'Nome do projeto',confirmText:'Criar projeto'});
   if(name===null)return;
   if(!appStarted){appStarted=true;bind();}
   resetStateForNewProject(String(name).trim()||'Data Center');
@@ -567,7 +655,7 @@ async function createNewCloudProject(){
 }
 async function renameCloudProject(project){
   closeProjectMenus();
-  const name=prompt('Novo nome do projeto:',project.name||'Projeto');
+  const name=await uiPrompt('Digite o novo nome do projeto.',project.name||'Projeto',{title:'Renomear projeto',label:'Nome do projeto',confirmText:'Salvar'});
   if(name===null)return;
   const next=String(name).trim();if(!next)return;
   try{const {error}=await supabaseClient.from('projects').update({name:next,updated_at:new Date().toISOString()}).eq('id',project.id);if(error)throw error; if(cloudProjectId===project.id){state.projectName=next;updatePlannerProjectName();lastCloudSnapshot=projectSnapshotForCloud();cloudDirty=false;setCloudStatus('saved');} await renderDashboardProjects();toast('Projeto renomeado');}catch(err){console.error(err);toast('Não foi possível renomear o projeto');}
@@ -582,7 +670,8 @@ function exportCloudProject(project){
 }
 async function deleteCloudProject(project){
   closeProjectMenus();
-  if(!confirm(`Excluir o projeto "${project.name||'Projeto'}"? Esta ação não pode ser desfeita.`))return;
+  const ok=await uiConfirm('Esta ação não pode ser desfeita.',{title:`Excluir o projeto "${project.name||'Projeto'}"?`,confirmText:'Excluir projeto',danger:true});
+  if(!ok)return;
   try{const {error}=await supabaseClient.from('projects').delete().eq('id',project.id);if(error)throw error;if(cloudProjectId===project.id){cloudProjectId=null;localStorage.removeItem(`${STORAGE}-cloud-id`);}await renderDashboardProjects();toast('Projeto excluído');}catch(err){console.error(err);toast('Não foi possível excluir o projeto');}
 }
 
@@ -595,59 +684,55 @@ function showAuthView(id){
 function authMessage(id,text,type=''){ const e=$(id); if(!e)return; e.textContent=text||''; e.classList.remove('error','success'); if(type)e.classList.add(type); }
 function setAuthBusy(id,busy,label){ const b=$(id); if(!b)return; b.disabled=busy; if(busy){b.dataset.original=b.textContent;b.textContent='Aguarde...';}else if(b.dataset.original){b.textContent=label||b.dataset.original;} }
 function lockApp(){ document.body.classList.add('auth-locked'); $('authScreen')?.classList.remove('hidden'); $('authScreen')?.setAttribute('aria-hidden','false'); }
-function setGuestUi(){
+function enterGuestMode(){
+  document.body.classList.add('guest-mode');
   document.body.classList.remove('auth-locked');
   $('authScreen')?.classList.add('hidden'); $('authScreen')?.setAttribute('aria-hidden','true');
-  $('dashboardScreen')?.classList.add('hidden'); $('dashboardScreen')?.setAttribute('aria-hidden','true');
-  $('mainTopbar')?.classList.remove('hidden'); document.querySelector('.app')?.classList.remove('hidden');
-  // Em modo convidado a tela de dashboard pode ter ocultado os controles flutuantes.
-  $('minimapToggle')?.classList.remove('hidden');
-  if(localStorage.getItem('dccp_minimap_open')==='1') $('minimap')?.classList.remove('hidden'); else $('minimap')?.classList.add('hidden');
-  $('authUserEmail').textContent='Modo convidado'; $('dashboardUserEmail').textContent='Modo convidado';
-  const saveBtn=$('btnSave'); if(saveBtn){saveBtn.disabled=true;saveBtn.title='Indisponível no modo convidado';}
-  const auto=$('autosaveToggle'); if(auto){auto.checked=false;auto.disabled=true;auto.title='Autosave na nuvem indisponível no modo convidado';}
-  const autoLabel=$('autosaveLabel'); if(autoLabel)autoLabel.textContent='Offline';
-  const projects=$('btnProjects'); if(projects){projects.disabled=true;projects.title='Projetos na nuvem indisponíveis no modo convidado';}
-  const loc=$('btnLocations'); if(loc){};
-  $('cloudStatus').textContent='● Modo convidado — somente offline'; $('cloudStatus').dataset.status='guest'; $('cloudStatus').title='O projeto não é salvo na nuvem. Use Exportar projeto para guardar uma cópia.';
-  updatePlannerProjectName();
+  cloudReady=false; cloudProjectId=null;
+  if(!appStarted){appStarted=true;bind();}
+  resetStateForNewProject('Meu Projeto');
+  renderAll(false); initHistory(null); hideDashboard();
+  const saveBtn=$('btnSave'); if(saveBtn){saveBtn.disabled=true;saveBtn.title='Indisponível no modo convidado — use Exportar/Importar projeto.';}
+  toast('Modo convidado: use Exportar/Importar projeto para salvar seu trabalho.');
 }
-function enterGuestMode(){
-  guestMode=true; appStarted=true; appView='planner'; cloudReady=false; cloudProjectId=null; cloudDirty=false; lastCloudSnapshot=null; STORAGE='dc-planner-v7-guest';
-  clearTimeout(cloudSaveTimer);
-  resetStateForNewProject('Projeto convidado');
-  cloudDirty=false; cloudStatus='guest';
-  if(typeof bind==='function') bind();
-  setGuestUi();
-  renderAll(false);
-  initHistory(null,state.activeRoomId);
-  updateHistoryButtons();
-  toast('Modo convidado ativado');
-}
-function leaveGuestMode(){
-  guestMode=false; appStarted=false; appView=null; cloudReady=false; cloudProjectId=null; cloudDirty=false; lastCloudSnapshot=null; STORAGE=GLOBAL_STORAGE;
-  clearTimeout(cloudSaveTimer);
-  $('btnSave')?.removeAttribute('disabled'); $('autosaveToggle')?.removeAttribute('disabled'); $('autosaveToggle').checked=autosaveEnabled; $('autosaveLabel').textContent='Autosave'; $('btnProjects')?.removeAttribute('disabled');
-  $('mainTopbar')?.classList.add('hidden'); document.querySelector('.app')?.classList.add('hidden'); lockApp(); showAuthView('authLoginView'); $('loginPassword').value=''; $('loginEmail').focus();
-}
-
 function unlockApp(user, forceDashboard=false){
   if(user?.id){ STORAGE = `dc-planner-v7-user-${user.id}`; }
-  document.body.classList.remove('auth-locked'); $('authScreen')?.classList.add('hidden'); $('authScreen')?.setAttribute('aria-hidden','true');
-  const e=$('authUserEmail'); if(e)e.textContent=user?.email||'';
-  $('dashboardUserEmail').textContent=user?.email||'';
+  document.body.classList.remove("auth-locked"); $("authScreen")?.classList.add("hidden"); $("authScreen")?.setAttribute("aria-hidden","true");
+  const e=$("authUserEmail"); if(e)e.textContent=user?.email||"";
+  $("dashboardUserEmail").textContent=user?.email||"";
   updatePlannerProjectName();
   if(forceDashboard || !appView) showDashboard();
+}
+
+const EYE_PATH='<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>';
+const EYE_OFF_PATH='<path d="M3 3l18 18"/><path d="M10.6 5.2A10.6 10.6 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.3 6.3C3.9 7.9 2 12 2 12s3.6 7 10 7c1.4 0 2.6-.3 3.7-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>';
+function bindPasswordToggles(){
+  document.querySelectorAll('[data-toggle-password]').forEach(btn=>{
+    if(btn.dataset.bound)return;
+    btn.dataset.bound='1';
+    btn.onclick=()=>{
+      const input=$(btn.dataset.togglePassword);
+      if(!input)return;
+      const showing=input.type==='password';
+      input.type=showing?'text':'password';
+      btn.setAttribute('aria-pressed',String(showing));
+      btn.setAttribute('aria-label',showing?'Ocultar senha':'Mostrar senha');
+      btn.querySelector('svg').innerHTML=showing?EYE_OFF_PATH:EYE_PATH;
+    };
+  });
 }
 
 async function startAuth(){
   lockApp();
   showAuthView('authLoginView');
+  $('btnGuestMode')?.addEventListener('click',enterGuestMode);
+  bindPasswordToggles();
   $('dashboardNewProject').onclick=createNewCloudProject; $('dashboardNewProjectEmpty').onclick=createNewCloudProject; $('dashboardLogout').onclick=async()=>{await supabaseClient.auth.signOut();};
   $('dashboardTheme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';applyTheme();localStorage.setItem(THEME_STORAGE,state.theme);toast(state.theme==='light'?'Tema claro':'Tema escuro');};
   $('authTheme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';localStorage.setItem(THEME_STORAGE,state.theme);applyTheme();};
-  document.addEventListener('click',e=>{if(!e.target.closest('.project-menu'))closeProjectMenus();});
-  $('btnGuest').onclick=enterGuestMode;
+  document.addEventListener('click',e=>{if(!e.target.closest('.project-menu')&&!e.target.closest('.project-menu-panel'))closeProjectMenus();});
+  window.addEventListener('resize',closeProjectMenus);
+  $('dashboardScreen')?.addEventListener('scroll',closeProjectMenus,true);
   $('showSignup').onclick=()=>showAuthView('authSignupView');
   $('showForgot').onclick=()=>{ $('forgotEmail').value=$('loginEmail')?.value||''; showAuthView('authForgotView'); };
   $('showLoginFromSignup').onclick=()=>showAuthView('authLoginView');
@@ -680,9 +765,13 @@ async function startAuth(){
     setAuthBusy('btnResetPassword',false,'Salvar nova senha');
     if(error)authMessage('resetMessage',friendlyAuthError(error),'error'); else {authMessage('resetMessage','Senha alterada com sucesso. Entrando...','success');setTimeout(()=>supabaseClient.auth.getSession(),700);}
   };
-  $('btnLogout').onclick=async()=>{if(guestMode)return leaveGuestMode();await supabaseClient.auth.signOut();};
+  $('btnLogout').onclick=async()=>{await supabaseClient.auth.signOut();};
+  $('btnHelp')?.addEventListener('click',openHelpModal);
+  $('helpClose')?.addEventListener('click',closeHelpModal);
+  document.querySelectorAll('[data-help-section]').forEach(b=>b.onclick=()=>switchHelpSection(b.dataset.helpSection));
+  $('canvasEmptyHintClose')?.addEventListener('click',()=>{localStorage.setItem('dccp_hint_dismissed','1');$('canvasEmptyHint')?.classList.add('hidden');});
+  $('canvasEmptyHintHelp')?.addEventListener('click',openHelpModal);
   supabaseClient.auth.onAuthStateChange((event,session)=>{
-    if(guestMode)return;
     if(event==='PASSWORD_RECOVERY'){lockApp();showAuthView('authResetView');return;}
     if(session?.user){ unlockApp(session.user, event==='SIGNED_IN' && !appStarted); } else if(event==='SIGNED_OUT'){ cloudReady=false; cloudProjectId=null; appStarted=false; $('dashboardScreen')?.classList.add('hidden'); $('mainTopbar')?.classList.remove('hidden'); document.querySelector('.app')?.classList.remove('hidden'); appView=null; lockApp(); showAuthView('authLoginView'); $('loginPassword').value=''; }
   });
@@ -706,7 +795,86 @@ let STORAGE = GLOBAL_STORAGE;
 const LEGACY_STORAGE = 'dc-planner-v6';
 const THEME_STORAGE = 'dc-planner-theme';
 const $ = id => document.getElementById(id);
+
+// --- UI dialogs: styled replacements for window.confirm()/window.prompt() ---
+// Both return a Promise so call sites use `await uiConfirm(...)` / `await uiPrompt(...)`.
+function _uiDialogOpen(){
+  const modal=$('uiConfirmModal');
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden','false');
+  return modal;
+}
+function _uiDialogClose(modal){
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden','true');
+}
+const ICON_WARNING='<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>';
+const ICON_HELP='<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.5 1.7c0 1.7-2.6 2.3-2.6 3.8"/><path d="M12 17.5h.01"/>';
+const ICON_EDIT='<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>';
+function uiConfirm(message, opts={}){
+  return new Promise(resolve=>{
+    const modal=$('uiConfirmModal');
+    const title=$('uiConfirmTitle'), sub=$('uiConfirmSubtitle'), body=$('uiConfirmBody'), icon=$('uiConfirmIcon');
+    const ok=$('uiConfirmOk'), cancel=$('uiConfirmCancel'), promptWrap=$('uiConfirmPromptWrap');
+    title.textContent=opts.title||'Confirmar ação';
+    if(opts.subtitle){sub.textContent=opts.subtitle;sub.classList.remove('hidden');}else{sub.textContent='';sub.classList.add('hidden');}
+    body.textContent=message||'';
+    body.classList.toggle('hidden',!message);
+    promptWrap.classList.add('hidden');
+    ok.textContent=opts.confirmText||'Confirmar';
+    cancel.textContent=opts.cancelText||'Cancelar';
+    ok.className='btn '+(opts.danger?'danger-btn':'primary');
+    icon.className='ui-confirm-icon'+(opts.danger?' danger':'');
+    icon.querySelector('svg').innerHTML=opts.danger?ICON_WARNING:ICON_HELP;
+    _uiDialogOpen();
+    const finish=val=>{_uiDialogClose(modal);ok.onclick=null;cancel.onclick=null;modal.onclick=null;document.removeEventListener('keydown',onKey);resolve(val);};
+    const onKey=e=>{if(e.key==='Escape'){e.preventDefault();finish(false);}else if(e.key==='Enter'){e.preventDefault();finish(true);}};
+    document.addEventListener('keydown',onKey);
+    ok.onclick=()=>finish(true);
+    cancel.onclick=()=>finish(false);
+    modal.onclick=e=>{if(e.target===modal)finish(false);};
+    setTimeout(()=>ok.focus(),20);
+  });
+}
+function uiPrompt(message, defaultValue='', opts={}){
+  return new Promise(resolve=>{
+    const modal=$('uiConfirmModal');
+    const title=$('uiConfirmTitle'), sub=$('uiConfirmSubtitle'), body=$('uiConfirmBody'), icon=$('uiConfirmIcon');
+    const ok=$('uiConfirmOk'), cancel=$('uiConfirmCancel');
+    const promptWrap=$('uiConfirmPromptWrap'), label=$('uiConfirmPromptLabel'), input=$('uiConfirmPromptInput'), err=$('uiConfirmPromptError');
+    icon.className='ui-confirm-icon';
+    icon.querySelector('svg').innerHTML=ICON_EDIT;
+    title.textContent=opts.title||'Renomear';
+    sub.textContent='';sub.classList.add('hidden');
+    body.textContent=message||'';
+    if(body.textContent)body.classList.remove('hidden');else body.classList.add('hidden');
+    label.textContent=opts.label||'Nome';
+    err.textContent='';
+    promptWrap.classList.remove('hidden');
+    input.type=opts.type||'text';
+    input.value=defaultValue||'';
+    ok.textContent=opts.confirmText||'Confirmar';
+    cancel.textContent=opts.cancelText||'Cancelar';
+    ok.className='btn primary';
+    _uiDialogOpen();
+    const finish=val=>{_uiDialogClose(modal);ok.onclick=null;cancel.onclick=null;input.onkeydown=null;modal.onclick=null;document.removeEventListener('keydown',onKey);body.classList.remove('hidden');resolve(val);};
+    const onKey=e=>{if(e.key==='Escape'){e.preventDefault();finish(null);}};
+    document.addEventListener('keydown',onKey);
+    const submit=()=>{
+      const v=input.value;
+      if(opts.required!==false && !v.trim()){err.textContent=opts.errorText||'Preencha este campo.';input.focus();return;}
+      finish(v);
+    };
+    ok.onclick=submit;
+    cancel.onclick=()=>finish(null);
+    modal.onclick=e=>{if(e.target===modal)finish(null);};
+    input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();submit();}};
+    setTimeout(()=>{input.focus();input.select();},20);
+  });
+}
 const CABLE_TYPES = ['Fibra Multi Mode','Fibra Single Mode','UTP'];
+const CABLE_TYPE_COLORS = {'Fibra Multi Mode':'#2dd4bf','Fibra Single Mode':'#facc15','UTP':'#4f8cff'};
+function cableTypeColor(type){return CABLE_TYPE_COLORS[type]||'var(--route)';}
 const DEFAULT_CABLE_TYPE = 'UTP';
 
 const state = {
@@ -723,15 +891,10 @@ const state = {
   structureLocked: false, snapToEdges: true, rooms: [], activeRoomId: null, assetCatalogs: {types:['Servidor','Switch','Storage','PDU','Patch Panel','Firewall','Roteador','Outro'], manufacturers:[], models:[]}
 };
 let pan = null;
-const VIEW_PAD = 700;
+const VIEW_PAD = 2500;
 const ROW_GAP_VISUAL = 1.00;
 const history = { undo: [], redo: [], last: null, restoring: false, max: 80, projectId: null, roomId: null, contexts: new Map() };
 function isStructureLocked(){ return state.structureLocked===true; }
-function setSnapToEdges(enabled=true,persist=false){
-  // Snap is always enabled. Keep the legacy property for project compatibility.
-  state.snapToEdges=true;
-  if(persist)save();
-}
 function setStructureLock(locked, persist=true){
   state.structureLocked=!!locked;
   const btn=$('structureLock'), icon=$('structureLockIcon');
@@ -959,67 +1122,6 @@ function cloneData(value){
 function esc(s){ return String(s ?? '').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function num(v,fallback=0){ const n=Number(v); return Number.isFinite(n)?n:fallback; }
 function toast(text){ const t=$('toast'); t.textContent=text; t.classList.add('show'); clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(()=>t.classList.remove('show'),1800); }
-function importProject(file){
-  if(!file)return;
-  const reader=new FileReader();
-  reader.onload=()=>{
-    try{
-      const raw=String(reader.result||'');
-      if(!raw.trim())throw new Error('O arquivo está vazio.');
-      const imported=JSON.parse(raw);
-      if(!imported || typeof imported!=='object' || Array.isArray(imported)) throw new Error('Arquivo de projeto inválido.');
-
-      // Keep volatile/session-only UI out of the imported project.
-      const keepTheme=state.theme;
-      const keepGuestMode=guestMode;
-
-      // Accept the project JSON produced by Exportar projeto.  Clone first so
-      // the file object never shares references with live state.
-      const next=cloneData(imported);
-      delete next.selected;
-      delete next.multiSelected;
-      delete next.trayMultiSelected;
-
-      // Replace the project state in-place so existing UI bindings continue to work.
-      Object.keys(state).forEach(k=>{ if(!(k in next) && k!=='theme') delete state[k]; });
-      Object.assign(state,next);
-      state.theme=keepTheme;
-      state.selected=null;
-      state.multiSelected=[];
-      state.trayMultiSelected=[];
-      state.snapToEdges=true;
-      guestMode=keepGuestMode;
-      cloudProjectId=guestMode?null:cloudProjectId;
-      cloudDirty=!guestMode;
-      lastCloudSnapshot=guestMode?null:projectSnapshotForCloud();
-      ensureRooms();
-      migrateGlobalAssets();
-      normalizeState();
-      const active=state.rooms.find(r=>r.id===state.activeRoomId)||state.rooms[0];
-      if(active?.data)applyRoomData(active.data);
-      syncActiveRoom();
-
-      // Imported data is the new baseline: it must not be undoable back to the
-      // unrelated project that was open before the import.
-      history.contexts.clear();
-      initHistory(cloudProjectId,state.activeRoomId,true);
-      if(typeof updateRoomUI==='function')updateRoomUI();
-      if(typeof applyTheme==='function')applyTheme();
-      if(typeof renderAll==='function')renderAll(false);
-      if(typeof updateStructureControls==='function')updateStructureControls();
-      if(typeof updateMinimap==='function')updateMinimap();
-      if(typeof setCloudStatus==='function')setCloudStatus(guestMode?'saved':'pending');
-      if(typeof updatePlannerProjectName==='function')updatePlannerProjectName();
-      if(!guestMode)scheduleCloudSave();
-      toast(`Projeto importado: ${state.projectName||'Data Center'}`);
-    }catch(err){
-      console.error('Import project:',err);
-      toast(err?.message||'Não foi possível importar o projeto.');
-    }
-  };
-  reader.onerror=()=>toast('Não foi possível ler o arquivo do projeto.');
-  reader.readAsText(file,'utf-8');
-}
 function save(){ recordHistory(); localStorage.setItem(THEME_STORAGE,state.theme); applyTheme(); updatePlannerProjectName(); scheduleCloudSave(); }
 function load(){
   // Project data is cloud-first. This startup routine only normalizes a clean
@@ -1034,6 +1136,8 @@ function load(){
   state.trays=Array.isArray(state.trays)?state.trays:[];
   if(!Number.isFinite(Number(state.rackGap))) state.rackGap=0;
   state.rackGap=Math.max(0,Number(state.rackGap));
+  if(!Number.isFinite(Number(state.rackPowerCapacityW))) state.rackPowerCapacityW=0;
+  state.rackPowerCapacityW=Math.max(0,Number(state.rackPowerCapacityW));
   if(!Number.isFinite(Number(state.rackDepth))) state.rackDepth=1.20;
   state.rackDepth=Math.max(0.1,Number(state.rackDepth));
   if(state.theme!=='light'&&state.theme!=='dark')state.theme='dark';
@@ -1049,8 +1153,7 @@ function rowForRack(r){ return r?state.rows.find(x=>x.id===r.rowId):null; }
 function rowIndex(r){ return r?state.rows.findIndex(x=>x.id===r.rowId):-1; }
 function racksInRow(rowId){ return state.racks.filter(r=>r.rowId===rowId).sort((a,b)=>a.index-b.index); }
 function rackAt(rowId,index){ return racksInRow(rowId).find(r=>r.index===index)||null; }
-function adjacentRows(row){ const i=state.rows.findIndex(x=>x.id===row?.id); if(i<0)return[]; return state.rows.filter((_,idx)=>Math.abs(idx-i)===1); }
-function makeRack(row,index){ return {id:uid('rack'),rowId:row.id,index,name:`${row.name||'R'}-${String(index+1).padStart(2,'0')}`,units:state.rackUnits,width:state.rackWidth,depth:state.rackDepth,gapAfter:state.rackGap,riseToTray:state.lastUToTray,offset:0,yOffset:0,hasTray:false}; }
+function makeRack(row,index){ return {id:uid('rack'),rowId:row.id,index,name:`${row.name||'R'}-${String(index+1).padStart(2,'0')}`,units:state.rackUnits,width:state.rackWidth,depth:state.rackDepth,gapAfter:state.rackGap,riseToTray:state.lastUToTray,powerCapacityW:state.rackPowerCapacityW||0,weightCapacityKg:0,offset:0,yOffset:0,hasTray:false}; }
 function normalizeIndices(){
   // Physical slot indexes are preserved so deleting a rack does not move the
   // remaining racks.  rackCount, however, represents the actual number of
@@ -1075,6 +1178,10 @@ function normalizeState(){
     r.gapAfter=Math.max(0,Number(r.gapAfter));
     if(!Number.isFinite(Number(r.riseToTray))) r.riseToTray=state.lastUToTray;
     r.riseToTray=Math.max(0,Number(r.riseToTray));
+    // Capacidade elétrica é opcional: 0/ausente significa "sem limite definido",
+    // então não força um valor default como as outras propriedades acima.
+    r.powerCapacityW=Number.isFinite(Number(r.powerCapacityW))?Math.max(0,Number(r.powerCapacityW)):0;
+    r.weightCapacityKg=Number.isFinite(Number(r.weightCapacityKg))?Math.max(0,Number(r.weightCapacityKg)):0;
     if(!Number.isFinite(Number(r.offset))) r.offset=0;
     r.offset=Number(r.offset);
     if(!Number.isFinite(Number(r.yOffset))) r.yOffset=0;
@@ -1114,7 +1221,7 @@ function normalizeState(){
   state.cables=state.cables.filter(c=>rackIds.has(c.originRack)&&rackIds.has(c.destRack));
   // Assets are project-level. A missing rack means the asset is unassigned; never delete it.
   state.assets.forEach(a=>{if(a.rackId&&!allRackIds.has(a.rackId)){a.rackId=null;}});
-  state.cables.forEach(c=>{c.type=CABLE_TYPES.includes(c.type)?c.type:DEFAULT_CABLE_TYPE;c.via=(c.via||[]).filter(id=>rackIds.has(id));});
+  state.cables.forEach(c=>{c.type=CABLE_TYPES.includes(c.type)?c.type:DEFAULT_CABLE_TYPE;c.via=(c.via||[]).filter(id=>rackIds.has(id));c.originPortId=c.originPortId||null;c.destPortId=c.destPortId||null;});
   if(state.selected?.type==='rack'&&!rackIds.has(state.selected.id))state.selected=null;
   state.multiSelected=Array.isArray(state.multiSelected)?state.multiSelected.filter(id=>rackIds.has(id)):[];
   if(state.selected?.type==='rack' && !state.multiSelected.includes(state.selected.id)) state.multiSelected=[state.selected.id];
@@ -1122,10 +1229,10 @@ function normalizeState(){
   state.trayMultiSelected=Array.isArray(state.trayMultiSelected)?state.trayMultiSelected.filter(id=>trayIds.has(id)):[];
   if(state.selected?.type==='tray' && !state.trayMultiSelected.includes(state.selected.id)) state.trayMultiSelected=[state.selected.id];
 }
-function rebuildStructureFromSettings(){
+async function rebuildStructureFromSettings(){
   if(structureBlocked())return;
   if(state.rows.length || state.racks.length || state.trays.length){
-    const ok=confirm('Reconstruir estrutura?\n\nRacks e calhas atuais serão recriados do zero usando as configurações atuais. Os cabos serão preservados quando origem e destino continuarem existindo.\n\nVocê poderá desfazer a reconstrução usando o botão Desfazer. Deseja continuar?');
+    const ok=await uiConfirm('Racks e calhas atuais serão recriados do zero usando as configurações atuais. Os cabos serão preservados quando origem e destino continuarem existindo. Você poderá desfazer a reconstrução usando o botão Desfazer.',{title:'Reconstruir estrutura?',confirmText:'Reconstruir'});
     if(!ok)return;
   }
 
@@ -1142,6 +1249,7 @@ function rebuildStructureFromSettings(){
   state.rackWidth=Math.max(.1,num($('rackWidth').value,.6));
   state.rackDepth=Math.max(.1,num($('rackDepth').value,1.2));
   state.rackGap=Math.max(0,num($('rackGap').value,0));
+  state.rackPowerCapacityW=Math.max(0,num($('rackPowerCapacity').value,0));
   state.defaultRowGap=Math.max(0,num($('defaultRowGap').value,1.2));
   state.lastUToTray=Math.max(0,num($('lastUToTray').value,1));
   state.defaultSlack=Math.max(0,num($('defaultSlack').value,0));
@@ -1166,11 +1274,15 @@ function rebuildStructureFromSettings(){
 
   normalizeState();
   renderAll();
+  // Dupla espera por frame de animação: garante que o navegador já
+  // terminou de desenhar os racks novos antes de medir a caixa
+  // delimitadora pra centralizar (uma só espera às vezes não é
+  // suficiente e a centralização acaba não acontecendo).
+  requestAnimationFrame(()=>requestAnimationFrame(()=>window.__fitCanvas?.()));
   const msg=oldTrayCount?`Estrutura reconstruída. ${state.cables.length} cabo(s) preservado(s); ${oldTrayCount} calha(s) antiga(s) removida(s) e a estrutura foi recriada do zero.`:`Estrutura reconstruída. ${state.cables.length} cabo(s) preservado(s).`;
   toast(droppedCables?`${msg} ${droppedCables} cabo(s) removido(s) por falta de origem/destino.`:msg);
 }
 
-function initRows(){ return rebuildStructureFromSettings(); }
 function addRow(rackCount=0,gap=state.defaultRowGap){
   const i=state.rows.length;
   const row={id:uid('row'),name:`Row-${i+1}`,rackCount:0,gap:i===0?0:Math.max(0,gap),depth:Math.max(0.1,num(state.rackDepth,1.20))};
@@ -1328,7 +1440,7 @@ function geometry(){
     const x=x0+rowSlotPhysicalX(row,r.index)*scale+num(r.offset,0);
     maxRight=Math.max(maxRight,x+num(r.width,nominalW)*scale+140);
   }));
-  return {w:Math.max(vw+VIEW_PAD*2,maxRight+VIEW_PAD),h:Math.max(vh+VIEW_PAD*2,maxBottom+VIEW_PAD),vw,vh,scale,x0,rows};
+  return {w:maxRight+VIEW_PAD,h:maxBottom+VIEW_PAD,vw,vh,scale,x0,rows};
 }
 function slotPhysicalWidth(row,index){
   const r=rackAt(row.id,index);
@@ -1352,12 +1464,8 @@ function rackRect(r,g){
   return{x,y,w:ww,h:hh};
 }
 function rackCenter(r,g){const q=rackRect(r,g);return{x:q.x+q.w/2,y:q.y+q.h/2};}
-function edgeRacks(rowId){const rs=racksInRow(rowId);return {first:rs[0]||null,last:rs[rs.length-1]||null};}
-function isEdgeRack(r){const row=rowForRack(r);if(!row)return false;const e=edgeRacks(row.id);return !!e.first&&!!e.last&&(r.id===e.first.id||r.id===e.last.id);}
-function edgeSideForRack(r){const e=edgeRacks(r.rowId);if(e.first?.id===r.id)return 'left';if(e.last?.id===r.id)return 'right';return null;}
-function currentEdgeIndex(rowId,side){const e=edgeRacks(rowId);return side==='left'?(e.first?.index??0):(e.last?.index??0);} 
+ 
 
-function rackSidePoint(r,g){const q=rackRect(r,g); const side=edgeSideForRack(r); return side==='left'?{x:q.x,y:q.y+q.h/2}:side==='right'?{x:q.x+q.w,y:q.y+q.h/2}:rackCenter(r,g);}
 function rowCenterY(rowIndexValue,g){const info=g.rows[rowIndexValue]; if(!info)return 0; const rs=racksInRow(info.row.id); if(!rs.length)return info.y; const ys=rs.map(r=>rackCenter(r,g).y); return ys.reduce((a,b)=>a+b,0)/ys.length;}
 function rowTrayBounds(row,g){
   const rs=racksInRow(row.id);
@@ -1371,16 +1479,6 @@ function rowTrayBounds(row,g){
   const right=Math.max(...rects.map(q=>q.x+q.w));
   return {left:left-20,right:right+20,y};
 }
-function trayPointForRack(r,g){
-  const row=rowForRack(r); if(!row)return rackCenter(r,g);
-  const b=rowTrayBounds(row,g); if(!b)return rackCenter(r,g);
-  if(r.index===0)return {x:b.left,y:b.y};
-  const rs=racksInRow(row.id);
-  const maxIndex=Math.max(...rs.map(x=>x.index));
-  if(r.index===maxIndex)return {x:b.right,y:b.y};
-  return {x:rackCenter(r,g).x,y:b.y};
-}
-function rackTrayPoint(r,g){return trayPointForRack(r,g);}
 function trayPointForRowIndex(row,index,g,side){
   const b=rowTrayBounds(row,g);
   if(!b)return {x:g.x0,y:rowCenterY(state.rows.findIndex(x=>x.id===row.id),g)};
@@ -1399,57 +1497,9 @@ function trayPointForRowIndex(row,index,g,side){
   return {x:b.left+20+px+nominal/2,y:b.y};
 }
 
-function traySide(t,rowId){
-  if(!t?.edge)return null;
-  if(t.fromRowId===rowId && t.sideFrom)return t.sideFrom;
-  if(t.toRowId===rowId && t.sideTo)return t.sideTo;
-  const idx=t.fromRowId===rowId?t.fromIndex:t.toIndex;
-  const row=state.rows.find(r=>r.id===rowId);
-  if(!row)return null;
-  const e=edgeRacks(row.id);
-  if(e.first?.index===idx)return 'left';
-  if(e.last?.index===idx)return 'right';
-  return idx <= ((e.first?.index??0)+(e.last?.index??0))/2 ? 'left' : 'right';
-}
-
-function physicalPointOnRow(row,index,side){
-  const maxIndex=Math.max(0,...racksInRow(row.id).map(r=>r.index));
-  if(side==='left')return 0;
-  if(side==='right'){
-    let total=0;
-    for(let i=0;i<=maxIndex;i++){
-      total+=slotPhysicalWidth(row,i);
-      if(i<maxIndex) total+=slotGapAfter(row,i);
-    }
-    return total;
-  }
-  const i=Math.max(0,Number(index)||0);
-  let x=0;
-  for(let k=0;k<i;k++) x+=slotPhysicalWidth(row,k)+slotGapAfter(row,k);
-  return x+slotPhysicalWidth(row,i)/2;
-}
-function connectionPhysicalPosition(node){
-  const row=state.rows.find(r=>r.id===node.rowId);
-  return row?physicalPointOnRow(row,node.index,node.side):0;
-}
 
 
-function trayKey(t){return `${t.fromRowId}:${t.fromIndex}<->${t.toRowId}:${t.toIndex}`;}
-function trayExists(a,b){return state.trays.some(t=>(t.fromRowId===a.rowId&&t.fromIndex===a.index&&t.toRowId===b.rowId&&t.toIndex===b.index)||(t.fromRowId===b.rowId&&t.fromIndex===b.index&&t.toRowId===a.rowId&&t.toIndex===a.index));}
-function explicitTraysForRack(r){return state.trays.filter(t=>(t.fromRowId===r.rowId&&t.fromIndex===r.index)||(t.toRowId===r.rowId&&t.toIndex===r.index));}
-function traysForRack(r){return explicitTraysForRack(r);}
-function rackHasTray(r){return explicitTraysForRack(r).length>0;}
-function addRackTrayToRow(r,targetRackId){
- const b=state.racks.find(x=>x.id===targetRackId);if(!b){toast('Selecione um rack de destino válido');return;}
- const targetRow=rowForRack(b),sourceRow=rowForRack(r);
- if(!targetRow||!sourceRow||!adjacentRows(sourceRow).some(x=>x.id===targetRow.id)){toast('A calha só pode interligar fileiras adjacentes');return;}
- if(b.index!==r.index){toast('A calha só pode interligar racks na mesma posição');return;}
- if(trayExists(r,b)){toast('Essa interligação de calha já existe');return;}
- const edge=isEdgeRack(r)&&isEdgeRack(b);
- state.trays.push({id:uid('tray'),fromRowId:r.rowId,toRowId:b.rowId,fromIndex:r.index,toIndex:b.index,edge,sideFrom:edge?edgeSideForRack(r):null,sideTo:edge?edgeSideForRack(b):null});
- normalizeState();renderAll();toast('Interligação de calha criada');
-}
-function removeRackTrays(r){/* infraestrutura sobrevive à exclusão do rack */}
+
 
 function migrateLegacyTrays(g){
   const legacy=state.trays.filter(t=>t._legacy); if(!legacy.length)return;
@@ -1576,7 +1626,23 @@ function render(){
     const vx=q.x+inset, vy=q.y+inset, vw=Math.max(1,q.w-inset*2), vh=Math.max(1,q.h-inset*2);
     const faceX=vx+5, faceY=vy+5, faceW=Math.max(1,vw-10), faceH=Math.max(1,vh-10);
     const lineY=vy+22;
-    svg.insertAdjacentHTML('beforeend',`<g data-rack="${r.id}" class="rackg"><rect class="rack-hit" x="${q.x}" y="${q.y}" width="${q.w}" height="${q.h}" rx="8"/><rect class="rack-body ${selected?'selected':''}" x="${vx}" y="${vy}" width="${vw}" height="${vh}" rx="7"/><rect class="rack-face" x="${faceX}" y="${faceY}" width="${faceW}" height="${faceH}" rx="5"/><line class="rack-topline" x1="${vx+8}" y1="${lineY}" x2="${vx+vw-8}" y2="${lineY}"/><circle class="rack-led" cx="${vx+14}" cy="${vy+13}" r="2"/><circle class="rack-led" cx="${vx+21}" cy="${vy+13}" r="2"/><circle class="rack-led" cx="${vx+28}" cy="${vy+13}" r="2"/><circle class="rack-led" cx="${vx+35}" cy="${vy+13}" r="2"/></g>`);
+    const totalU=Math.max(1,Math.floor(num(r.units,state.rackUnits)));
+    const usedU=state.assets.filter(a=>a.rackId===r.id).reduce((sum,a)=>sum+Math.max(1,Math.floor(num(a.uHeight,1))),0);
+    const pct=Math.min(1,usedU/totalU);
+    const utilLevel=pct>=0.85?'high':pct>=0.5?'mid':'low';
+    const barX=vx+6, barY=vy+vh-7, barTrackW=Math.max(0,vw-12), barFillW=Math.max(0,barTrackW*pct);
+    // As bolinhas de status seguem o consumo elétrico quando o rack tem
+    // capacidade cadastrada; sem capacidade definida, caem de volta pro
+    // sinal simples de "tem equipamento instalado".
+    const powerCapacity=num(r.powerCapacityW,0);
+    const rackPowerW=state.assets.filter(a=>a.rackId===r.id).reduce((sum,a)=>sum+Math.max(0,num(a.powerW,0)),0);
+    let ledClass='';
+    if(powerCapacity>0){
+      ledClass=rackPowerW>powerCapacity?'is-power-high':(rackPowerW/powerCapacity>=0.8?'is-power-mid':'is-on');
+    }else if(usedU>0){
+      ledClass='is-on';
+    }
+    svg.insertAdjacentHTML('beforeend',`<g data-rack="${r.id}" class="rackg"><rect class="rack-hit" x="${q.x}" y="${q.y}" width="${q.w}" height="${q.h}" rx="8"/><rect class="rack-body ${selected?'selected':''}" x="${vx}" y="${vy}" width="${vw}" height="${vh}" rx="7"/><rect class="rack-face" x="${faceX}" y="${faceY}" width="${faceW}" height="${faceH}" rx="5"/><line class="rack-topline" x1="${vx+8}" y1="${lineY}" x2="${vx+vw-8}" y2="${lineY}"/><circle class="rack-led ${ledClass}" cx="${vx+14}" cy="${vy+13}" r="2"/><circle class="rack-led ${ledClass}" cx="${vx+21}" cy="${vy+13}" r="2"/><rect class="rack-util-track" x="${barX}" y="${barY}" width="${barTrackW}" height="3" rx="1.5"/><rect class="rack-util-fill util-${utilLevel}" x="${barX}" y="${barY}" width="${barFillW}" height="3" rx="1.5"/></g>`);
   });
 
   // Camada 2: informações dimensionais dos racks.
@@ -1634,7 +1700,8 @@ function render(){
     if(c){
       const pts=computeRoute(c,g);
       if(pts.length>1){
-        svg.insertAdjacentHTML('beforeend',`<polyline class="route-line" points="${pts.map(p=>p.x+','+p.y).join(' ')}"/>`);
+        const cableColor=cableTypeColor(c.type);
+        svg.insertAdjacentHTML('beforeend',`<polyline class="route-line" style="--cable-color:${cableColor}" points="${pts.map(p=>p.x+','+p.y).join(' ')}"/>`);
         // First visual pass: identify only the cable origin and destination.
         // The markers are intentionally rendered above the route and do not capture clicks.
         const origin=state.racks.find(r=>r.id===c.originRack), dest=state.racks.find(r=>r.id===c.destRack);
@@ -1651,9 +1718,9 @@ function render(){
             const dot=dx1*dx2+dy1*dy2;
             if(Math.abs(cross)>0.5 && dot>=0) turns.push(p1);
           }
-          curveMarkup=turns.map(p=>`<circle class="cable-route-turn" cx="${p.x}" cy="${p.y}" r="4"/>`).join('');
+          curveMarkup=turns.map(p=>`<circle class="cable-route-turn" style="--cable-color:${cableColor}" cx="${p.x}" cy="${p.y}" r="4"/>`).join('');
           svg.insertAdjacentHTML('beforeend',
-            `<g class="cable-endpoints cable-route-markers" pointer-events="none">`+
+            `<g class="cable-endpoints cable-route-markers" style="--cable-color:${cableColor}" pointer-events="none">`+
             `<circle class="cable-endpoint origin" cx="${a.x}" cy="${a.y}" r="6"/>`+
             `<circle class="cable-endpoint destination" cx="${b.x}" cy="${b.y}" r="6"/>`+
             curveMarkup+
@@ -1878,21 +1945,6 @@ function nearestTrayConnection(ignoreId,x,y,maxDist){
   });
   return best;
 }
-function nearestPointOnRectPerimeter(x,y,q){
-  const candidates=[
-    {side:'top',x:Math.max(q.x,Math.min(q.x+q.w,x)),y:q.y},
-    {side:'bottom',x:Math.max(q.x,Math.min(q.x+q.w,x)),y:q.y+q.h},
-    {side:'left',x:q.x,y:Math.max(q.y,Math.min(q.y+q.h,y))},
-    {side:'right',x:q.x+q.w,y:Math.max(q.y,Math.min(q.y+q.h,y))}
-  ];
-  let best=candidates[0];
-  let bestD=Math.hypot(x-best.x,y-best.y);
-  for(let i=1;i<candidates.length;i++){
-    const c=candidates[i],d=Math.hypot(x-c.x,y-c.y);
-    if(d<bestD){best=c;bestD=d;}
-  }
-  return {...best,d:bestD};
-}
 function rackConnectionPoint(r,g,x,y){
   const q=rackRect(r,g);
   const cx=q.x+q.w/2,cy=q.y+q.h/2;
@@ -2099,10 +2151,125 @@ function assetOccupancy(asset){
   return {start,end:start+height-1};
 }
 function isAssetArchived(asset){ return String(asset?.status||'')==='Arquivado'; }
+function dateUrgencyLevel(dateStr,warnDays){
+  if(!dateStr)return 'none';
+  const today=new Date(); today.setHours(0,0,0,0);
+  const d=new Date(dateStr+'T00:00:00');
+  if(isNaN(d.getTime()))return 'none';
+  const daysLeft=Math.round((d-today)/86400000);
+  if(daysLeft<0)return 'expired';
+  if(daysLeft<=warnDays)return 'soon';
+  return 'ok';
+}
+function formatAssetDate(dateStr){
+  if(!dateStr)return '';
+  const d=new Date(dateStr+'T00:00:00');
+  if(isNaN(d.getTime()))return '';
+  return d.toLocaleDateString('pt-BR');
+}
+const ASSET_WARRANTY_WARN_DAYS=60, ASSET_EOL_WARN_DAYS=60;
+function assetWarrantyLevel(a){ return dateUrgencyLevel(a?.warrantyExpiration,ASSET_WARRANTY_WARN_DAYS); }
+function assetEndOfLifeLevel(a){ return dateUrgencyLevel(a?.endOfLife,ASSET_EOL_WARN_DAYS); }
+const ASSET_LIFECYCLE_LABELS={
+  warranty:{expired:'Garantia vencida',soon:'Garantia vence em breve',ok:'Em garantia',none:''},
+  eol:{expired:'Fim de vida atingido',soon:'Próximo do fim de vida',ok:'',none:''}
+};
+function assetsNeedingAttention(){
+  normalizeAssets();
+  return (state.assets||[]).filter(a=>{
+    const w=assetWarrantyLevel(a), e=assetEndOfLifeLevel(a);
+    return w==='expired'||w==='soon'||e==='expired'||e==='soon';
+  });
+}
+function updateLifecycleAlertBadge(){
+  const btn=$('btnLifecycleAlert'); if(!btn)return;
+  const count=assetsNeedingAttention().length;
+  btn.classList.toggle('hidden',count===0);
+  if($('lifecycleAlertCount'))$('lifecycleAlertCount').textContent=String(count);
+}
+function updateRoomThermalBadge(){
+  const badge=$('roomThermalBadge'); if(!badge)return;
+  const room=state.rooms.find(r=>r.id===state.activeRoomId);
+  const t=roomThermalLoad(room);
+  if(!room||t.capacity<=0){badge.classList.add('hidden');return;}
+  badge.classList.remove('hidden');
+  badge.className='room-thermal-badge level-'+t.level;
+  if($('roomThermalBadgeText'))$('roomThermalBadgeText').textContent=`${t.watts}W de ${t.capacity}W (${t.pct}%)`;
+}
+function allProjectRacks(){
+  syncActiveRoom();
+  const list=[];
+  (state.rooms||[]).forEach(room=>{(room.data?.racks||[]).forEach(r=>list.push({rack:r,room}));});
+  return list;
+}
+function capacityIssues(){
+  const issues=[];
+  allProjectRacks().forEach(({rack:r,room})=>{
+    const powerCap=num(r.powerCapacityW,0);
+    if(powerCap>0){
+      const watts=state.assets.filter(a=>a.rackId===r.id).reduce((s,a)=>s+Math.max(0,num(a.powerW,0)),0);
+      if(watts/powerCap>=0.8) issues.push({kind:'power',label:'Energia',level:watts>powerCap?'high':'mid',rackId:r.id,roomId:room.id,name:r.name,current:watts,capacity:powerCap,unit:'W'});
+    }
+    const weightCap=num(r.weightCapacityKg,0);
+    if(weightCap>0){
+      const kg=state.assets.filter(a=>a.rackId===r.id).reduce((s,a)=>s+Math.max(0,num(a.weightKg,0)),0);
+      if(kg/weightCap>=0.8) issues.push({kind:'weight',label:'Carga do piso',level:kg>weightCap?'high':'mid',rackId:r.id,roomId:room.id,name:r.name,current:kg,capacity:weightCap,unit:'kg'});
+    }
+  });
+  (state.rooms||[]).forEach(room=>{
+    const t=roomThermalLoad(room);
+    if(t.capacity>0 && t.pct>=80) issues.push({kind:'cooling',label:'Refrigeração',level:t.level,roomId:room.id,name:room.name,current:t.watts,capacity:t.capacity,unit:'W'});
+  });
+  issues.sort((a,b)=>(a.level==='high'?0:1)-(b.level==='high'?0:1));
+  return issues;
+}
+function updateCapacityAlertBadge(){
+  const btn=$('btnCapacityAlert'); if(!btn)return;
+  const count=capacityIssues().length;
+  btn.classList.toggle('hidden',count===0);
+  if($('capacityAlertCount'))$('capacityAlertCount').textContent=String(count);
+}
+function closeCapacityAlertPanel(){document.querySelectorAll('.capacity-alert-panel').forEach(x=>x.remove());}
+function openCapacityAlertPanel(anchorBtn){
+  closeCapacityAlertPanel();
+  const issues=capacityIssues();
+  const KIND_UNIT_LABEL={power:'de energia',weight:'de carga',cooling:'de refrigeração'};
+  const panel=document.createElement('div'); panel.className='col-filter-panel capacity-alert-panel';
+  panel.innerHTML=`<div class="col-filter-panel-head"><b>Capacidade próxima/excedida</b></div><div class="col-filter-panel-list">${issues.length?issues.map((iss,i)=>`<button type="button" class="capacity-alert-item level-${iss.level}" data-issue-index="${i}"><span>${esc(iss.name)}</span><small>${esc(iss.label)} · ${Math.round(iss.current)}${iss.unit} ${esc(KIND_UNIT_LABEL[iss.kind])} de ${iss.capacity}${iss.unit}</small></button>`).join(''):'<div class="empty">Nenhum alerta no momento.</div>'}</div>`;
+  document.body.appendChild(panel);
+  const rect=anchorBtn.getBoundingClientRect();
+  panel.style.top=`${rect.bottom+4}px`; panel.style.left=`${Math.min(rect.left,window.innerWidth-panel.offsetWidth-12)}px`;
+  panel.querySelectorAll('[data-issue-index]').forEach(btn=>btn.onclick=()=>{
+    const iss=issues[Number(btn.dataset.issueIndex)];
+    closeCapacityAlertPanel();
+    if(iss.kind==='cooling'){ openRoomEditor(iss.roomId); return; }
+    if(iss.roomId && iss.roomId!==state.activeRoomId) switchRoom(iss.roomId);
+    state.multiSelected=[]; state.selected={type:'rack',id:iss.rackId}; renderAll(false); renderProperties();
+  });
+}
+let assetAttentionOnly=false;
+function openAssetsModalWithAttentionFilter(){
+  const m=$('assetsModal'); if(!m)return;
+  closeAssetModal(); closeAssetCatalogModal();
+  m.classList.add('open'); m.classList.remove('hidden'); m.setAttribute('aria-hidden','false');
+  $('assetsSearch').value=''; assetColumnFilters={}; assetSortColumn='warranty'; assetSortDir='asc'; assetSelectedIds=new Set(); assetColumnWidths={...ASSET_COLUMN_WIDTHS_DEFAULT};
+  assetAttentionOnly=true;
+  assetColumnsAutoFitted=false;
+  renderAssetsList();
+}
 function assetConflicts(asset, ignoreId=null){
   if(!asset.rackId)return false;
   const a=assetOccupancy(asset);
   return state.assets.some(x=>x.id!==ignoreId && x.rackId===asset.rackId && (()=>{const b=assetOccupancy(x);return a.start<=b.end&&b.start<=a.end;})());
+}
+function assetAtRackU(rackId,u){
+  if(!rackId)return null;
+  return state.assets.find(a=>a.rackId===rackId && !isAssetArchived(a) && (()=>{const o=assetOccupancy(a);return u>=o.start&&u<=o.end;})())||null;
+}
+function cablePortConflict(cable,side,portId){
+  if(!portId)return null;
+  const field=side==='origin'?'originPortId':'destPortId';
+  return state.cables.find(c=>c.id!==cable.id && c[field]===portId && ((side==='origin'?c.originRack:c.destRack)===(side==='origin'?cable.originRack:cable.destRack)))||null;
 }
 const DEFAULT_ASSET_TYPES=['Servidor','Switch','Storage','PDU','Patch Panel','Firewall','Roteador','Outro'];
 const DEFAULT_ASSET_STATUSES=['Arquivado','Instalado','Reservado','Desligado','Estoque'];
@@ -2130,12 +2297,23 @@ function normalizeAssetCatalogs(){
     if(!type){const linked=state.assets?.find(a=>String(a.model||'').toLowerCase()===name.toLowerCase()&&String(a.manufacturer||'').toLowerCase()===manufacturer.toLowerCase());type=linked?.type||'Outro';}
     const key=(name+'|'+manufacturer+'|'+type).toLowerCase();
     if(seen.has(key))return;
-    seen.add(key);models.push({id:(m&&typeof m==='object'&&m.id)||uid('model'),name,manufacturer,type});
+    const rawPortDefs=m&&typeof m==='object'&&Array.isArray(m.portDefs)?m.portDefs:null;
+    const legacyPortCount=m&&typeof m==='object'?Math.max(0,Math.floor(num(m.portCount,0))):0;
+    const portDefs=rawPortDefs?rawPortDefs.filter(d=>d&&d.id&&(d.kind==='range'||d.kind==='single')).map(d=>d.kind==='range'?{id:String(d.id),kind:'range',startLabel:String(d.startLabel||''),endLabel:String(d.endLabel||''),poe:!!d.poe}:{id:String(d.id),kind:'single',label:String(d.label||'Porta'),poe:!!d.poe}):(legacyPortCount?[{id:uid('portdef'),kind:'range',startLabel:'Porta 1',endLabel:`Porta ${legacyPortCount}`,poe:false}]:[]);
+    const portCount=totalPortDefsCount(portDefs);
+    const powerW=m&&typeof m==='object'?Math.max(0,Math.floor(num(m.powerW,0))):0;
+    const weightKg=m&&typeof m==='object'?Math.max(0,num(m.weightKg,0)):0;
+    seen.add(key);models.push({id:(m&&typeof m==='object'&&m.id)||uid('model'),name,manufacturer,type,portDefs,portCount,powerW,weightKg});
   });
   c.models=models;
   DEFAULT_ASSET_TYPES.forEach(x=>{if(!c.types.includes(x))c.types.push(x);});
+  c.typeColors=(c.typeColors&&typeof c.typeColors==='object')?c.typeColors:{};
   state.assetCatalogs=c;
 }
+const BAYFACE_TYPE_DEFAULTS={'is-switch':'#4cc9f0','is-storage':'#9b8cff','is-power':'#f3b64d','is-patch':'#5ee0a2','is-security':'#f4748c','is-router':'#78a7ff','is-server':'#6fd38c'};
+function defaultBayfaceTypeColor(type){return BAYFACE_TYPE_DEFAULTS[bayfaceAssetTypeClass(type)]||'#6fd38c';}
+function bayfaceTypeColor(type){normalizeAssetCatalogs();return state.assetCatalogs.typeColors?.[type]||defaultBayfaceTypeColor(type);}
+function setBayfaceTypeColor(type,color){normalizeAssetCatalogs();state.assetCatalogs.typeColors[type]=color;save();if($('bayfaceModal')?.classList.contains('open')){const rid=$('bayfaceModal').dataset.rackId;if(rid)openBayface(rid);}}
 function catalogNormalize(value){
   return String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'');
 }
@@ -2149,7 +2327,6 @@ function catalogSimilar(value,values){
   const norm=catalogNormalize(value); if(!norm)return [];
   return [...new Set((values||[]).map(v=>String(v))).values()].filter(v=>catalogNormalize(v)!==norm&&catalogSimilarity(value,v)>=0.84).sort((a,b)=>catalogSimilarity(value,b)-catalogSimilarity(value,a));
 }
-function catalogExact(value,values){const n=catalogNormalize(value);return (values||[]).find(v=>catalogNormalize(v)===n)||null;}
 function catalogKeyLabel(key){return key==='types'?'Tipos de ativo':key==='manufacturers'?'Fabricantes':key==='statuses'?'Status':key==='substatuses'?'Substatus':'Modelos';}
 function renderAssetCatalogs(){
   normalizeAssetCatalogs();
@@ -2163,7 +2340,7 @@ function renderAssetCatalogs(){
   const selectedManufacturer=$('catalogModelManufacturer')?.value||'';
   if(typeEl){
     const values=(state.assetCatalogs.types||[]).filter(v=>!typeQ||v.toLowerCase().includes(typeQ));
-    typeEl.innerHTML=values.length?values.map(v=>{const i=state.assetCatalogs.types.indexOf(v);return `<div class="catalog-row"><span title="${esc(v)}">${esc(v)}</span><div><button type="button" class="iconbtn" data-catalog-edit="types:${i}" title="Editar">✎</button><button type="button" class="iconbtn danger-icon" data-catalog-delete="types:${i}" title="Excluir">×</button></div></div>`}).join(''):'<div class="empty">Nenhum tipo encontrado.</div>';
+    typeEl.innerHTML=values.length?values.map(v=>{const i=state.assetCatalogs.types.indexOf(v);return `<div class="catalog-row"><span title="${esc(v)}">${esc(v)}</span><div><input type="color" class="catalog-color-swatch" data-catalog-color="${esc(v)}" value="${bayfaceTypeColor(v)}" title="Cor deste tipo no Bayface"><button type="button" class="iconbtn" data-catalog-edit="types:${i}" title="Editar">✎</button><button type="button" class="iconbtn danger-icon" data-catalog-delete="types:${i}" title="Excluir">×</button></div></div>`}).join(''):'<div class="empty">Nenhum tipo encontrado.</div>';
   }
   if(manEl){
     const values=(state.assetCatalogs.manufacturers||[]).filter(v=>!manQ||v.toLowerCase().includes(manQ));
@@ -2179,7 +2356,7 @@ function renderAssetCatalogs(){
   }
   if(modelEl){
     const values=(state.assetCatalogs.models||[]).filter(m=>(!selectedType||m.type===selectedType)&&(!selectedManufacturer||m.manufacturer===selectedManufacturer)&&(!modelQ||`${m.name} ${m.manufacturer} ${m.type}`.toLowerCase().includes(modelQ)));
-    modelEl.innerHTML=values.length?values.map(m=>`<div class="catalog-row"><div class="catalog-model-info"><span title="${esc(m.name)}">${esc(m.name)}</span><small>${esc(m.type||'Outro')} · ${esc(m.manufacturer||'Sem fabricante')}</small></div><div><button type="button" class="iconbtn" data-catalog-model-edit="${esc(m.id)}" title="Editar">✎</button><button type="button" class="iconbtn danger-icon" data-catalog-model-delete="${esc(m.id)}" title="Excluir">×</button></div></div>`).join(''):'<div class="empty">Nenhum modelo encontrado.</div>';
+    modelEl.innerHTML=values.length?values.map(m=>`<div class="catalog-row"><div class="catalog-model-info"><span title="${esc(m.name)}">${esc(m.name)}</span><small>${esc(m.type||'Outro')} · ${esc(m.manufacturer||'Sem fabricante')}${m.portCount?` · ${m.portCount} portas`:''}${m.powerW?` · ${m.powerW}W`:''}${m.weightKg?` · ${m.weightKg}kg`:''}</small></div><div><button type="button" class="iconbtn" data-catalog-model-edit="${esc(m.id)}" title="Editar">✎</button><button type="button" class="iconbtn danger-icon" data-catalog-model-delete="${esc(m.id)}" title="Excluir">×</button></div></div>`).join(''):'<div class="empty">Nenhum modelo encontrado.</div>';
   }
   const locEl=$('catalogLocations');
   if(locEl){
@@ -2198,38 +2375,75 @@ function renderAssetCatalogs(){
   document.querySelectorAll('[data-location-delete]').forEach(b=>b.onclick=()=>deleteAssetLocation(b.dataset.locationDelete));
   document.querySelectorAll('[data-location-stock]').forEach(b=>b.onclick=()=>addAssetStock(b.dataset.locationStock));
   document.querySelectorAll('[data-location-room]').forEach(b=>b.onclick=()=>addAssetRoom(b.dataset.locationRoom));
-  document.querySelectorAll('[data-location-room-edit]').forEach(b=>b.onclick=()=>renameAssetRoom(b.dataset.locationRoomEdit));
+  document.querySelectorAll('[data-location-room-edit]').forEach(b=>b.onclick=()=>openRoomEditor(b.dataset.locationRoomEdit));
   document.querySelectorAll('[data-location-room-delete]').forEach(b=>b.onclick=()=>deleteAssetRoom(b.dataset.locationRoomDelete));
   document.querySelectorAll('[data-location-stock-edit]').forEach(b=>b.onclick=()=>renameAssetStock(...b.dataset.locationStockEdit.split(':')));
   document.querySelectorAll('[data-location-stock-delete]').forEach(b=>b.onclick=()=>deleteAssetStock(...b.dataset.locationStockDelete.split(':')));
   document.querySelectorAll('[data-catalog-edit]').forEach(b=>b.onclick=()=>openCatalogEditor(...b.dataset.catalogEdit.split(':')));
   document.querySelectorAll('[data-catalog-delete]').forEach(b=>b.onclick=()=>deleteCatalogItem(...b.dataset.catalogDelete.split(':')));
+  document.querySelectorAll('[data-catalog-color]').forEach(inp=>inp.oninput=()=>setBayfaceTypeColor(inp.dataset.catalogColor,inp.value));
   document.querySelectorAll('[data-catalog-model-edit]').forEach(b=>b.onclick=()=>openCatalogEditor('models',b.dataset.catalogModelEdit));
   document.querySelectorAll('[data-catalog-model-delete]').forEach(b=>b.onclick=()=>deleteModelCatalogItem(b.dataset.catalogModelDelete));
   document.querySelectorAll('[data-catalog-add]').forEach(b=>b.onclick=()=>openCatalogEditor(b.dataset.catalogAdd));
 }
-function addAssetRoom(locationId){
+async function addAssetRoom(locationId){
   normalizeLocations(); const loc=state.locations.find(x=>x.id===locationId); if(!loc)return;
-  const name=prompt(`Nome da nova sala em ${loc.name}:`,'Sala '+(loc.rooms.length+1)); if(!name?.trim())return;
+  const name=await uiPrompt(`Dê um nome para a nova sala em ${loc.name}.`,'Sala '+(loc.rooms.length+1),{title:'Nova sala',label:'Nome da sala',confirmText:'Criar sala'}); if(!name?.trim())return;
   const n=name.trim(); if(loc.rooms.some(id=>{const r=state.rooms.find(x=>x.id===id);return r&&catalogNormalize(r.name)===catalogNormalize(n)})){toast('Essa sala já existe nessa localização.');return;}
   const base={rackUnits:state.rackUnits,rackWidth:state.rackWidth,rackGap:state.rackGap,rackDepth:state.rackDepth,defaultRowGap:state.defaultRowGap,lastUToTray:state.lastUToTray,defaultSlack:state.defaultSlack,rows:[],racks:[],cables:[],trays:[],trayLinks:[],trayRackLinks:[],structureLocked:false,snapToEdges:true};
-  const room={id:uid('room'),name:n,locationId:loc.id,data:base,updatedAt:new Date().toISOString()}; state.rooms.push(room); loc.rooms.push(room.id); save(); renderAssetCatalogs(); updateRoomUI(); toast('Sala criada');
+  const room={id:uid('room'),name:n,locationId:loc.id,coolingCapacityW:0,data:base,updatedAt:new Date().toISOString()}; state.rooms.push(room); loc.rooms.push(room.id); save(); renderAssetCatalogs(); updateRoomUI(); toast('Sala criada');
 }
-function renameAssetRoom(roomId){
-  const room=state.rooms.find(r=>r.id===roomId); if(!room)return; const name=prompt('Novo nome da sala:',room.name); if(!name?.trim())return; const loc=state.locations.find(l=>l.id===room.locationId); if(loc&&loc.rooms.some(id=>id!==room.id)){const dup=loc.rooms.some(id=>{const r=state.rooms.find(x=>x.id===id);return r&&r.id!==room.id&&catalogNormalize(r.name)===catalogNormalize(name)});if(dup){toast('Essa sala já existe nessa localização.');return;}}
-  room.name=name.trim();room.updatedAt=new Date().toISOString();save();renderAssetCatalogs();updateRoomUI();toast('Sala atualizada');
+function roomThermalLoad(room){
+  if(!room)return {watts:0,capacity:0,pct:null,level:'none'};
+  const watts=state.assets.filter(a=>a.roomId===room.id).reduce((sum,a)=>sum+Math.max(0,num(a.powerW,0)),0);
+  const capacity=num(room.coolingCapacityW,0);
+  const pct=capacity>0?Math.round(watts/capacity*100):null;
+  const level=capacity<=0?'none':(watts>capacity?'high':pct>=80?'mid':'low');
+  return {watts,capacity,pct,level};
 }
-function deleteAssetRoom(roomId){
+function renderRoomEditorThermalReadout(room){
+  const el=$('roomEditorThermalReadout'); if(!el)return;
+  const t=roomThermalLoad(room);
+  el.className='rack-power-readout power-'+t.level;
+  el.textContent=`Carga térmica estimada: ${t.watts}W${t.capacity>0?` de ${t.capacity}W (${t.pct}%)`:''}`;
+}
+function openRoomEditor(roomId){
+  const room=state.rooms.find(r=>r.id===roomId); if(!room)return;
+  $('roomEditorId').value=room.id;
+  $('roomEditorName').value=room.name;
+  $('roomEditorCooling').value=room.coolingCapacityW>0?room.coolingCapacityW:'';
+  renderRoomEditorThermalReadout(room);
+  const m=$('roomEditorModal'); m.classList.add('open'); m.classList.remove('hidden'); m.setAttribute('aria-hidden','false');
+  requestAnimationFrame(()=>$('roomEditorName')?.focus());
+}
+function closeRoomEditor(){const m=$('roomEditorModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
+function saveRoomEditor(){
+  const roomId=$('roomEditorId').value;
+  const room=state.rooms.find(r=>r.id===roomId); if(!room)return;
+  const name=$('roomEditorName').value.trim();
+  if(!name){toast('Nome da sala é obrigatório.');return;}
+  const loc=state.locations.find(l=>l.id===room.locationId);
+  if(loc && loc.rooms.some(id=>id!==room.id)){
+    const dup=loc.rooms.some(id=>{const r=state.rooms.find(x=>x.id===id);return r&&r.id!==room.id&&catalogNormalize(r.name)===catalogNormalize(name)});
+    if(dup){toast('Essa sala já existe nessa localização.');return;}
+  }
+  room.name=name;
+  room.coolingCapacityW=Math.max(0,num($('roomEditorCooling').value,0));
+  room.updatedAt=new Date().toISOString();
+  save(); renderAssetCatalogs(); updateRoomUI(); updateRoomThermalBadge(); closeRoomEditor(); toast('Sala atualizada');
+}
+async function deleteAssetRoom(roomId){
   const room=state.rooms.find(r=>r.id===roomId);if(!room)return;
   if(state.rooms.length<=1){toast('O projeto precisa ter pelo menos uma sala.');return;}
   if(state.assets.some(a=>a.roomId===roomId)){toast('Esta sala está sendo usada por assets.');return;}
-  if(!confirm(`Excluir a sala "${room.name}"?\n\nRacks, calhas e cabos desta sala serão excluídos.`))return;
+  const ok=await uiConfirm(`Racks, calhas e cabos da sala "${room.name}" serão excluídos.`,{title:'Excluir sala?',confirmText:'Excluir sala',danger:true});
+  if(!ok)return;
   const idx=state.rooms.findIndex(r=>r.id===roomId); if(idx<0)return; const loc=state.locations.find(l=>l.id===room.locationId); if(loc)loc.rooms=loc.rooms.filter(id=>id!==roomId); state.rooms.splice(idx,1); if(state.activeRoomId===roomId){state.activeRoomId=loc?.rooms?.map(id=>state.rooms.find(r=>r.id===id)).find(Boolean)?.id||state.rooms[0].id;applyRoomData(state.rooms.find(r=>r.id===state.activeRoomId).data);}
   save();renderAssetCatalogs();updateRoomUI();renderAll(false);toast('Sala excluída');
 }
-function addAssetLocation(){normalizeLocations();const name=prompt('Nome do Data Center/localização:','DC AZ2');if(!name?.trim())return;const n=name.trim();if(state.locations.some(l=>catalogNormalize(l.name)===catalogNormalize(n))){toast('Essa localização já existe.');return;}state.locations.push({id:uid('loc'),name:n,rooms:[],stocks:[{id:uid('stock'),name:'Estoque Principal'}]});save();renderAssetCatalogs();toast('Localização criada');}
-function renameAssetLocation(id){const l=state.locations.find(x=>x.id===id);if(!l)return;const name=prompt('Novo nome da localização:',l.name);if(!name?.trim())return;l.name=name.trim();save();renderAssetCatalogs();renderAssetsList();}
-function deleteAssetLocation(id){
+async function addAssetLocation(){normalizeLocations();const name=await uiPrompt('Dê um nome para o novo Data Center / localização.','DC AZ2',{title:'Nova localização',label:'Nome do Data Center',confirmText:'Criar localização'});if(!name?.trim())return;const n=name.trim();if(state.locations.some(l=>catalogNormalize(l.name)===catalogNormalize(n))){toast('Essa localização já existe.');return;}state.locations.push({id:uid('loc'),name:n,rooms:[],stocks:[{id:uid('stock'),name:'Estoque Principal'}]});save();renderAssetCatalogs();toast('Localização criada');}
+async function renameAssetLocation(id){const l=state.locations.find(x=>x.id===id);if(!l)return;const name=await uiPrompt('Digite o novo nome da localização.',l.name,{title:'Renomear localização',label:'Nome do Data Center',confirmText:'Salvar'});if(!name?.trim())return;l.name=name.trim();save();renderAssetCatalogs();renderAssetsList();}
+async function deleteAssetLocation(id){
   normalizeLocations();
   const loc=state.locations.find(x=>x.id===id);
   if(!loc)return;
@@ -2243,7 +2457,8 @@ function deleteAssetLocation(id){
   const detail=[];
   if(roomNames)detail.push(`salas: ${roomNames}`);
   if(stockCount)detail.push(`estoques: ${stockCount}`);
-  if(!confirm(`Excluir o Data Center \"${loc.name}\"?\n\n${detail.join(' · ')} serão removidos.`))return;
+  const ok=await uiConfirm(`${detail.join(' · ')} serão removidos.`,{title:`Excluir o Data Center "${loc.name}"?`,confirmText:'Excluir localização',danger:true});
+  if(!ok)return;
   state.rooms=state.rooms.filter(r=>!roomIds.has(r.id));
   state.locations=state.locations.filter(x=>x.id!==id);
   if(roomIds.has(state.activeRoomId)){
@@ -2257,9 +2472,9 @@ function deleteAssetLocation(id){
   renderAll(false);
   toast(`Data Center \"${loc.name}\" excluído.`);
 }
-function addAssetStock(locationId){const l=state.locations.find(x=>x.id===locationId);if(!l)return;const name=prompt(`Nome do estoque em ${l.name}:`,'Estoque '+(l.stocks.length+1));if(!name?.trim())return;const n=name.trim();if(l.stocks.some(s=>catalogNormalize(s.name)===catalogNormalize(n))){toast('Esse estoque já existe nessa localização.');return;}l.stocks.push({id:uid('stock'),name:n});save();renderAssetCatalogs();toast('Estoque criado');}
-function renameAssetStock(locationId,stockId){const l=state.locations.find(x=>x.id===locationId);if(!l)return;const st=l.stocks.find(x=>x.id===stockId);if(!st)return;const name=prompt(`Novo nome do estoque em ${l.name}:`,st.name);if(!name?.trim())return;const n=name.trim();if(l.stocks.some(s=>s.id!==stockId&&catalogNormalize(s.name)===catalogNormalize(n))){toast('Esse estoque já existe nessa localização.');return;}st.name=n;save();renderAssetCatalogs();renderAssetsList($('assetsSearch')?.value||'');renderAssetCatalogSelects();toast('Estoque atualizado');}
-function deleteAssetStock(locationId,stockId){const l=state.locations.find(x=>x.id===locationId);if(!l)return;const st=l.stocks.find(x=>x.id===stockId);if(!st)return;if(state.assets.some(a=>a.locationId===locationId&&a.stockId===stockId)){toast('Este estoque está sendo usado por assets.');return;}if(!confirm(`Excluir o estoque "${st.name}"?`))return;l.stocks=l.stocks.filter(x=>x.id!==stockId);if(!l.stocks.length)l.stocks.push({id:uid('stock'),name:'Estoque Principal'});save();renderAssetCatalogs();}
+async function addAssetStock(locationId){const l=state.locations.find(x=>x.id===locationId);if(!l)return;const name=await uiPrompt(`Dê um nome para o novo estoque em ${l.name}.`,'Estoque '+(l.stocks.length+1),{title:'Novo estoque',label:'Nome do estoque',confirmText:'Criar estoque'});if(!name?.trim())return;const n=name.trim();if(l.stocks.some(s=>catalogNormalize(s.name)===catalogNormalize(n))){toast('Esse estoque já existe nessa localização.');return;}l.stocks.push({id:uid('stock'),name:n});save();renderAssetCatalogs();toast('Estoque criado');}
+async function renameAssetStock(locationId,stockId){const l=state.locations.find(x=>x.id===locationId);if(!l)return;const st=l.stocks.find(x=>x.id===stockId);if(!st)return;const name=await uiPrompt(`Digite o novo nome do estoque em ${l.name}.`,st.name,{title:'Renomear estoque',label:'Nome do estoque',confirmText:'Salvar'});if(!name?.trim())return;const n=name.trim();if(l.stocks.some(s=>s.id!==stockId&&catalogNormalize(s.name)===catalogNormalize(n))){toast('Esse estoque já existe nessa localização.');return;}st.name=n;save();renderAssetCatalogs();renderAssetsList($('assetsSearch')?.value||'');renderAssetCatalogSelects();toast('Estoque atualizado');}
+async function deleteAssetStock(locationId,stockId){const l=state.locations.find(x=>x.id===locationId);if(!l)return;const st=l.stocks.find(x=>x.id===stockId);if(!st)return;if(state.assets.some(a=>a.locationId===locationId&&a.stockId===stockId)){toast('Este estoque está sendo usado por assets.');return;}const ok=await uiConfirm('',{title:`Excluir o estoque "${st.name}"?`,confirmText:'Excluir estoque',danger:true});if(!ok)return;l.stocks=l.stocks.filter(x=>x.id!==stockId);if(!l.stocks.length)l.stocks.push({id:uid('stock'),name:'Estoque Principal'});save();renderAssetCatalogs();}
 function openAssetCatalogModal(){normalizeAssetCatalogs();renderAssetCatalogManufacturerSelect();renderAssetCatalogTypeSelect();renderAssetCatalogs();const m=$('assetCatalogModal');if(!m)return;m.classList.remove('locations-only');$('assetCatalogTitle').textContent='Catálogo de equipamentos';m.querySelector('.catalog-modal-head span').textContent='Gerencie tipos, fabricantes, modelos, status e substatus usados no inventário.';m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.style.zIndex='300';}
 function openLocationsModal(){normalizeLocations();renderAssetCatalogs();const m=$('assetCatalogModal');if(!m)return;m.classList.add('locations-only');$('assetCatalogTitle').textContent='Localizações';m.querySelector('.catalog-modal-head span').textContent='Gerencie Data Centers, salas e estoques.';m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.style.zIndex='300';}
 function closeAssetCatalogModal(){const m=$('assetCatalogModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');closeCatalogEditor();}
@@ -2269,11 +2484,60 @@ function renderAssetCatalogManufacturerSelect(){
 function renderAssetCatalogTypeSelect(){
   normalizeAssetCatalogs();const el=$('catalogModelType');if(!el)return;const current=el.value||'';el.innerHTML='<option value="">Todos os tipos</option>'+state.assetCatalogs.types.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');el.value=current&&state.assetCatalogs.types.includes(current)?current:'';
 }
-function addCatalogItem(key){openCatalogEditor(key);}
+function parsePortTemplate(str){
+  const m=String(str||'').match(/^(.*?)(\d+)(\D*)$/);
+  if(!m)return null;
+  return {prefix:m[1],suffix:m[3],num:parseInt(m[2],10),width:m[2].length};
+}
+function buildPortRange(startLabel,endLabel){
+  const a=parsePortTemplate(startLabel), b=parsePortTemplate(endLabel);
+  if(!a||!b)return null;
+  if(a.prefix!==b.prefix||a.suffix!==b.suffix)return null;
+  if(b.num<a.num)return null;
+  if(b.num-a.num+1>500)return null;
+  const width=Math.max(a.width,b.width);
+  const out=[];
+  for(let n=a.num;n<=b.num;n++) out.push(a.prefix+String(n).padStart(width,'0')+a.suffix);
+  return out;
+}
+function expandPortDefs(portDefs){
+  const ports=[];
+  (portDefs||[]).forEach(def=>{
+    if(def.kind==='range'){
+      const range=buildPortRange(def.startLabel,def.endLabel);
+      if(!range)return;
+      range.forEach(label=>ports.push({id:uid('port'),label,poe:!!def.poe}));
+    }else{
+      ports.push({id:uid('port'),label:def.label,poe:!!def.poe});
+    }
+  });
+  return ports;
+}
+function totalPortDefsCount(portDefs){
+  return (portDefs||[]).reduce((sum,def)=>{
+    if(def.kind==='range'){const r=buildPortRange(def.startLabel,def.endLabel);return sum+(r?r.length:0);}
+    return sum+1;
+  },0);
+}
+let catalogEditorPortDefs=[];
+function renderCatalogPortDefsEditor(){
+  const list=$('catalogPortDefsList'); if(!list)return;
+  const total=totalPortDefsCount(catalogEditorPortDefs);
+  if($('catalogPortDefsTotal'))$('catalogPortDefsTotal').textContent=total;
+  list.innerHTML=catalogEditorPortDefs.length?catalogEditorPortDefs.map(def=>{
+    if(def.kind==='range'){
+      const range=buildPortRange(def.startLabel,def.endLabel);
+      const count=range?range.length:0;
+      return `<div class="port-def-row"><div><b>${esc(def.startLabel)} – ${esc(def.endLabel)}</b><small>${count} porta${count===1?'':'s'}${def.poe?' · PoE':''}${!range?' · padrão inválido':''}</small></div><button type="button" class="iconbtn danger-icon" data-portdef-remove="${esc(def.id)}" title="Remover">×</button></div>`;
+    }
+    return `<div class="port-def-row"><div><b>${esc(def.label)}</b><small>1 porta${def.poe?' · PoE':''}</small></div><button type="button" class="iconbtn danger-icon" data-portdef-remove="${esc(def.id)}" title="Remover">×</button></div>`;
+  }).join(''):'<div class="empty">Nenhuma porta definida ainda.</div>';
+  list.querySelectorAll('[data-portdef-remove]').forEach(b=>b.onclick=()=>{catalogEditorPortDefs=catalogEditorPortDefs.filter(d=>d.id!==b.dataset.portdefRemove);renderCatalogPortDefsEditor();});
+}
 function openCatalogEditor(key,id=null){
   normalizeAssetCatalogs(); const m=$('catalogEditorModal'); if(!m)return;
   $('catalogEditorKind').value=key; $('catalogEditorId').value=id||'';
-  const title=$('catalogEditorTitle'), subtitle=$('catalogEditorSubtitle'), typeWrap=$('catalogEditorTypeWrap'), manWrap=$('catalogEditorManufacturerWrap');
+  const title=$('catalogEditorTitle'), subtitle=$('catalogEditorSubtitle'), typeWrap=$('catalogEditorTypeWrap'), manWrap=$('catalogEditorManufacturerWrap'), portsWrap=$('catalogEditorPortsWrap'), powerWrap=$('catalogEditorPowerWrap'), weightWrap=$('catalogEditorWeightWrap');
   const isModel=key==='models';
   const isStatus=key==='statuses';
   let item=null;
@@ -2281,17 +2545,25 @@ function openCatalogEditor(key,id=null){
   title.textContent=id?(isModel?'Editar modelo':`Editar ${key==='types'?'tipo de ativo':key==='statuses'?'status':'fabricante'}`):(isModel?'Novo modelo':`Novo ${key==='types'?'tipo de ativo':key==='statuses'?'status':'fabricante'}`);
   subtitle.textContent=isModel?'Defina o tipo e o fabricante ao qual este modelo pertence.':'Cadastre um valor que poderá ser usado no inventário.';
   $('catalogEditorName').value=isModel?(item?.name||''):(item||'');
-  typeWrap.classList.toggle('hidden',!isModel);manWrap.classList.toggle('hidden',!isModel);
+  typeWrap.classList.toggle('hidden',!isModel);manWrap.classList.toggle('hidden',!isModel);portsWrap?.classList.toggle('hidden',!isModel);powerWrap?.classList.toggle('hidden',!isModel);weightWrap?.classList.toggle('hidden',!isModel);
   if(isModel){
     $('catalogEditorType').innerHTML=state.assetCatalogs.types.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
     $('catalogEditorManufacturer').innerHTML='<option value="">Selecione o fabricante</option>'+state.assetCatalogs.manufacturers.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
     $('catalogEditorType').value=item?.type||state.assetCatalogs.types[0]||'';
     $('catalogEditorManufacturer').value=item?.manufacturer||'';
+    if($('catalogEditorPowerW'))$('catalogEditorPowerW').value=item?.powerW||'';
+    if($('catalogEditorWeightKg'))$('catalogEditorWeightKg').value=item?.weightKg||'';
+    catalogEditorPortDefs=item?.portDefs?cloneData(item.portDefs):(item?.portCount?[{id:uid('portdef'),kind:'range',startLabel:'Porta 1',endLabel:`Porta ${item.portCount}`,poe:false}]:[]);
+    ['portRangeStart','portRangeEnd'].forEach(id=>{if($(id))$(id).value='';});
+    if($('portRangePoe'))$('portRangePoe').checked=false;
+    if($('portSingleName'))$('portSingleName').value='';
+    if($('portSinglePoe'))$('portSinglePoe').checked=false;
+    renderCatalogPortDefsEditor();
   }
   m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.style.zIndex='1200';requestAnimationFrame(()=>$('catalogEditorName')?.focus());
 }
 function closeCatalogEditor(){const m=$('catalogEditorModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
-function saveCatalogEditor(){
+async function saveCatalogEditor(){
   normalizeAssetCatalogs();
   const key=$('catalogEditorKind').value;
   const id=$('catalogEditorId').value;
@@ -2311,10 +2583,13 @@ function saveCatalogEditor(){
     const duplicate=state.assetCatalogs.models.some(m=>m.id!==id&&catalogNormalize(m.name)===catalogNormalize(name)&&catalogNormalize(m.type)===catalogNormalize(type)&&catalogNormalize(m.manufacturer)===catalogNormalize(manufacturer));
     if(duplicate){toast('Esse modelo já existe para esse tipo e fabricante.');return;}
     const similar=state.assetCatalogs.models.filter(m=>m.id!==id&&catalogNormalize(m.type)===catalogNormalize(type)&&catalogNormalize(m.manufacturer)===catalogNormalize(manufacturer)).map(m=>m.name).filter(v=>catalogSimilarity(v,name)>=0.84);
-    if(similar.length&&!confirm(`Possível modelo duplicado: ${similar[0]}\n\nNovo: ${name}\nJá cadastrado: ${similar[0]}\n\nDeseja continuar mesmo assim?`))return;
+    if(similar.length&&!(await uiConfirm(`Novo: ${name}\nJá cadastrado: ${similar[0]}`,{title:'Possível modelo duplicado',confirmText:'Cadastrar mesmo assim'})))return;
     let savedModel=null;
-    if(id){const m=state.assetCatalogs.models.find(x=>x.id===id);if(!m)return;m.name=name;m.type=type;m.manufacturer=manufacturer;savedModel=m;}
-    else {savedModel={id:uid('model'),name,type,manufacturer};state.assetCatalogs.models.push(savedModel);}
+    const portCount=totalPortDefsCount(catalogEditorPortDefs);
+    const powerW=Math.max(0,Math.floor(num($('catalogEditorPowerW')?.value,0)));
+    const weightKg=Math.max(0,num($('catalogEditorWeightKg')?.value,0));
+    if(id){const m=state.assetCatalogs.models.find(x=>x.id===id);if(!m)return;m.name=name;m.type=type;m.manufacturer=manufacturer;m.portDefs=cloneData(catalogEditorPortDefs);m.portCount=portCount;m.powerW=powerW;m.weightKg=weightKg;savedModel=m;}
+    else {savedModel={id:uid('model'),name,type,manufacturer,portDefs:cloneData(catalogEditorPortDefs),portCount,powerW,weightKg};state.assetCatalogs.models.push(savedModel);}
     state.assetCatalogs.models.sort((a,b)=>(a.type+' '+a.manufacturer+' '+a.name).localeCompare(b.type+' '+b.manufacturer+' '+b.name,'pt-BR'));
     if(pendingImportModelIndex!==null && pendingImport?.rows?.[pendingImportModelIndex]){
       const item=pendingImport.rows[pendingImportModelIndex];
@@ -2335,7 +2610,7 @@ function saveCatalogEditor(){
     const exact=arr.find((x,i)=>i!==idx&&catalogNormalize(x)===catalogNormalize(name));
     if(exact){toast(`${catalogKeyLabel(key).replace(' de ativo','')} já cadastrado: ${exact}`);return;}
     const similar=arr.find((x,i)=>i!==idx&&catalogSimilarity(x,name)>=0.84);
-    if(similar&&!confirm(`Possível duplicidade encontrada.\n\nNovo: ${name}\nJá cadastrado: ${similar}\n\nDeseja continuar mesmo assim?`))return;
+    if(similar&&!(await uiConfirm(`Novo: ${name}\nJá cadastrado: ${similar}`,{title:'Possível duplicidade encontrada',confirmText:'Cadastrar mesmo assim'})))return;
     if(id!==''){
       const old=arr[idx];if(old===undefined)return;
       if(key==='manufacturers'&&old!==name)state.assetCatalogs.models.forEach(m=>{if(catalogNormalize(m.manufacturer)===catalogNormalize(old))m.manufacturer=name;});
@@ -2376,18 +2651,20 @@ function saveCatalogEditor(){
   pendingCatalogCreate=null;
   toast(id?'Cadastro atualizado':'Cadastro adicionado');
 }
-function editCatalogItem(key,index){openCatalogEditor(key,index);}
-function deleteCatalogItem(key,index){
+async function deleteCatalogItem(key,index){
   normalizeAssetCatalogs();const arr=state.assetCatalogs[key]||[], value=arr[Number(index)];if(value===undefined)return;
   if(key==='types'&&DEFAULT_ASSET_TYPES.includes(value)){toast('Os tipos padrão não podem ser removidos. Você pode editá-los.');return;}
   if(key==='statuses'&&DEFAULT_ASSET_STATUSES.includes(value)){toast('Os status padrão não podem ser removidos. Você pode editá-los.');return;}
   if(key==='substatuses'&&DEFAULT_ASSET_SUBSTATUSES.includes(value)){toast('Os substatus padrão não podem ser removidos. Você pode editá-los.');return;}
   if(key==='statuses'&&state.assets.some(a=>String(a.status||'')===value)){toast('Este status está sendo usado por assets. Altere os assets antes de excluí-lo.');return;}
   if(key==='manufacturers'&&state.assetCatalogs.models.some(m=>m.manufacturer===value)){toast('Este fabricante possui modelos vinculados. Exclua ou reatribua esses modelos antes.');return;}
-  if(!confirm(`Excluir o cadastro "${value}"?\n\nAssets existentes que usam esse valor não serão alterados.`))return;arr.splice(Number(index),1);save();renderAssetCatalogManufacturerSelect();renderAssetCatalogTypeSelect();renderAssetCatalogs();renderAssetCatalogSelects();toast('Cadastro excluído');
+  const ok=await uiConfirm('Assets existentes que usam esse valor não serão alterados.',{title:`Excluir o cadastro "${value}"?`,confirmText:'Excluir cadastro',danger:true});
+  if(!ok)return;arr.splice(Number(index),1);save();renderAssetCatalogManufacturerSelect();renderAssetCatalogTypeSelect();renderAssetCatalogs();renderAssetCatalogSelects();toast('Cadastro excluído');
 }
-function deleteModelCatalogItem(id){
-  normalizeAssetCatalogs();const m=state.assetCatalogs.models.find(x=>x.id===id);if(!m)return;if(!confirm(`Excluir o modelo "${m.name}" do fabricante "${m.manufacturer}"?`))return;state.assetCatalogs.models=state.assetCatalogs.models.filter(x=>x.id!==id);save();renderAssetCatalogs();renderAssetCatalogSelects();toast('Modelo excluído');
+async function deleteModelCatalogItem(id){
+  normalizeAssetCatalogs();const m=state.assetCatalogs.models.find(x=>x.id===id);if(!m)return;
+  const ok=await uiConfirm('',{title:`Excluir o modelo "${m.name}" do fabricante "${m.manufacturer}"?`,confirmText:'Excluir modelo',danger:true});
+  if(!ok)return;state.assetCatalogs.models=state.assetCatalogs.models.filter(x=>x.id!==id);save();renderAssetCatalogs();renderAssetCatalogSelects();toast('Modelo excluído');
 }
 function renderAssetCatalogSelects(preserve={}){
   normalizeAssetCatalogs();
@@ -2419,13 +2696,24 @@ function assetSubstatusValues(){normalizeAssetCatalogs();return state.assetCatal
 function normalizeAssets(){
   state.assets=Array.isArray(state.assets)?state.assets:[];
   state.assets=state.assets.filter(a=>a&&a.id).map(a=>({
-    id:a.id,name:String(a.name||'Equipamento'),type:String(a.type||'Equipamento'),manufacturer:String(a.manufacturer||''),model:String(a.model||''),assetTag:String(a.assetTag||''),serial:String(a.serial||''),locationType:a.locationType||(a.roomId?'room':'stock'),locationName:String(a.locationName||((a.roomId&&state.rooms?.find(r=>r.id===a.roomId)?.name)||(!a.roomId?'Estoque':''))),roomId:a.roomId||null,rackId:a.rackId||null,uStart:Math.max(1,Math.floor(num(a.uStart,1))),uHeight:Math.max(1,Math.floor(num(a.uHeight,1))),status:String(a.status||'Instalado'),substatus:String(a.substatus||''),locationId:a.locationId||null,stockId:a.stockId||null
+    id:a.id,name:String(a.name||'Equipamento'),type:String(a.type||'Equipamento'),manufacturer:String(a.manufacturer||''),model:String(a.model||''),assetTag:String(a.assetTag||''),serial:String(a.serial||''),locationType:a.locationType||(a.roomId?'room':'stock'),locationName:String(a.locationName||((a.roomId&&state.rooms?.find(r=>r.id===a.roomId)?.name)||(!a.roomId?'Estoque':''))),roomId:a.roomId||null,rackId:a.rackId||null,uStart:Math.max(1,Math.floor(num(a.uStart,1))),uHeight:Math.max(1,Math.floor(num(a.uHeight,1))),status:String(a.status||'Instalado'),substatus:String(a.substatus||''),locationId:a.locationId||null,stockId:a.stockId||null,ports:Array.isArray(a.ports)?a.ports.filter(p=>p&&p.id).map(p=>({id:String(p.id),label:String(p.label||'Porta'),poe:!!p.poe})):[],powerW:Math.max(0,Math.floor(num(a.powerW,0))),weightKg:Math.max(0,num(a.weightKg,0)),purchaseDate:/^\d{4}-\d{2}-\d{2}$/.test(a.purchaseDate)?a.purchaseDate:'',warrantyExpiration:/^\d{4}-\d{2}-\d{2}$/.test(a.warrantyExpiration)?a.warrantyExpiration:'',endOfLife:/^\d{4}-\d{2}-\d{2}$/.test(a.endOfLife)?a.endOfLife:''
   }));
 }
-function assetLocationOptions(selected=''){
-  const rooms=(state.rooms||[]).map(r=>({value:'room:'+r.id,label:r.name}));
-  const opts=[...rooms,{value:'stock:default',label:'Estoque'}];
-  return '<option value="">Selecione a localização</option>'+opts.map(o=>`<option value="${esc(o.value)}" ${o.value===selected?'selected':''}>${esc(o.label)}</option>`).join('');
+function updateAssetUFieldsState(){
+  const hasRack=!!$('assetRack')?.value;
+  ['assetUStart','assetUHeight'].forEach(id=>{
+    const el=$(id); if(!el)return;
+    el.disabled=!hasRack;
+    el.closest('label')?.classList.toggle('muted-field',!hasRack);
+    if(!hasRack){
+      if(el.value)el.dataset.prevValue=el.value;
+      el.value='';
+      el.placeholder='Disponível ao escolher um rack';
+    }else{
+      el.placeholder='';
+      if(!el.value)el.value=el.dataset.prevValue||'1';
+    }
+  });
 }
 function refreshAssetRackOptions(selected=''){
   const loc=$('assetLocation')?.value||''; const sel=$('assetRack'); if(!sel)return;
@@ -2434,7 +2722,104 @@ function refreshAssetRackOptions(selected=''){
   const racks=room?(room.data?.racks||[]):[];
   sel.innerHTML='<option value="">Sem rack</option>'+racks.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');
   sel.value=racks.some(r=>r.id===selected)?selected:'';
-  const hasRack=!!sel.value; ['assetUStart','assetUHeight'].forEach(id=>{const el=$(id);if(el){el.disabled=!hasRack;el.closest('label')?.classList.toggle('muted-field',!hasRack);}});
+  updateAssetUFieldsState();
+}
+let assetEditPorts=[];
+function findCatalogModel(type,manufacturer,model){
+  return state.assetCatalogs.models.find(m=>catalogNormalize(m.name)===catalogNormalize(model)&&catalogNormalize(m.type)===catalogNormalize(type)&&catalogNormalize(m.manufacturer)===catalogNormalize(manufacturer))||null;
+}
+// Usado nos dois caminhos de cadastro em massa (manual e Excel): se o
+// modelo do catálogo já tem portas/potência/peso definidos, o asset criado
+// em massa nasce com isso preenchido, em vez de ficar em branco até alguém
+// abrir e editar manualmente.
+function autoFillAssetFromModel(asset){
+  const m=findCatalogModel(asset.type,asset.manufacturer,asset.model);
+  if(!m)return asset;
+  if(!asset.ports?.length){const expanded=expandPortDefs(m.portDefs); if(expanded.length)asset.ports=expanded;}
+  if(!asset.powerW && m.powerW)asset.powerW=m.powerW;
+  if(!asset.weightKg && m.weightKg)asset.weightKg=m.weightKg;
+  return asset;
+}
+function allProjectCables(){
+  const activeId=state.activeRoomId;
+  const others=(state.rooms||[]).filter(r=>r.id!==activeId).flatMap(r=>r.data?.cables||[]);
+  return [...(state.cables||[]), ...others];
+}
+function findPortConnection(portId){
+  return allProjectCables().find(c=>c.originPortId===portId||c.destPortId===portId)||null;
+}
+function renderAssetPortsEditor(){
+  const list=$('assetPortsList'); if(!list)return;
+  $('assetPortsCount').textContent=assetEditPorts.length;
+  const usedCount=assetEditPorts.filter(p=>findPortConnection(p.id)).length;
+  if($('assetPortsUsedCount'))$('assetPortsUsedCount').textContent=assetEditPorts.length?`· ${usedCount} em uso · ${assetEditPorts.length-usedCount} disponível(is)`:'';
+  list.innerHTML=assetEditPorts.length?assetEditPorts.map((p,i)=>{
+    const conn=findPortConnection(p.id);
+    let connLabel='';
+    if(conn){
+      const isOrigin=conn.originPortId===p.id;
+      const otherRackId=isOrigin?conn.destRack:conn.originRack;
+      const otherU=isOrigin?conn.destU:conn.originU;
+      const otherPortId=isOrigin?conn.destPortId:conn.originPortId;
+      connLabel=cableEndpointLabel(otherRackId,otherU,otherPortId);
+    }
+    return `<div class="asset-port-row ${conn?'is-used':'is-free'}"><span class="asset-port-index">${i+1}</span><div class="asset-port-fields"><input type="text" class="asset-port-name" data-port-id="${esc(p.id)}" value="${esc(p.label)}" placeholder="Nome da porta">${conn?`<small class="asset-port-conn" title="${esc(conn.name)} → ${esc(connLabel)}">🔗 ${esc(conn.name)} → ${esc(connLabel)}</small>`:'<small class="asset-port-conn is-free-label">Disponível</small>'}</div><label class="asset-port-poe" title="Porta PoE"><input type="checkbox" data-port-poe="${esc(p.id)}" ${p.poe?'checked':''}><span>PoE</span></label><button type="button" class="iconbtn danger-icon" data-port-remove="${esc(p.id)}" title="Remover porta">×</button></div>`;
+  }).join(''):'<div class="empty">Nenhuma porta cadastrada.</div>';
+  list.querySelectorAll('[data-port-id]').forEach(inp=>inp.oninput=()=>{const p=assetEditPorts.find(x=>x.id===inp.dataset.portId);if(p)p.label=inp.value;});
+  list.querySelectorAll('[data-port-poe]').forEach(cb=>cb.onchange=()=>{const p=assetEditPorts.find(x=>x.id===cb.dataset.portPoe);if(p)p.poe=cb.checked;});
+  list.querySelectorAll('[data-port-remove]').forEach(b=>b.onclick=()=>{assetEditPorts=assetEditPorts.filter(p=>p.id!==b.dataset.portRemove);renderAssetPortsEditor();});
+}
+async function exportAssetPortsXLSX(){
+  try{
+    if(!assetEditPorts.length){toast('Este asset não tem portas cadastradas.');return;}
+    if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
+    const assetName=$('assetName')?.value.trim()||'Asset';
+    const headers=['Porta','PoE','Status','Cabo','Conectado a'];
+    const rows=assetEditPorts.map(p=>{
+      const conn=findPortConnection(p.id);
+      let connLabel='';
+      if(conn){
+        const isOrigin=conn.originPortId===p.id;
+        const otherRackId=isOrigin?conn.destRack:conn.originRack;
+        const otherU=isOrigin?conn.destU:conn.originU;
+        const otherPortId=isOrigin?conn.destPortId:conn.originPortId;
+        connLabel=cableEndpointLabel(otherRackId,otherU,otherPortId);
+      }
+      return [p.label,p.poe?'Sim':'Não',conn?'Em uso':'Disponível',conn?.name||'',connLabel];
+    });
+    const wb=new ExcelJS.Workbook();
+    const ws=wb.addWorksheet('Portas');
+    ws.addRow(headers); rows.forEach(r=>ws.addRow(r));
+    ws.freezePanes={xSplit:0,ySplit:1}; ws.autoFilter={from:'A1',to:`${excelColumnLetter(headers.length)}${Math.max(1,rows.length+1)}`}; ws.getRow(1).font={bold:true};
+    ws.columns=headers.map((h,i)=>({width:Math.min(60,Math.max(12,Math.max(h.length,...rows.map(r=>String(r[i]??'').length))+2))}));
+    const buf=await wb.xlsx.writeBuffer();
+    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${assetName}-portas.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    toast('Portas exportadas');
+  }catch(err){toast(err.message||'Erro ao exportar Excel');}
+}
+function autoFillPortsFromModelIfEmpty(){
+  if(assetEditPorts.length)return; // já tem porta cadastrada/editada; nunca sobrescreve sem pedir
+  const type=$('assetType')?.value||'', manufacturer=$('assetManufacturer')?.value||'', model=$('assetModel')?.value||'';
+  const catalogModel=findCatalogModel(type,manufacturer,model);
+  const expanded=expandPortDefs(catalogModel?.portDefs);
+  if(!expanded.length)return;
+  assetEditPorts=expanded;
+  renderAssetPortsEditor();
+}
+function autoFillPowerFromModelIfEmpty(){
+  const field=$('assetPowerW'); if(!field||field.value)return; // já tem valor; nunca sobrescreve sem pedir
+  const type=$('assetType')?.value||'', manufacturer=$('assetManufacturer')?.value||'', model=$('assetModel')?.value||'';
+  const catalogModel=findCatalogModel(type,manufacturer,model);
+  if(!catalogModel?.powerW)return;
+  field.value=catalogModel.powerW;
+}
+function autoFillWeightFromModelIfEmpty(){
+  const field=$('assetWeightKg'); if(!field||field.value)return; // já tem valor; nunca sobrescreve sem pedir
+  const type=$('assetType')?.value||'', manufacturer=$('assetManufacturer')?.value||'', model=$('assetModel')?.value||'';
+  const catalogModel=findCatalogModel(type,manufacturer,model);
+  if(!catalogModel?.weightKg)return;
+  field.value=catalogModel.weightKg;
 }
 function openAssetModal(assetId=null, rackId=null, uStart=null){
   normalizeAssets(); normalizeAssetCatalogs();
@@ -2452,13 +2837,40 @@ function openAssetModal(assetId=null, rackId=null, uStart=null){
   $('assetLocation').innerHTML=assetLocationChoices(locValue);
   $('assetLocation').value=locValue;
   refreshAssetRackOptions(asset?.rackId||rack?.id||'');
-  $('assetUStart').value=asset?.uStart||uStart||1;
-  $('assetUHeight').value=asset?.uHeight||1;
+  if($('assetRack').value){ $('assetUStart').value=asset?.uStart||uStart||1; $('assetUHeight').value=asset?.uHeight||1; }
   $('assetStatus').value=asset?.status||'Instalado'; $('assetSubstatus').value=asset?.substatus||'';
+  assetEditPorts=asset?.ports?cloneData(asset.ports):[];
+  if(!assetEditPorts.length)autoFillPortsFromModelIfEmpty();
+  renderAssetPortsEditor();
+  autoFillPortsFromModelIfEmpty();
+  if($('assetPowerW')){$('assetPowerW').value=asset?.powerW||'';if(!$('assetPowerW').value)autoFillPowerFromModelIfEmpty();}
+  if($('assetWeightKg')){$('assetWeightKg').value=asset?.weightKg||'';if(!$('assetWeightKg').value)autoFillWeightFromModelIfEmpty();}
+  if($('assetPurchaseDate'))$('assetPurchaseDate').value=asset?.purchaseDate||'';
+  if($('assetWarrantyExpiration'))$('assetWarrantyExpiration').value=asset?.warrantyExpiration||'';
+  if($('assetEndOfLife'))$('assetEndOfLife').value=asset?.endOfLife||'';
+  updateAssetLifecycleBadge();
   $('assetEditModal').classList.add('open');$('assetEditModal').classList.remove('hidden');$('assetEditModal').setAttribute('aria-hidden','false');$('assetEditModal').style.zIndex='320';requestAnimationFrame(()=>$('assetName')?.focus());
+  const historyBtn=$('assetEditHistory');
+  if(historyBtn){
+    if(asset){historyBtn.classList.remove('hidden');historyBtn.onclick=()=>openAssetHistory(asset.id);}
+    else{historyBtn.classList.add('hidden');historyBtn.onclick=null;}
+  }
 }
 function closeAssetModal(){const m=$('assetEditModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
-function saveAssetForm(){
+function updateAssetLifecycleBadge(){
+  const el=$('assetLifecycleBadge'); if(!el)return;
+  const warranty=dateUrgencyLevel($('assetWarrantyExpiration')?.value,ASSET_WARRANTY_WARN_DAYS);
+  const eol=dateUrgencyLevel($('assetEndOfLife')?.value,ASSET_EOL_WARN_DAYS);
+  // Mostra o alerta mais urgente entre garantia e fim de vida; se nenhum
+  // exigir atenção, o badge fica vazio (sem poluir o formulário à toa).
+  let level='none', text='';
+  if(eol==='expired'){level='expired';text=ASSET_LIFECYCLE_LABELS.eol.expired;}
+  else if(warranty==='expired'){level='expired';text=ASSET_LIFECYCLE_LABELS.warranty.expired;}
+  else if(eol==='soon'){level='soon';text=ASSET_LIFECYCLE_LABELS.eol.soon;}
+  else if(warranty==='soon'){level='soon';text=ASSET_LIFECYCLE_LABELS.warranty.soon;}
+  el.textContent=text; el.className='asset-lifecycle-badge'+(text?` level-${level}`:'');
+}
+async function saveAssetForm(){
   const id=$('assetEditId').value.trim();
   const locationValue=$('assetLocation')?.value||'';
   const locationType=locationValue.startsWith('stock:')?'stock':'room';
@@ -2476,8 +2888,40 @@ function saveAssetForm(){
   if(rack && uStart+uHeight-1>units){toast(`O equipamento ultrapassa as ${units}U do rack.`);return;}
   const existingAsset=id?state.assets.find(a=>a.id===id):null;
   const roomObj=locationRoomId?(state.rooms||[]).find(r=>r.id===locationRoomId):null;
-  const locVal=$('assetLocation').value||''; const stockParts=locVal.startsWith('stock:')?locVal.split(':'):null; const finalLocationId=stockParts?.[1]||roomObj?.locationId||state.locations?.[0]?.id||null; const finalStockId=stockParts?.[2]||null; const asset={id:id||uid('asset'),name,type:$('assetType').value||'Equipamento',manufacturer:$('assetManufacturer').value.trim(),model:$('assetModel').value.trim(),assetTag:$('assetTag').value.trim(),serial,locationType,locationName:locationType==='stock'?'Estoque':(roomObj?.name||''),locationId:finalLocationId,stockId:finalStockId,roomId:locationRoomId,rackId,uStart,uHeight,status:$('assetStatus').value||'Instalado',substatus:$('assetSubstatus').value||''};
+  const powerW=Math.max(0,Math.floor(num($('assetPowerW')?.value,0)));
+  const weightKg=Math.max(0,num($('assetWeightKg')?.value,0));
+  const purchaseDate=$('assetPurchaseDate')?.value||'';
+  const warrantyExpiration=$('assetWarrantyExpiration')?.value||'';
+  const endOfLife=$('assetEndOfLife')?.value||'';
+  const locVal=$('assetLocation').value||''; const stockParts=locVal.startsWith('stock:')?locVal.split(':'):null; const finalLocationId=stockParts?.[1]||roomObj?.locationId||state.locations?.[0]?.id||null; const finalStockId=stockParts?.[2]||null; const asset={id:id||uid('asset'),name,type:$('assetType').value||'Equipamento',manufacturer:$('assetManufacturer').value.trim(),model:$('assetModel').value.trim(),assetTag:$('assetTag').value.trim(),serial,locationType,locationName:locationType==='stock'?'Estoque':(roomObj?.name||''),locationId:finalLocationId,stockId:finalStockId,roomId:locationRoomId,rackId,uStart,uHeight,status:$('assetStatus').value||'Instalado',substatus:$('assetSubstatus').value||'',ports:cloneData(assetEditPorts),powerW,weightKg,purchaseDate,warrantyExpiration,endOfLife};
   if(assetConflicts(asset,id||null)){toast('Não é possível: existe outro equipamento ocupando uma ou mais U.');return;}
+  if(rack && powerW>0 && num(rack.powerCapacityW,0)>0){
+    const othersPowerW=state.assets.filter(a=>a.rackId===rack.id && a.id!==asset.id).reduce((sum,a)=>sum+Math.max(0,num(a.powerW,0)),0);
+    const totalPowerW=othersPowerW+powerW;
+    if(totalPowerW>rack.powerCapacityW){
+      const ok=await uiConfirm(`Isso leva o consumo estimado do rack "${rack.name}" a ${totalPowerW}W, acima da capacidade cadastrada de ${rack.powerCapacityW}W.`,{title:'Capacidade elétrica do rack excedida',confirmText:'Salvar mesmo assim',danger:true});
+      if(!ok)return;
+    }
+  }
+  if(rack && weightKg>0 && num(rack.weightCapacityKg,0)>0){
+    const othersWeightKg=state.assets.filter(a=>a.rackId===rack.id && a.id!==asset.id).reduce((sum,a)=>sum+Math.max(0,num(a.weightKg,0)),0);
+    const totalWeightKg=othersWeightKg+weightKg;
+    if(totalWeightKg>rack.weightCapacityKg){
+      const ok=await uiConfirm(`Isso leva o peso estimado do rack "${rack.name}" a ${totalWeightKg}kg, acima da capacidade de carga cadastrada de ${rack.weightCapacityKg}kg.`,{title:'Capacidade de carga do piso excedida',confirmText:'Salvar mesmo assim',danger:true});
+      if(!ok)return;
+    }
+  }
+  if(rack){
+    const room=state.rooms.find(x=>x.id===locationRoomId);
+    if(room && powerW>0 && num(room.coolingCapacityW,0)>0){
+      const othersRoomPowerW=state.assets.filter(a=>a.roomId===room.id && a.id!==asset.id).reduce((sum,a)=>sum+Math.max(0,num(a.powerW,0)),0);
+      const totalRoomPowerW=othersRoomPowerW+powerW;
+      if(totalRoomPowerW>room.coolingCapacityW){
+        const ok=await uiConfirm(`Isso leva a carga térmica estimada da sala "${room.name}" a ${totalRoomPowerW}W, acima da capacidade de refrigeração cadastrada de ${room.coolingCapacityW}W.`,{title:'Capacidade de refrigeração da sala excedida',confirmText:'Salvar mesmo assim',danger:true});
+        if(!ok)return;
+      }
+    }
+  }
   const before=existingAsset?cloneData(existingAsset):null;
   const old=state.assets.findIndex(a=>a.id===asset.id);
   const changes=old>=0?assetLogDiff(before,asset):[];
@@ -2487,39 +2931,294 @@ function saveAssetForm(){
   toast(old>=0?'Asset atualizado':'Asset criado');
 }
 
-function archiveAsset(assetId){
+async function deleteAsset(assetId){
   const a=state.assets.find(x=>x.id===assetId);if(!a)return;
-  if(isAssetArchived(a)){ toast('Este asset já está arquivado.'); return; }
-  if(!confirm(`Arquivar o asset "${a.name}"?\n\nEle continuará no inventário, mas deixará de aparecer no Bayface.`))return;
-  const before=cloneData(a); a.status='Arquivado'; const after=cloneData(a); const changes=assetLogDiff(before,after);
-  save(); renderAll(false); renderAssetsList($('assetsSearch')?.value||'');
-  recordAssetAudit({action:'UPDATE',asset:a,before,after,changes});
-  if($('bayfaceModal')?.classList.contains('open'))renderBayface(a.rackId); toast('Asset arquivado');
-}
-function deleteAsset(assetId){
-  const a=state.assets.find(x=>x.id===assetId);if(!a)return;
-  const password=prompt('Exclusão permanente\n\nDigite a senha para confirmar:');
+  const password=await uiPrompt('Digite a senha para confirmar a exclusão permanente.','',{title:'Exclusão permanente',label:'Senha',type:'password',confirmText:'Continuar'});
   if(password===null)return;
   if(password!=='TESTE'){toast('Senha incorreta. O asset não foi excluído.');return;}
-  if(!confirm(`Excluir PERMANENTEMENTE o asset "${a.name}"?\n\nEsta ação não pode ser desfeita.`))return;
+  const ok=await uiConfirm('',{title:`Excluir PERMANENTEMENTE o asset "${a.name}"?`,confirmText:'Excluir definitivamente',danger:true});
+  if(!ok)return;
   const snapshot=cloneData(a);
   state.assets=state.assets.filter(x=>x.id!==assetId);save();renderAll(false);renderAssetsList($('assetsSearch')?.value||'');
   recordAssetAudit({action:'DELETE',asset:snapshot,before:snapshot,after:null,changes:[]});
   if($('bayfaceModal')?.classList.contains('open'))renderBayface(a.rackId);toast('Asset excluído permanentemente');
 }
 function locateAsset(assetId){const a=state.assets.find(x=>x.id===assetId);if(!a)return;if(a.roomId&&a.roomId!==state.activeRoomId)switchRoom(a.roomId);if(a.rackId){state.selected={type:'rack',id:a.rackId};state.multiSelected=[a.rackId];state.trayMultiSelected=[];closeAssetsModal();closeBayface();renderAll(false);openBayface(a.rackId);}}
+let assetColumnFilters={};
+const ASSET_COLUMN_ORDER=['check','assetTag','name','type','manufacturer','model','serial','location','rack','u','uHeight','status','substatus','warranty','eol','actions'];
+const ASSET_COLUMN_WIDTHS_DEFAULT={check:36,assetTag:100,name:170,type:100,manufacturer:120,model:130,serial:130,location:170,rack:80,u:64,uHeight:64,status:100,substatus:100,warranty:120,eol:120,actions:150};
+const ASSET_COLUMN_MIN_WIDTHS={check:36,assetTag:70,name:90,type:70,manufacturer:70,model:70,serial:80,location:90,rack:60,u:48,uHeight:48,status:70,substatus:70,warranty:80,eol:80,actions:120};
+let assetColumnWidths={...ASSET_COLUMN_WIDTHS_DEFAULT};
+let assetColumnsAutoFitted=false;
+function measureTextWidth(text,font){
+  if(!measureTextWidth._ctx) measureTextWidth._ctx=document.createElement('canvas').getContext('2d');
+  measureTextWidth._ctx.font=font;
+  return measureTextWidth._ctx.measureText(String(text||'')).width;
+}
+const ASSET_COLUMN_HEADER_LABELS={assetTag:'Asset Tag',name:'Nome',type:'Tipo',manufacturer:'Fabricante',model:'Modelo',serial:'Serial Number',location:'Localização',rack:'Rack',u:'U',uHeight:'Qtd. U',status:'Status',substatus:'Substatus',warranty:'Garantia',eol:'EOL'};
+function autoFitAssetColumnText(a,col){
+  switch(col){
+    case 'assetTag': return a.assetTag||'—';
+    case 'name': return a.name||'';
+    case 'type': return a.type||'';
+    case 'manufacturer': return a.manufacturer||'—';
+    case 'model': return a.model||'—';
+    case 'serial': return a.serial||'—';
+    case 'location': return assetLocationLabel(a);
+    case 'rack': return assetRack(a.rackId)?.name||'Sem rack';
+    case 'u': { const r=assetRack(a.rackId),u=assetOccupancy(a); return r?`U${u.start}${u.end!==u.start?'–U'+u.end:''}`:'—'; }
+    case 'uHeight': return assetRack(a.rackId)?String(a.uHeight||1)+'U':'—';
+    case 'status': return a.status||'—';
+    case 'substatus': return a.substatus||'—';
+    case 'warranty': return formatAssetDate(a.warrantyExpiration)||'—';
+    case 'eol': return formatAssetDate(a.endOfLife)||'—';
+    default: return '';
+  }
+}
+function autoFitAssetColumns(items){
+  const bodyFont='10px Inter, "Segoe UI", Arial, sans-serif';
+  const headFont='750 9px Inter, "Segoe UI", Arial, sans-serif';
+  const ICON_EXTRA={type:20,warranty:20,eol:20,status:20};
+  const MAX_WIDTH=320, BASE_PADDING=30;
+  ASSET_COLUMN_ORDER.forEach(col=>{
+    if(col==='check'||col==='actions')return; // larguras fixas: não têm texto variável pra medir
+    let maxW=measureTextWidth(ASSET_COLUMN_HEADER_LABELS[col]||'',headFont)+18; // folga pro ícone de ordenar/filtrar
+    items.forEach(a=>{
+      const w=measureTextWidth(autoFitAssetColumnText(a,col),bodyFont);
+      if(w>maxW)maxW=w;
+    });
+    const padding=BASE_PADDING+(ICON_EXTRA[col]||0);
+    assetColumnWidths[col]=Math.max(ASSET_COLUMN_MIN_WIDTHS[col]||40,Math.min(MAX_WIDTH,Math.ceil(maxW+padding)));
+  });
+}
+function applyAssetColumnWidths(){
+  const wrap=$('assetsList')?.closest('.assets-table-wrap'); if(!wrap)return;
+  wrap.style.setProperty('--assets-cols',ASSET_COLUMN_ORDER.map(k=>`${assetColumnWidths[k]||ASSET_COLUMN_WIDTHS_DEFAULT[k]}px`).join(' '));
+}
+function bindAssetColumnResize(){
+  document.querySelectorAll('#assetsTableHead .col-resize-handle').forEach(handle=>{
+    handle.onmousedown=e=>{
+      e.preventDefault(); e.stopPropagation();
+      const col=handle.dataset.resizeCol;
+      const startX=e.clientX, startWidth=assetColumnWidths[col]||ASSET_COLUMN_WIDTHS_DEFAULT[col];
+      const minWidth=ASSET_COLUMN_MIN_WIDTHS[col]||40;
+      handle.classList.add('is-resizing');
+      const onMove=ev=>{
+        const next=Math.max(minWidth,startWidth+(ev.clientX-startX));
+        assetColumnWidths[col]=next;
+        applyAssetColumnWidths();
+      };
+      const onUp=()=>{
+        handle.classList.remove('is-resizing');
+        document.removeEventListener('mousemove',onMove);
+        document.removeEventListener('mouseup',onUp);
+      };
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+    };
+  });
+}
+const ASSET_FILTER_COLUMNS={type:'Tipo',manufacturer:'Fabricante',model:'Modelo',location:'Localização',rack:'Rack',status:'Status',substatus:'Substatus',warranty:'Garantia',eol:'EOL'};
+function assetColumnValue(a,col){
+  switch(col){
+    case 'type': return a.type||'—';
+    case 'manufacturer': return a.manufacturer||'—';
+    case 'model': return a.model||'—';
+    case 'location': return assetLocationLabel(a);
+    case 'rack': return assetRack(a.rackId)?.name||'Sem rack';
+    case 'status': return a.status||'—';
+    case 'substatus': return a.substatus||'—';
+    case 'warranty': return {expired:'Vencida',soon:'Vence em breve',ok:'Em garantia',none:'Não informado'}[assetWarrantyLevel(a)];
+    case 'eol': return {expired:'Vencido',soon:'Vence em breve',ok:'Dentro do ciclo',none:'Não informado'}[assetEndOfLifeLevel(a)];
+    default: return '';
+  }
+}
+function assetMatchesColumnFilters(a,ignoreCol=null){
+  return Object.entries(assetColumnFilters).every(([col,values])=>{
+    if(col===ignoreCol||!values||!values.size)return true;
+    return values.has(assetColumnValue(a,col));
+  });
+}
+function closeAssetColumnFilterMenus(){document.querySelectorAll('.col-filter-panel').forEach(x=>x.remove());}
+function renderAssetsTableHead(){
+  document.querySelectorAll('#assetsTableHead [data-filter-col]').forEach(btn=>{
+    const col=btn.dataset.filterCol;
+    const active=assetColumnFilters[col]&&assetColumnFilters[col].size>0;
+    btn.classList.toggle('is-filtered',!!active);
+  });
+}
+function openAssetColumnFilterMenu(col,anchorBtn){
+  closeAssetColumnFilterMenus();
+  const q=String($('assetsSearch')?.value||'').toLowerCase().trim();
+  const searchMatches=state.assets.filter(a=>{const room=assetRoom(a);return !q||[a.name,a.type,a.manufacturer,a.model,a.assetTag,a.serial,a.locationName||'',room?.name||'',assetRack(a.rackId)?.name||''].join(' ').toLowerCase().includes(q);});
+  const relevant=searchMatches.filter(a=>assetMatchesColumnFilters(a,col));
+  const counts=new Map();
+  relevant.forEach(a=>{const v=assetColumnValue(a,col);counts.set(v,(counts.get(v)||0)+1);});
+  const values=[...counts.keys()].sort((x,y)=>x.localeCompare(y,'pt-BR'));
+  const selected=assetColumnFilters[col]||new Set();
+  const panel=document.createElement('div'); panel.className='col-filter-panel';
+  panel.innerHTML=`<div class="col-filter-panel-head"><b>${esc(ASSET_FILTER_COLUMNS[col]||col)}</b>${selected.size?'<button type="button" class="col-filter-clear">Limpar</button>':''}</div><div class="col-filter-panel-list">${values.length?values.map(v=>`<label class="col-filter-option"><input type="checkbox" value="${esc(v)}" ${selected.has(v)?'checked':''}><span>${esc(v)}</span><small>${counts.get(v)}</small></label>`).join(''):'<div class="empty">Nenhum valor.</div>'}</div>`;
+  document.body.appendChild(panel);
+  const rect=anchorBtn.getBoundingClientRect();
+  panel.style.top=`${rect.bottom+4}px`; panel.style.left=`${Math.min(rect.left,window.innerWidth-panel.offsetWidth-12)}px`;
+  panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.onchange=()=>{
+    const set=assetColumnFilters[col]instanceof Set?assetColumnFilters[col]:new Set();
+    if(cb.checked)set.add(cb.value); else set.delete(cb.value);
+    assetColumnFilters[col]=set;
+    renderAssetsList($('assetsSearch')?.value||'');
+    openAssetColumnFilterMenu(col,anchorBtn);
+  });
+  panel.querySelector('.col-filter-clear')?.addEventListener('click',()=>{
+    delete assetColumnFilters[col];
+    renderAssetsList($('assetsSearch')?.value||'');
+    closeAssetColumnFilterMenus();
+  });
+}
+let assetSortColumn=null, assetSortDir='asc';
+let assetSelectedIds=new Set();
+function assetSortValue(a,col){
+  const r=assetRack(a.rackId), u=assetOccupancy(a);
+  switch(col){
+    case 'assetTag': return (a.assetTag||'').toLowerCase();
+    case 'name': return (a.name||'').toLowerCase();
+    case 'type': return (a.type||'').toLowerCase();
+    case 'manufacturer': return (a.manufacturer||'').toLowerCase();
+    case 'model': return (a.model||'').toLowerCase();
+    case 'serial': return (a.serial||'').toLowerCase();
+    case 'location': return assetLocationLabel(a).toLowerCase();
+    case 'rack': return (r?.name||'').toLowerCase();
+    case 'u': return r?u.start:-1;
+    case 'uHeight': return r?(a.uHeight||1):-1;
+    case 'status': return (a.status||'').toLowerCase();
+    case 'substatus': return (a.substatus||'').toLowerCase();
+    case 'warranty': return `${{expired:0,soon:1,ok:2,none:3}[assetWarrantyLevel(a)]}_${a.warrantyExpiration||'9999-99-99'}`;
+    case 'eol': return `${{expired:0,soon:1,ok:2,none:3}[assetEndOfLifeLevel(a)]}_${a.endOfLife||'9999-99-99'}`;
+    default: return '';
+  }
+}
+function renderAssetsTableSort(){
+  document.querySelectorAll('#assetsTableHead [data-sort-col]').forEach(btn=>{
+    const active=btn.dataset.sortCol===assetSortColumn;
+    btn.classList.toggle('is-sorted',active);
+    btn.classList.toggle('is-desc',active&&assetSortDir==='desc');
+  });
+}
+function updateAssetsBulkBar(){
+  const bar=$('assetsBulkBar'); if(!bar)return;
+  const count=assetSelectedIds.size;
+  bar.classList.toggle('hidden',count===0);
+  if($('assetsSelectedCount'))$('assetsSelectedCount').textContent=String(count);
+  const statusSel=$('assetsBulkStatus');
+  if(statusSel && statusSel.options.length<=1) statusSel.innerHTML='<option value="">Alterar status...</option>'+assetStatusValues().map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  const substatusSel=$('assetsBulkSubstatus');
+  if(substatusSel && substatusSel.options.length<=1) substatusSel.innerHTML='<option value="">Alterar substatus...</option>'+assetSubstatusValues().map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  const locSel=$('assetsBulkLocation');
+  if(locSel && locSel.options.length<=1) locSel.innerHTML='<option value="">Alterar localização...</option>'+assetLocationChoices('').replace('<option value="">Selecione a localização</option>','');
+}
+async function bulkDeleteAssets(){
+  if(!assetSelectedIds.size)return;
+  const ids=[...assetSelectedIds];
+  const password=await uiPrompt('Digite a senha para confirmar a exclusão permanente.','',{title:`Excluir ${ids.length} asset(s) permanentemente`,label:'Senha',type:'password',confirmText:'Continuar'});
+  if(password===null)return;
+  if(password!=='TESTE'){toast('Senha incorreta. Nada foi excluído.');return;}
+  const ok=await uiConfirm('',{title:`Excluir PERMANENTEMENTE ${ids.length} asset(s)?`,confirmText:'Excluir definitivamente',danger:true});
+  if(!ok)return;
+  ids.forEach(id=>{
+    const a=state.assets.find(x=>x.id===id); if(!a)return;
+    const snapshot=cloneData(a);
+    state.assets=state.assets.filter(x=>x.id!==id);
+    recordAssetAudit({action:'DELETE',asset:snapshot,before:snapshot,after:null,changes:[]});
+  });
+  assetSelectedIds.clear(); save(); renderAll(false); renderAssetsList($('assetsSearch')?.value||'');
+  toast(`${ids.length} asset(s) excluído(s)`);
+}
+async function bulkChangeAssetStatus(status){
+  if(!assetSelectedIds.size||!status)return;
+  const ids=[...assetSelectedIds];
+  const ok=await uiConfirm(`Isso altera o status de ${ids.length} asset(s) para "${status}".`,{title:'Alterar status em massa',confirmText:'Alterar'});
+  if(!ok)return;
+  ids.forEach(id=>{
+    const a=state.assets.find(x=>x.id===id); if(!a)return;
+    const before=cloneData(a); a.status=status; const after=cloneData(a);
+    const changes=assetLogDiff(before,after);
+    if(changes.length)recordAssetAudit({action:'UPDATE',asset:a,before,after,changes});
+  });
+  save(); renderAll(false); renderAssetsList($('assetsSearch')?.value||'');
+  toast('Status atualizado em massa');
+}
+async function bulkChangeAssetSubstatus(substatus){
+  if(!assetSelectedIds.size||!substatus)return;
+  const ids=[...assetSelectedIds];
+  const ok=await uiConfirm(`Isso altera o substatus de ${ids.length} asset(s) para "${substatus}".`,{title:'Alterar substatus em massa',confirmText:'Alterar'});
+  if(!ok)return;
+  ids.forEach(id=>{
+    const a=state.assets.find(x=>x.id===id); if(!a)return;
+    const before=cloneData(a); a.substatus=substatus; const after=cloneData(a);
+    const changes=assetLogDiff(before,after);
+    if(changes.length)recordAssetAudit({action:'UPDATE',asset:a,before,after,changes});
+  });
+  save(); renderAll(false); renderAssetsList($('assetsSearch')?.value||'');
+  toast('Substatus atualizado em massa');
+}
+async function bulkChangeAssetLocation(locVal){
+  if(!assetSelectedIds.size||!locVal)return;
+  const ids=[...assetSelectedIds];
+  const locationType=locVal.startsWith('stock:')?'stock':'room';
+  const locationRoomId=locationType==='room'?locVal.slice(5):null;
+  const roomObj=locationRoomId?(state.rooms||[]).find(r=>r.id===locationRoomId):null;
+  const stockParts=locVal.startsWith('stock:')?locVal.split(':'):null;
+  const finalLocationId=stockParts?.[1]||roomObj?.locationId||state.locations?.[0]?.id||null;
+  const finalStockId=stockParts?.[2]||null;
+  const label=locationType==='stock'?'Estoque':(roomObj?.name||'');
+  const ok=await uiConfirm(`Isso move ${ids.length} asset(s) para "${label}" e remove a posição de rack/U atual (você poderá posicionar cada um individualmente depois).`,{title:'Alterar localização em massa',confirmText:'Mover',danger:true});
+  if(!ok)return;
+  ids.forEach(id=>{
+    const a=state.assets.find(x=>x.id===id); if(!a)return;
+    const before=cloneData(a);
+    a.locationType=locationType; a.roomId=locationRoomId; a.rackId=null; a.locationId=finalLocationId; a.stockId=finalStockId; a.locationName=label;
+    const after=cloneData(a);
+    const changes=assetLogDiff(before,after);
+    if(changes.length)recordAssetAudit({action:'UPDATE',asset:a,before,after,changes});
+  });
+  save(); renderAll(false); renderAssetsList($('assetsSearch')?.value||'');
+  toast('Localização atualizada em massa');
+}
 function renderAssetsList(filter=''){
   normalizeLocations(); normalizeAssets(); const wrap=$('assetsList');if(!wrap)return; const q=String(filter||'').toLowerCase().trim();
-  const items=state.assets.filter(a=>{const room=assetRoom(a);return !q||[a.name,a.type,a.manufacturer,a.model,a.assetTag,a.serial,a.locationName||'',room?.name||'',assetRack(a.rackId)?.name||''].join(' ').toLowerCase().includes(q);});
+  let items=state.assets.filter(a=>{const room=assetRoom(a);const matchesSearch=!q||[a.name,a.type,a.manufacturer,a.model,a.assetTag,a.serial,a.locationName||'',room?.name||'',assetRack(a.rackId)?.name||''].join(' ').toLowerCase().includes(q);return matchesSearch&&assetMatchesColumnFilters(a);});
+  if(assetAttentionOnly){const attn=new Set(assetsNeedingAttention().map(a=>a.id));items=items.filter(a=>attn.has(a.id));}
+  const attnBanner=$('assetsAttentionBanner');
+  if(attnBanner)attnBanner.classList.toggle('hidden',!assetAttentionOnly);
+  if(assetSortColumn){
+    const dir=assetSortDir==='desc'?-1:1;
+    items=[...items].sort((x,y)=>{const vx=assetSortValue(x,assetSortColumn),vy=assetSortValue(y,assetSortColumn);if(vx<vy)return -1*dir;if(vx>vy)return 1*dir;return 0;});
+  }
+  if(!assetColumnsAutoFitted && items.length){ autoFitAssetColumns(items); assetColumnsAutoFitted=true; }
+  const visibleIds=new Set(items.map(a=>a.id));
+  assetSelectedIds=new Set([...assetSelectedIds].filter(id=>visibleIds.has(id)));
   $('assetsCount').textContent=String(items.length); if($('assetsActiveCount'))$('assetsActiveCount').textContent=String(items.filter(a=>!isAssetArchived(a)).length); if($('assetsArchivedCount'))$('assetsArchivedCount').textContent=String(items.filter(isAssetArchived).length);
-  wrap.innerHTML=items.length?items.map(a=>{const r=assetRack(a.rackId),u=assetOccupancy(a);return `<div class="asset-row ${isAssetArchived(a)?'asset-archived':''}"><div class="asset-cell"><strong>${esc(a.assetTag||'—')}</strong></div><div class="asset-cell">${esc(a.name)}</div><div class="asset-cell">${esc(a.type)}</div><div class="asset-cell">${esc(a.manufacturer||'—')}</div><div class="asset-cell">${esc(a.model||'—')}</div><div class="asset-cell">${esc(a.serial||'—')}</div><div class="asset-cell">${esc(assetLocationLabel(a))}</div><div class="asset-cell">${esc(r?.name||'Sem rack')}</div><div class="asset-cell">${r?`U${u.start}${u.end!==u.start?'–U'+u.end:''}`:'—'}</div><div class="asset-cell">${r?esc(String(a.uHeight||1)+'U'):'—'}</div><div class="asset-cell"><span class="asset-status ${isAssetArchived(a)?'archived':''}">${esc(a.status||'—')}</span></div><div class="asset-cell">${esc(a.substatus||'—')}</div><div class="asset-actions"><button class="iconbtn" type="button" data-asset-locate="${esc(a.id)}" title="Localizar no rack">⌖</button><button class="iconbtn" type="button" data-asset-edit="${esc(a.id)}" title="Editar asset">✎</button><button class="iconbtn" type="button" data-asset-history="${esc(a.id)}" title="Histórico">↺</button><button class="iconbtn" type="button" data-asset-archive="${esc(a.id)}" title="Arquivar asset">▣</button><button class="iconbtn danger-icon" type="button" data-asset-delete="${esc(a.id)}" title="Excluir permanentemente">×</button></div></div>`}).join(''):'<div class="empty">Nenhum asset encontrado.</div>';
+  const warrantyExpiredCount=items.filter(a=>assetWarrantyLevel(a)==='expired').length;
+  if($('assetsWarrantyExpiredCount'))$('assetsWarrantyExpiredCount').textContent=String(warrantyExpiredCount);
+  if($('assetsWarrantyExpiredStat'))$('assetsWarrantyExpiredStat').classList.toggle('hidden',warrantyExpiredCount===0);
+  wrap.innerHTML=items.length?items.map(a=>{const r=assetRack(a.rackId),u=assetOccupancy(a),color=bayfaceTypeColor(a.type),checked=assetSelectedIds.has(a.id),warrantyLevel=assetWarrantyLevel(a),eolLevel=assetEndOfLifeLevel(a);return `<div class="asset-row ${isAssetArchived(a)?'asset-archived':''} ${checked?'is-selected':''}" style="--type-color:${esc(color)}"><div class="asset-cell asset-cell-check"><input type="checkbox" data-asset-select="${esc(a.id)}" ${checked?'checked':''}></div><div class="asset-cell"><strong>${esc(a.assetTag||'—')}</strong></div><div class="asset-cell">${esc(a.name)}</div><div class="asset-cell"><span class="asset-type-chip"><i></i>${esc(a.type)}</span></div><div class="asset-cell">${esc(a.manufacturer||'—')}</div><div class="asset-cell">${esc(a.model||'—')}</div><div class="asset-cell">${esc(a.serial||'—')}</div><div class="asset-cell">${esc(assetLocationLabel(a))}</div><div class="asset-cell">${esc(r?.name||'Sem rack')}</div><div class="asset-cell">${r?`U${u.start}${u.end!==u.start?'–U'+u.end:''}`:'—'}</div><div class="asset-cell">${r?esc(String(a.uHeight||1)+'U'):'—'}</div><div class="asset-cell"><span class="asset-status ${isAssetArchived(a)?'archived':''}">${esc(a.status||'—')}</span></div><div class="asset-cell">${esc(a.substatus||'—')}</div><div class="asset-cell">${warrantyLevel==='none'?'<span class="asset-warranty-chip level-none">—</span>':`<span class="asset-warranty-chip level-${warrantyLevel}" title="Vencimento: ${esc(formatAssetDate(a.warrantyExpiration))}"><i></i>${esc(formatAssetDate(a.warrantyExpiration))}</span>`}</div><div class="asset-cell">${eolLevel==='none'?'<span class="asset-warranty-chip level-none">—</span>':`<span class="asset-warranty-chip level-${eolLevel}" title="Fim de vida: ${esc(formatAssetDate(a.endOfLife))}"><i></i>${esc(formatAssetDate(a.endOfLife))}</span>`}</div><div class="asset-actions"><button class="iconbtn" type="button" data-asset-locate="${esc(a.id)}" title="Localizar no rack">⌖</button><button class="iconbtn" type="button" data-asset-edit="${esc(a.id)}" title="Editar asset">✎</button><button class="iconbtn" type="button" data-asset-history="${esc(a.id)}" title="Histórico">↺</button><button class="iconbtn danger-icon" type="button" data-asset-delete="${esc(a.id)}" title="Excluir permanentemente">×</button></div></div>`}).join(''):'<div class="empty">Nenhum asset encontrado.</div>';
   wrap.querySelectorAll('[data-asset-locate]').forEach(b=>b.onclick=()=>locateAsset(b.dataset.assetLocate));
   wrap.querySelectorAll('[data-asset-edit]').forEach(b=>b.onclick=()=>openAssetModal(b.dataset.assetEdit));
   wrap.querySelectorAll('[data-asset-history]').forEach(b=>b.onclick=()=>openAssetHistory(b.dataset.assetHistory));
-  wrap.querySelectorAll('[data-asset-archive]').forEach(b=>b.onclick=()=>archiveAsset(b.dataset.assetArchive));
   wrap.querySelectorAll('[data-asset-delete]').forEach(b=>b.onclick=()=>deleteAsset(b.dataset.assetDelete));
+  wrap.querySelectorAll('[data-asset-select]').forEach(cb=>cb.onchange=()=>{
+    if(cb.checked)assetSelectedIds.add(cb.dataset.assetSelect); else assetSelectedIds.delete(cb.dataset.assetSelect);
+    cb.closest('.asset-row')?.classList.toggle('is-selected',cb.checked);
+    if($('assetsSelectAll'))$('assetsSelectAll').checked=items.length>0&&assetSelectedIds.size===items.length;
+    updateAssetsBulkBar();
+  });
+  if($('assetsSelectAll'))$('assetsSelectAll').checked=items.length>0&&assetSelectedIds.size===items.length;
+  renderAssetsTableHead();
+  renderAssetsTableSort();
+  updateAssetsBulkBar();
+  applyAssetColumnWidths();
+  bindAssetColumnResize();
 }
-function openAssetsModal(){const m=$('assetsModal');if(!m)return;closeAssetModal();closeAssetCatalogModal();m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');$('assetsSearch').value='';renderAssetsList();}
+function openAssetsModal(){const m=$('assetsModal');if(!m)return;closeAssetModal();closeAssetCatalogModal();m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');$('assetsSearch').value='';assetColumnFilters={};assetSortColumn=null;assetSortDir='asc';assetSelectedIds=new Set();assetColumnWidths={...ASSET_COLUMN_WIDTHS_DEFAULT};assetAttentionOnly=false;assetColumnsAutoFitted=false;renderAssetsList();}
 function closeAssetsModal(){const m=$('assetsModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
 function bayfacePickerAssets(rackId,uStart){
   normalizeAssets(); normalizeAssetCatalogs();
@@ -2605,14 +3304,15 @@ function bayfaceMarkup(rackId){
   assets.forEach(a=>{const o=assetOccupancy(a);for(let u=o.start;u<=o.end;u++)if(u>=1&&u<=units)occupiedUnits.add(u);});
   const usedUnits=occupiedUnits.size;
   const freeUnits=Math.max(0,units-usedUnits);
-  const availableH=Math.max(620,Math.floor(window.innerHeight-95));
-  const targetGridH=Math.max(700,Math.min(920,availableH));
-  const rowH=Math.max(17,Math.min(22,Math.floor(targetGridH/units)));
+  const availableH=Math.max(620,Math.floor(window.innerHeight-140));
+  const targetGridH=Math.max(760,Math.min(1000,availableH));
+  const rowH=Math.max(20,Math.min(26,Math.floor(targetGridH/units)));
   const gridH=units*rowH;
   let rows='';
   for(let u=units;u>=1;u--){
     const occupied=occupiedUnits.has(u);
-    rows+=`<button type="button" class="bayface-u ${occupied?'occupied':''}" data-bay-add-u="${u}" ${occupied?'disabled':''}><span class="bayface-u-num left">${u}</span><span class="bayface-u-slot"></span><span class="bayface-u-num right">${u}</span></button>`;
+    const major=u%5===0?' major':'';
+    rows+=`<button type="button" class="bayface-u${major} ${occupied?'occupied':''}" data-bay-add-u="${u}" ${occupied?'disabled':''}><span class="bayface-u-num left">${u}</span><span class="bayface-u-slot"></span><span class="bayface-u-num right">${u}</span></button>`;
   }
   const assetLayer=assets.map(a=>{
     const o=assetOccupancy(a);
@@ -2621,23 +3321,34 @@ function bayfaceMarkup(rackId){
     const span=Math.max(1,end-clampedStart+1);
     const top=(units-end)*rowH+1;
     const h=Math.max(1,span*rowH-2);
-    const typeClass=bayfaceAssetTypeClass(a.type);
+    const color=bayfaceTypeColor(a.type);
     const name=String(a.name||a.assetTag||a.type||'Equipamento');
     const model=String(a.model||'');
     const manufacturer=String(a.manufacturer||'');
+    const subtitle=[model,manufacturer].filter(Boolean).join(' · ');
     const identity=[name,model,manufacturer].filter(Boolean).join(' — ');
     const tooltip=[identity,a.assetTag,a.serial].filter(Boolean).join(' · ');
     const heightLabel=span===1?'1U':`${span}U`;
     const compact=span===1;
-    return `<button type="button" class="bayface-asset ${typeClass} ${compact?'is-compact':''}" style="top:${top}px;height:${h}px" data-bay-edit="${esc(a.id)}" title="${esc(tooltip)} · U${clampedStart}${span>1?`–U${end}`:''}">
-      <span class="bayface-asset-body"><b>${esc(identity)}</b></span>
+    return `<button type="button" class="bayface-asset ${compact?'is-compact':''}" style="top:${top}px;height:${h}px;--type-color:${esc(color)}" data-bay-edit="${esc(a.id)}" title="${esc(tooltip)} · U${clampedStart}${span>1?`–U${end}`:''}">
+      <span class="bayface-asset-body"><span class="bayface-asset-name-row"><span class="bayface-asset-dot"></span><b>${esc(name)}</b></span>${subtitle?`<small>${esc(subtitle)}</small>`:''}</span>
       <span class="bayface-asset-u">${heightLabel}</span>
     </button>`;
   }).join('');
+  const usagePct=units?Math.round(usedUnits/units*100):0;
   const rail=Array.from({length:Math.min(8,Math.max(4,Math.floor(units/6)))},(_,i)=>`<span style="left:${6+i*12}%"></span>`).join('');
   return `<div class="bayface-wrap">
     <div class="bayface-head">
-      <div class="bayface-title-block"><strong>${esc(r.name)} <i>–</i> ${units}U · ${assets.length} asset${assets.length===1?'':'s'} · ${usedUnits}U ocupadas · ${freeUnits}U livres</strong></div>
+      <div class="bayface-title-block">
+        <strong class="bayface-rack-name">${esc(r.name)}</strong>
+        <div class="bayface-stats">
+          <span class="bayface-stat">${units}U</span>
+          <span class="bayface-stat">${assets.length} asset${assets.length===1?'':'s'}</span>
+          <span class="bayface-stat ok">${usedUnits}U ocupadas</span>
+          <span class="bayface-stat off">${freeUnits}U livres</span>
+        </div>
+        <div class="bayface-usage-bar" title="${usagePct}% ocupado"><span style="width:${usagePct}%"></span></div>
+      </div>
     </div>
     <div class="bayface-stage">
       <div class="bayface-rack" style="--bayface-row-h:${rowH}px;--bayface-grid-h:${gridH}px">
@@ -2678,7 +3389,7 @@ function renderProperties(){
       ${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. As propriedades dos racks estão somente para consulta.</div>':''}
       <div class="help">As propriedades abaixo serão aplicadas a todos os racks selecionados. Deixe um campo vazio para não alterá-lo. Largura e profundidade mantêm cada rack centrado.</div>
       <div class="grid2"><label>Qtd. U<input id="bulkUnits" type="number" min="1" max="60" placeholder="Não alterar"></label><label>Largura (m)<input id="bulkWidth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label></div>
-      <div class="grid2"><label>Profundidade (m)<input id="bulkDepth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label><label>Distância até o próximo (m)<input id="bulkGap" type="number" min="0" step="0.01" placeholder="Não alterar"></label></div>
+      <div class="grid2"><label>Profundidade (m)<input id="bulkDepth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label><label>Distância próx. (m)<input id="bulkGap" type="number" min="0" step="0.01" placeholder="Não alterar"></label></div>
       <label>Altura da última U → calha (m)<input id="bulkRise" type="number" min="0" step="0.01" placeholder="Não alterar"></label>
       <button class="btn primary full" id="applyBulkRack">✓ Aplicar propriedades</button>
       <button class="btn danger full" id="delSelectedRacks">Excluir ${count} racks selecionados</button>
@@ -2704,13 +3415,24 @@ function renderProperties(){
   if(state.selected.type==='rack'){
     const r=state.racks.find(x=>x.id===state.selected.id); if(!r){state.selected=null;return renderProperties();}
     const row=rowForRack(r);
+    const rackPowerW=state.assets.filter(a=>a.rackId===r.id).reduce((sum,a)=>sum+Math.max(0,num(a.powerW,0)),0);
+    const powerCapacity=num(r.powerCapacityW,0);
+    const powerPct=powerCapacity>0?Math.round(rackPowerW/powerCapacity*100):null;
+    const powerLevel=powerCapacity<=0?'none':(rackPowerW>powerCapacity?'high':powerPct>=80?'mid':'low');
+    const rackWeightKg=state.assets.filter(a=>a.rackId===r.id).reduce((sum,a)=>sum+Math.max(0,num(a.weightKg,0)),0);
+    const weightCapacity=num(r.weightCapacityKg,0);
+    const weightPct=weightCapacity>0?Math.round(rackWeightKg/weightCapacity*100):null;
+    const weightLevel=weightCapacity<=0?'none':(rackWeightKg>weightCapacity?'high':weightPct>=80?'mid':'low');
     p.innerHTML=`<div class="prop-title">${esc(r.name)}</div>
       ${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. Desbloqueie para alterar este rack.</div>':''}
       <label>Nome<input id="prName" value="${esc(r.name)}"></label>
       <div class="grid2"><label>Qtd. U<input id="prUnits" type="number" min="1" max="60" value="${r.units}"></label><label>Largura (m)<input id="prWidth" type="number" min="0.1" step="0.01" value="${r.width}"></label></div>
-      <div class="grid2"><label>Profundidade (m)<input id="prDepth" type="number" min="0.1" step="0.01" value="${r.depth??state.rackDepth}"></label><label>Distância até o próximo (m)<input id="prGapAfter" type="number" min="0" step="0.01" value="${r.gapAfter??state.rackGap}"></label></div>
+      <div class="grid2"><label>Profundidade (m)<input id="prDepth" type="number" min="0.1" step="0.01" value="${r.depth??state.rackDepth}"></label><label>Distância próx. (m)<input id="prGapAfter" type="number" min="0" step="0.01" value="${r.gapAfter??state.rackGap}"></label></div>
       <label>Altura da última U → calha (m)<input id="prRiseToTray" type="number" min="0" step="0.01" value="${num(r.riseToTray,state.lastUToTray).toFixed(2)}"></label>
-      <div class="help">A distância acima é específica deste rack e vale para o espaço até o próximo rack da mesma fileira. A altura até a calha também é individual e será usada no cálculo dos cabos deste rack.</div>
+      <label>Capacidade elétrica (W) <small class="field-help-inline">(opcional)</small><input id="prPowerCapacity" type="number" min="0" step="1" placeholder="Sem limite definido" value="${powerCapacity>0?powerCapacity:''}"></label>
+      <div class="rack-power-readout power-${powerLevel}">Consumo estimado: <b>${rackPowerW}W</b>${powerCapacity>0?` de ${powerCapacity}W (${powerPct}%)`:''}</div>
+      <label>Capacidade de carga do piso (kg) <small class="field-help-inline">(opcional)</small><input id="prWeightCapacity" type="number" min="0" step="1" placeholder="Sem limite definido" value="${weightCapacity>0?weightCapacity:''}"></label>
+      <div class="rack-power-readout power-${weightLevel}">Peso estimado: <b>${rackWeightKg}kg</b>${weightCapacity>0?` de ${weightCapacity}kg (${weightPct}%)`:''}</div>
       <button class="btn ghost full" id="openBayface">▦ Ver Bayface</button><button class="btn danger full" id="delRack">Excluir rack</button>
       <div class="help autosave">As alterações do rack são salvas automaticamente.</div>`;
     if($('prName'))$('prName').onchange=()=>{if(structureBlocked())return;r.name=$('prName').value.trim();refreshVisuals();renderProperties();};
@@ -2734,9 +3456,12 @@ function renderProperties(){
     };
     if($('prGapAfter'))$('prGapAfter').onchange=()=>{if(structureBlocked())return;r.gapAfter=Math.max(0,num($('prGapAfter').value,state.rackGap));refreshVisuals();renderProperties();};
     if($('prRiseToTray'))$('prRiseToTray').onchange=()=>{if(structureBlocked())return;r.riseToTray=Math.max(0,num($('prRiseToTray').value,state.lastUToTray));refreshVisuals();renderProperties();};
+    if($('prPowerCapacity'))$('prPowerCapacity').onchange=()=>{r.powerCapacityW=Math.max(0,num($('prPowerCapacity').value,0));refreshVisuals();renderProperties();};
+    if($('prWeightCapacity'))$('prWeightCapacity').onchange=()=>{r.weightCapacityKg=Math.max(0,num($('prWeightCapacity').value,0));refreshVisuals();renderProperties();};
     if($('openBayface'))$('openBayface').onclick=()=>openRackBayface(r.id);
-    if($('delRack'))$('delRack').onclick=()=>{if(structureBlocked())return;
-      if(!confirm(`Excluir o rack ${r.name||''}?`))return;
+    if($('delRack'))$('delRack').onclick=async()=>{if(structureBlocked())return;
+      const ok=await uiConfirm('',{title:`Excluir o rack ${r.name||''}?`,confirmText:'Excluir rack',danger:true});
+      if(!ok)return;
       const parentRow=rowForRack(r);
       removeRackReferences([r.id]);
       state.assets.forEach(a=>{if(a.rackId===r.id){a.rackId=null;}});
@@ -2810,10 +3535,17 @@ function renderCableProperties(p,c){
   const ouMax=o?Math.floor(num(o.units,state.rackUnits)):1, duMax=d?Math.floor(num(d.units,state.rackUnits)):1;
   const ouInvalid=!o||Math.floor(num(c.originU,0))<1||Math.floor(num(c.originU,0))>ouMax;
   const duInvalid=!d||Math.floor(num(c.destU,0))<1||Math.floor(num(c.destU,0))>duMax;
+  const originAsset=!ouInvalid?assetAtRackU(c.originRack,Math.floor(num(c.originU,0))):null;
+  const destAsset=!duInvalid?assetAtRackU(c.destRack,Math.floor(num(c.destU,0))):null;
+  const portOptions=(asset,selected)=>'<option value="">— Nenhuma —</option>'+(asset?.ports||[]).map(port=>`<option value="${esc(port.id)}" ${port.id===selected?'selected':''}>${esc(port.label)}</option>`).join('');
+  const originConflict=c.originPortId?cablePortConflict(c,'origin',c.originPortId):null;
+  const destConflict=c.destPortId?cablePortConflict(c,'dest',c.destPortId):null;
   p.innerHTML=`<div class="prop-title">${esc(c.name)}</div><label>Nome<input id="cbName" value="${esc(c.name)}"></label>
   <label>Tipo<select id="cbType">${CABLE_TYPES.map(t=>`<option value="${esc(t)}" ${c.type===t?'selected':''}>${esc(t)}</option>`).join('')}</select></label>
   <div class="grid2"><label>Rack origem<select id="cbOR">${opts}</select></label><label>U origem<input id="cbOU" class="${ouInvalid?'input-error':''}" type="number" min="1" max="${ouMax}" value="${c.originU}"><small id="cbOUError" class="field-error">${ouInvalid?`Máximo: ${ouMax}U.`:''}</small></label></div>
+  ${originAsset?.ports?.length?`<label>Porta de origem <small class="field-help-inline">(${esc(originAsset.name)})</small><select id="cbOPort">${portOptions(originAsset,c.originPortId)}</select></label>${originConflict?`<div class="field-error">Porta já usada pelo cabo "${esc(originConflict.name)}".</div>`:''}`:''}
   <div class="grid2"><label>Rack destino<select id="cbDR">${opts}</select></label><label>U destino<input id="cbDU" class="${duInvalid?'input-error':''}" type="number" min="1" max="${duMax}" value="${c.destU}"><small id="cbDUError" class="field-error">${duInvalid?`Máximo: ${duMax}U.`:''}</small></label></div>
+  ${destAsset?.ports?.length?`<label>Porta de destino <small class="field-help-inline">(${esc(destAsset.name)})</small><select id="cbDPort">${portOptions(destAsset,c.destPortId)}</select></label>${destConflict?`<div class="field-error">Porta já usada pelo cabo "${esc(destConflict.name)}".</div>`:''}`:''}
   ${!v.valid?`<div class="validation-error">⚠ ${v.errors.map(esc).join('<br>')}</div>`:''}
   <label>Folga (%)<input id="cbSlack" type="number" min="0" step="1" value="${c.slack??state.defaultSlack}"></label>
   <div class="result" id="cableResult"></div><div class="route-tools"><b>Roteamento</b><div class="help">Automática: o sistema encontra o caminho pelas calhas. Manual: escolha os racks intermediários e o sistema valida cada trecho.</div>
@@ -2828,12 +3560,14 @@ function renderCableProperties(p,c){
   $('cbOR').value=c.originRack;$('cbDR').value=c.destRack;
   const sync=()=>{refreshVisuals();renderProperties();};
   $('cbType').onchange=()=>{c.type=$('cbType').value;sync();};
-  $('cbOR').onchange=()=>{c.originRack=$('cbOR').value;sync();};
-  $('cbDR').onchange=()=>{c.destRack=$('cbDR').value;sync();};
+  $('cbOR').onchange=()=>{c.originRack=$('cbOR').value;c.originPortId=null;sync();};
+  $('cbDR').onchange=()=>{c.destRack=$('cbDR').value;c.destPortId=null;sync();};
   $('cbOU').oninput=()=>{c.originU=Math.floor(num($('cbOU').value,0));refreshCableValidation(c);updateCableResult(c);refreshVisuals();};
   $('cbDU').oninput=()=>{c.destU=Math.floor(num($('cbDU').value,0));refreshCableValidation(c);updateCableResult(c);refreshVisuals();};
-  $('cbOU').onchange=()=>{renderProperties();};
-  $('cbDU').onchange=()=>{renderProperties();};
+  $('cbOU').onchange=()=>{c.originPortId=null;renderProperties();};
+  $('cbDU').onchange=()=>{c.destPortId=null;renderProperties();};
+  $('cbOPort')&&($('cbOPort').onchange=()=>{c.originPortId=$('cbOPort').value||null;renderProperties();});
+  $('cbDPort')&&($('cbDPort').onchange=()=>{c.destPortId=$('cbDPort').value||null;renderProperties();});
   $('routeMode').onchange=()=>{c.routeMode=$('routeMode').value; if(c.routeMode==='automatic'){c.via=[];window.__manualRoutePicking=false;} refreshVisuals();renderProperties();};
   bindManualRouteControls(c);
   $('cbSlack').onchange=()=>{c.slack=Math.max(0,num($('cbSlack').value,0));refreshVisuals();renderProperties();};
@@ -2841,23 +3575,9 @@ function renderCableProperties(p,c){
   $('delCable').onclick=()=>{state.cables=state.cables.filter(x=>x.id!==c.id);state.selected=null;window.__manualRoutePicking=false;renderAll();toast('Cabo removido');};
    updateCableResult(c);
 }
-function renderViaList(c){const el=$('viaList');if(!el)return;el.innerHTML='';(c.via||[]).forEach((id,i)=>{const d=document.createElement('div');d.className='route-node';d.innerHTML=`<select data-via="${i}">${state.racks.map(r=>`<option value="${r.id}" ${r.id===id?'selected':''}>${esc(rowForRack(r)?.name||'')} / ${esc(r.name)}</option>`).join('')}</select><button class="btn small danger" data-via-del="${i}">×</button>`;el.appendChild(d);});el.querySelectorAll('[data-via]').forEach(s=>s.onchange=()=>{c.via[+s.dataset.via]=s.value;refreshVisuals();renderProperties();});el.querySelectorAll('[data-via-del]').forEach(b=>b.onclick=()=>{c.via.splice(+b.dataset.viaDel,1);refreshVisuals();renderProperties();});}
 function updateCableResult(c){const el=$('cableResult');if(!el)return;const validation=cableUnitValidation(c);if(!validation.valid){el.innerHTML='<div class="validation-error">⚠ '+validation.errors.map(esc).join('<br>')+'</div>';return;}const res=calcCable(c);const rounded=res.reachable?Math.ceil(res.total):0;el.innerHTML=`<div class="metric"><span>Vertical origem</span><b>${res.v1.toFixed(2)} m</b></div><div class="metric"><span>Trecho pelas calhas</span><b>${res.tray.toFixed(2)} m</b></div><div class="metric"><span>Vertical destino</span><b>${res.v2.toFixed(2)} m</b></div><div class="metric"><span>Conexões</span><b>${res.connection.toFixed(2)} m</b></div><div class="metric"><span>Base</span><b>${res.base.toFixed(2)} m</b></div><div class="metric"><span>Folga ${c.slack??state.defaultSlack}%</span><b>${res.slack.toFixed(2)} m</b></div><div class="metric"><span>Total</span><b>${res.total.toFixed(2)} m</b></div><div class="metric total-rounded"><span>Total arredondado para cima</span><b>${res.reachable?rounded:'—'} m</b></div>${res.reachable?'':'<div class="unreachable">Não existe rota pelas calhas cadastradas.</div>'}`;}
 
 // ---------- Graph / shortest route ----------
-// Infrastructure-first: only tray connection points are cross-row nodes. Intermediate racks are not waypoints.
-function rowSlotX(row,index){return physicalPointOnRow(row,index,null);}
-function rackIntervalOnRow(r){const row=rowForRack(r);if(!row)return null;const x=physicalPointOnRow(row,r.index,null);const w=slotPhysicalWidth(row,r.index);return {left:x,right:x+w};}
-function rackEdgeDistance(a,b){
-  if(a.rowId!==b.rowId)return Infinity;
-  const ia=rackIntervalOnRow(a),ib=rackIntervalOnRow(b);if(!ia||!ib)return Infinity;
-  if(ia.right<=ib.left)return Math.max(0,ib.left-ia.right);
-  if(ib.right<=ia.left)return Math.max(0,ia.left-ib.right);
-  return 0;
-}
-function rowPointDistance(a,b){return rackEdgeDistance(a,b);}
-function sameRowDistance(a,b){return a.rowId===b.rowId?rowPointDistance(a,b):Infinity;}
-function rowGapBetween(ra,rb){if(ra===rb)return 0;let d=0;const lo=Math.min(ra,rb),hi=Math.max(ra,rb);for(let i=lo+1;i<=hi;i++)d+=Math.max(0,num(state.rows[i]?.gap,0));return d;}
 function rackCableRiseMeters(r,u,tray){
   const units=Math.max(1,num(r.units,state.rackUnits));
   const usedU=Math.max(1,Math.min(units,Math.floor(num(u,1))));
@@ -3107,8 +3827,6 @@ function shortestPathNodes(c){
   while(cur){ids.unshift(cur);if(cur===oid)break;cur=prev.get(cur);}
   return ids[0]===oid?ids:[];
 }
-function shortestPathRacks(c){const ids=shortestPathNodes(c);if(!ids.length)return[];const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack);return o&&d?[o,d]:[];}
-function calcSegment(a,b){return a.rowId===b.rowId?sameRowDistance(a,b):Infinity;}
 function calcAutomaticTrayLength(c){
   const g=buildRouteGraph(c);if(!g)return{reachable:false,length:0,path:[]};
   const ids=shortestPathNodes(c);if(!ids.length)return{reachable:false,length:0,path:[]};
@@ -3119,16 +3837,6 @@ function calcAutomaticTrayLength(c){
     if(e)length+=e.cost;
   }
   return{reachable:true,length,path:ids};
-}
-function rackUPoint(r,u,g,accessPoint){
-  const q=rackRect(r,g);
-  const units=Math.max(1,num(r.units,state.rackUnits));
-  const uu=Math.max(1,Math.min(units,Math.floor(num(u,1))));
-  // U numbering is bottom-up. Keep the access X exactly aligned with the
-  // rack/tray connection point so the rack-to-tray leg is vertical.
-  const x=accessPoint?.x??(q.x+q.w/2);
-  const y=q.y+q.h-((uu-.5)/units)*q.h;
-  return{x,y};
 }
 function routePointsForAutomatic(c,g){
   const ids=shortestPathNodes(c);if(!ids.length)return[];
@@ -3155,10 +3863,6 @@ function routeBetweenRacks(aId,bId,c){
   const graph=buildRouteGraph(temp);
   const pts=routePointsForAutomatic(temp,graph);
   return {reachable:true,length:res.length,path:res.path,points:pts};
-}
-function manualRouteSequence(c){
-  const ids=[c.originRack,...(c.via||[]),c.destRack];
-  return ids.filter((id,i)=>id && ids.indexOf(id)===i || i===ids.length-1);
 }
 function manualRouteData(c){
   if(c.originRack===c.destRack)return {reachable:true,length:0,points:[],segments:[]};
@@ -3272,20 +3976,7 @@ function calcCable(c){
   const slack=base*(num(c.slack,state.defaultSlack)/100),total=base+slack;
   return{v1,v2,tray,connection,base,slack,total,reachable,path:rr.path};
 }
-function refreshVisuals(){normalizeState();render();renderCables();save();}
-function addRackToRow(rowId){
-  if(structureBlocked())return;
-  const row=state.rows.find(r=>r.id===rowId); if(!row)return;
-  const occupied=new Set(racksInRow(rowId).map(r=>r.index));
-  let idx=0; while(occupied.has(idx))idx++;
-  const r=makeRack(row,idx);
-  state.racks.push(r);
-  row.rackCount=Math.max(num(row.rackCount,0),idx+1);
-  normalizeIndices();
-  state.selected={type:'rack',id:r.id};
-  renderAll();
-  toast(`Rack adicionado em ${row.name||'fileira'}`);
-}
+function refreshVisuals(){normalizeState();render();renderCables();updateLifecycleAlertBadge();updateRoomThermalBadge();updateCapacityAlertBadge();save();}
 
 function addCable(){if(state.racks.length<2){toast('Crie pelo menos 2 racks');return;}const c={id:uid('cable'),name:`Cabo-${String(state.cables.length+1).padStart(3,'0')}`,originRack:state.racks[0].id,originU:state.racks[0].units,destRack:state.racks[1].id,destU:state.racks[1].units,slack:state.defaultSlack,type:DEFAULT_CABLE_TYPE,via:[]};state.cables.push(c);state.multiSelected=[];state.selected={type:'cable',id:c.id};renderAll();toast('Cabo adicionado');}
 
@@ -3372,17 +4063,6 @@ function cableRouteLabel(c,res){
   addRack(dest);
   return route.filter(Boolean).join(' > ');
 }
-function cableExportRows(){
-  const headers=['Nome','Tipo','Rack Origem','U Origem','Rack Destino','U Destino','Vertical Origem (m)','Trecho Calhas (m)','Vertical Destino (m)','Conexões (m)','Base (m)','Folga (m)','Total (m)','Total Arredondado (m)','Rota'];
-  return state.cables.map(c=>{
-    const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack),res=calcCable(c);
-    const vals=[c.name,c.type||DEFAULT_CABLE_TYPE,o?.name||'',c.originU,d?.name||'',c.destU,res.v1,res.tray,res.v2,res.connection,res.base,res.slack,res.total,res.reachable?Math.ceil(res.total):'',cableRouteLabel(c,res)];
-    const obj={}; headers.forEach((h,i)=>obj[h]=vals[i]??''); return obj;
-  });
-}
-function setColumnWidths(ws,headers,data){
-  ws.columns=headers.map((h,i)=>({header:h,key:'c'+i,width:Math.min(60,Math.max(12,Math.max(h.length,...data.map(r=>String(r[i]??'').length))+2))}));
-}
 function applyTypeValidation(ws, range='B2:B1000'){
   if(!ws)return;
   for(let row=2;row<=1000;row++){
@@ -3393,15 +4073,16 @@ function applyTypeValidation(ws, range='B2:B1000'){
 async function downloadCableTemplate(){
   try{
     if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
-    const headers=['Nome','Tipo','Rack Origem','U Origem','Rack Destino','U Destino'];
+    const headers=['Nome','Tipo','Rack Origem','U Origem','Porta Origem','Rack Destino','U Destino','Porta Destino'];
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('Cabos');
     ws.addRow(headers);
-    ws.addRow(['FIB-001','Fibra Multi Mode','Row-1-01',40,'Row-2-01',40]);
+    ws.addRow(['FIB-001','Fibra Multi Mode','Row-1-01',40,'G0/0/1','Row-2-01',40,'G0/0/2']);
     ws.freezePanes={xSplit:0,ySplit:1};
-    ws.autoFilter={from:'A1',to:'F2'};
+    ws.autoFilter={from:'A1',to:'H2'};
     ws.getRow(1).font={bold:true};
-    ws.columns=[{width:20},{width:24},{width:20},{width:12},{width:20},{width:12}];
+    ws.columns=[{width:20},{width:24},{width:20},{width:12},{width:16},{width:20},{width:12},{width:16}];
+    const note=ws.getCell('J1'); note.value='Porta Origem e Porta Destino são opcionais. Preencha apenas se o asset naquela U já tiver essa porta cadastrada (o nome precisa ser idêntico ao cadastrado).'; note.font={italic:true,color:{argb:'FF8B96AC'}};
     applyTypeValidation(ws);
     const buf=await wb.xlsx.writeBuffer();
     const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
@@ -3424,7 +4105,7 @@ function importCablesXLSX(file){
         const missing=required.filter(h=>!(h in map));
         if(missing.length)throw new Error('Colunas obrigatórias ausentes: '+missing.join(', '));
         const val=(row,name,def='')=>{const i=map[name];return i==null||i>=row.length||row[i]===''||row[i]==null?def:row[i];};
-        let added=0,skipped=0;
+        let added=0,skipped=0,portsUnmatched=0;
         for(const row of rows.slice(1)){
           if(!row.some(v=>v!==null&&String(v).trim()))continue;
           const origin=state.racks.find(r=>r.name===String(val(row,'Rack Origem','')).trim());
@@ -3432,11 +4113,21 @@ function importCablesXLSX(file){
           if(!origin||!dest){skipped++;continue;}
           const type=String(val(row,'Tipo',DEFAULT_CABLE_TYPE)).trim();
           if(!CABLE_TYPES.includes(type)){skipped++;continue;}
-          state.cables.push({id:uid('cable'),name:String(val(row,'Nome',`Cabo-${String(state.cables.length+1).padStart(3,'0')}`)).trim(),type,originRack:origin.id,originU:Math.floor(num(val(row,'U Origem',origin.units),origin.units)),destRack:dest.id,destU:Math.floor(num(val(row,'U Destino',dest.units),dest.units)),slack:state.defaultSlack,via:[]});
+          const originU=Math.floor(num(val(row,'U Origem',origin.units),origin.units));
+          const destU=Math.floor(num(val(row,'U Destino',dest.units),dest.units));
+          let originPortId=null, destPortId=null;
+          const originPortLabel=String(val(row,'Porta Origem','')).trim();
+          const destPortLabel=String(val(row,'Porta Destino','')).trim();
+          if(originPortLabel){const port=assetAtRackU(origin.id,originU)?.ports?.find(p=>p.label===originPortLabel);if(port)originPortId=port.id;else portsUnmatched++;}
+          if(destPortLabel){const port=assetAtRackU(dest.id,destU)?.ports?.find(p=>p.label===destPortLabel);if(port)destPortId=port.id;else portsUnmatched++;}
+          state.cables.push({id:uid('cable'),name:String(val(row,'Nome',`Cabo-${String(state.cables.length+1).padStart(3,'0')}`)).trim(),type,originRack:origin.id,originU,originPortId,destRack:dest.id,destU,destPortId,slack:state.defaultSlack,via:[]});
           added++;
         }
         renderAll();
-        toast(skipped?`${added} cabo(s) importado(s); ${skipped} ignorado(s).`:`${added} cabo(s) importado(s).`);
+        const parts=[`${added} cabo(s) importado(s).`];
+        if(skipped)parts.push(`${skipped} ignorado(s).`);
+        if(portsUnmatched)parts.push(`${portsUnmatched} porta(s) não encontrada(s) e deixada(s) em branco.`);
+        toast(parts.join(' '));
       }catch(err){toast(err.message||'Erro ao importar Excel');}
     };
     reader.readAsArrayBuffer(file);
@@ -3459,17 +4150,92 @@ function cableSummaryRows(){
   return [...groups.entries()].map(([key,qty])=>{const [type,length]=key.split('|');return {type,length:Number(length),qty};})
     .sort((a,b)=>(order.get(a.type)-order.get(b.type))||a.length-b.length);
 }
+function excelColumnLetter(n){let s='';while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;}
+function cablePortAt(rackId,u,portId){if(!portId)return null;return assetAtRackU(rackId,u)?.ports?.find(p=>p.id===portId)||null;}
+function cableEndpointLabel(rackId,u,portId){
+  const rack=state.racks.find(r=>r.id===rackId);
+  const asset=assetAtRackU(rackId,u);
+  const port=cablePortAt(rackId,u,portId);
+  return [rack?.name||'—',`${u}U`,asset?.name||'—',port?.label||'—'].join(' - ');
+}
+function compactPortLabels(labels){
+  if(!labels.length)return '';
+  const groups=new Map();
+  const singles=[];
+  labels.forEach(label=>{
+    const t=parsePortTemplate(label);
+    if(!t){singles.push(label);return;}
+    const key=t.prefix+'\u0000'+t.suffix;
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push({num:t.num,label});
+  });
+  const segments=[];
+  groups.forEach(arr=>{
+    arr.sort((a,b)=>a.num-b.num);
+    let i=0;
+    while(i<arr.length){
+      let j=i;
+      while(j+1<arr.length && arr[j+1].num===arr[j].num+1) j++;
+      segments.push(j>i?`${arr[i].label} - ${arr[j].label}`:arr[i].label);
+      i=j+1;
+    }
+  });
+  return [...segments,...singles].join(', ');
+}
+function cablesByRoom(){
+  syncActiveRoom();
+  const map=new Map();
+  (state.rooms||[]).forEach(r=>map.set(r.id,r.data?.cables||[]));
+  return map;
+}
+async function exportAssetsXLSX(){
+  try{
+    if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
+    const headers=['Asset Tag','Nome','Tipo','Fabricante','Modelo','Serial Number','Localização','Rack','U Inicial','Quantidade U','Status','Substatus','Portas','Portas Disponíveis','Portas Usadas','Data de Compra','Vencimento da Garantia','Status da Garantia','Fim de Vida (EOL)'];
+    const roomCables=cablesByRoom();
+    const WARRANTY_LABELS={expired:'Vencida',soon:'Vence em breve',ok:'Em garantia',none:'—'};
+    const rows=(state.assets||[]).map(a=>{
+      const rack=assetRack(a.rackId);
+      const ports=a.ports||[];
+      const cables=roomCables.get(a.roomId)||[];
+      const usedIds=new Set();
+      cables.forEach(c=>{if(c.originPortId)usedIds.add(c.originPortId);if(c.destPortId)usedIds.add(c.destPortId);});
+      const available=ports.filter(p=>!usedIds.has(p.id)).map(p=>p.label);
+      const used=ports.filter(p=>usedIds.has(p.id)).map(p=>p.label);
+      return [a.assetTag||'',a.name||'',a.type||'',a.manufacturer||'',a.model||'',a.serial||'',assetLocationLabel(a),rack?.name||'',rack?a.uStart||'':'',rack?(a.uHeight||1):'',a.status||'',a.substatus||'',compactPortLabels(ports.map(p=>p.label)),compactPortLabels(available),compactPortLabels(used),formatAssetDate(a.purchaseDate),formatAssetDate(a.warrantyExpiration),WARRANTY_LABELS[assetWarrantyLevel(a)],formatAssetDate(a.endOfLife)];
+    });
+    const wb=new ExcelJS.Workbook();
+    const ws=wb.addWorksheet('Assets');
+    ws.addRow(headers); rows.forEach(r=>ws.addRow(r));
+    ws.freezePanes={xSplit:0,ySplit:1}; ws.autoFilter={from:'A1',to:`${excelColumnLetter(headers.length)}${Math.max(1,rows.length+1)}`}; ws.getRow(1).font={bold:true};
+    ws.columns=headers.map((h,i)=>({width:Math.min(60,Math.max(12,Math.max(h.length,...rows.map(r=>String(r[i]??'').length))+2))}));
+    const buf=await wb.xlsx.writeBuffer();
+    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(state.projectName||'data-center')}-assets.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    toast('Assets exportados');
+  }catch(err){toast(err.message||'Erro ao exportar Excel');}
+}
 async function exportCablesXLSX(){
   try{
     if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
-    const headers=['Nome','Tipo','Rack Origem','U Origem','Rack Destino','U Destino','Vertical Origem (m)','Trecho Calhas (m)','Vertical Destino (m)','Conexões (m)','Base (m)','Folga (m)','Total (m)','Total Arredondado (m)','Rota'];
-    const rows=state.cables.map(c=>{const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack),res=calcCable(c);return [c.name,c.type||DEFAULT_CABLE_TYPE,o?.name||'',c.originU,d?.name||'',c.destU,res.v1,res.tray,res.v2,res.connection,res.base,res.slack,res.total,res.reachable?Math.ceil(res.total):'',cableRouteLabel(c,res)];});
+    const headers=['Nome','Tipo','Rack Origem','U Origem','Porta Origem','Rack Destino','U Destino','Porta Destino','Vertical Origem (m)','Trecho Calhas (m)','Vertical Destino (m)','Conexões (m)','Base (m)','Folga (m)','Total (m)','Total Arredondado (m)','Rota','Etiqueta'];
+    const labelCol=headers.indexOf('Etiqueta')+1;
+    const rows=state.cables.map(c=>{
+      const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack),res=calcCable(c);
+      const oPort=cablePortAt(c.originRack,c.originU,c.originPortId), dPort=cablePortAt(c.destRack,c.destU,c.destPortId);
+      const label=`${cableEndpointLabel(c.originRack,c.originU,c.originPortId)}\n${cableEndpointLabel(c.destRack,c.destU,c.destPortId)}`;
+      return [c.name,c.type||DEFAULT_CABLE_TYPE,o?.name||'',c.originU,oPort?.label||'',d?.name||'',c.destU,dPort?.label||'',res.v1,res.tray,res.v2,res.connection,res.base,res.slack,res.total,res.reachable?Math.ceil(res.total):'',cableRouteLabel(c,res),label];
+    });
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('Cabos');
     ws.addRow(headers); rows.forEach(r=>ws.addRow(r));
-    ws.freezePanes={xSplit:0,ySplit:1}; ws.autoFilter={from:'A1',to:`N${Math.max(1,rows.length+1)}`}; ws.getRow(1).font={bold:true};
-    ws.columns=headers.map((h,i)=>({width:Math.min(60,Math.max(12,Math.max(h.length,...rows.map(r=>String(r[i]??'').length))+2))}));
-    for(let i=2;i<=rows.length+1;i++)ws.getCell(`B${i}`).dataValidation={type:'list',allowBlank:false,formulae:['"Fibra Multi Mode,Fibra Single Mode,UTP"']};
+    ws.freezePanes={xSplit:0,ySplit:1}; ws.autoFilter={from:'A1',to:`${excelColumnLetter(headers.length)}${Math.max(1,rows.length+1)}`}; ws.getRow(1).font={bold:true};
+    ws.columns=headers.map((h,i)=>i+1===labelCol?{width:44}:{width:Math.min(60,Math.max(12,Math.max(h.length,...rows.map(r=>String(r[i]??'').length))+2))});
+    for(let i=2;i<=rows.length+1;i++){
+      ws.getCell(`B${i}`).dataValidation={type:'list',allowBlank:false,formulae:['"Fibra Multi Mode,Fibra Single Mode,UTP"']};
+      const cell=ws.getCell(i,labelCol); cell.alignment={wrapText:true,vertical:'top'};
+      ws.getRow(i).height=30;
+    }
     const summary=wb.addWorksheet('Resumo');
     summary.addRow(['RESUMO DE CABOS']); summary.getRow(1).font={bold:true,size:14};
     summary.addRow([]); summary.addRow(['Tipo','Metragem (m)','Quantidade']);
@@ -3491,11 +4257,15 @@ async function exportCablesXLSX(){
   }catch(err){toast(err.message||'Erro ao exportar Excel');}
 }
 
-function renderCables(){const el=$('cablesList');$('cableCount').textContent=state.cables.length;if(!state.cables.length){el.innerHTML='<div class="empty">Nenhum cabo cadastrado.</div>';return;}el.innerHTML=state.cables.map(c=>{const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack);const invalid=!cableUnitValidation(c).valid;return`<div class="cable-item ${state.selected?.type==='cable'&&state.selected.id===c.id?'selected':''} ${invalid?'invalid':''}" data-cable="${c.id}"><div class="cable-name">${invalid?'⚠ ':''}${esc(c.name)}</div><div class="cable-meta">${esc(rowForRack(o)?.name||'?')} / ${esc(o?.name||'?')} U${c.originU} → ${esc(rowForRack(d)?.name||'?')} / ${esc(d?.name||'?')} U${c.destU}</div></div>`;}).join('');el.querySelectorAll('[data-cable]').forEach(x=>x.onclick=e=>{e.stopPropagation();state.multiSelected=[];state.selected={type:'cable',id:x.dataset.cable};renderAll();});}
-function ensureFields(){$('projectName').value=state.projectName;$('rowCount').value=state.rows.length;$('defaultRacks').value=state.rows[0]?.rackCount??0;$('rackUnits').value=state.rackUnits;$('rackWidth').value=state.rackWidth;$('rackDepth').value=state.rackDepth;$('rackGap').value=state.rackGap;$('defaultRowGap').value=state.defaultRowGap;$('lastUToTray').value=state.lastUToTray;$('defaultSlack').value=state.defaultSlack;}
-function renderAll(persist=true){ensureFields();updateRoomUI();buildRowsPanel();render();renderProperties();renderCables();updateStructureControls();updateProjectSummary();updateMinimap();state.snapToEdges=true;if(persist)save();updateHistoryButtons();}
+function renderCables(){const el=$('cablesList');$('cableCount').textContent=state.cables.length;if(!state.cables.length){el.innerHTML='<div class="empty">Nenhum cabo cadastrado.</div>';return;}el.innerHTML=state.cables.map(c=>{const invalid=!cableUnitValidation(c).valid;const originLabel=cableEndpointLabel(c.originRack,c.originU,c.originPortId);const destLabel=cableEndpointLabel(c.destRack,c.destU,c.destPortId);return`<div class="cable-item ${state.selected?.type==='cable'&&state.selected.id===c.id?'selected':''} ${invalid?'invalid':''}" style="border-left-color:${cableTypeColor(c.type)}" data-cable="${c.id}"><div class="cable-name">${invalid?'⚠ ':''}${esc(c.name)}</div><div class="cable-meta"><span>${esc(originLabel)}</span><span>${esc(destLabel)}</span></div></div>`;}).join('');el.querySelectorAll('[data-cable]').forEach(x=>x.onclick=e=>{e.stopPropagation();state.multiSelected=[];state.selected={type:'cable',id:x.dataset.cable};renderAll();});}
+function ensureFields(){$('projectName').value=state.projectName;$('rowCount').value=state.rows.length;$('defaultRacks').value=state.rows[0]?.rackCount??0;$('rackUnits').value=state.rackUnits;$('rackWidth').value=state.rackWidth;$('rackDepth').value=state.rackDepth;$('rackGap').value=state.rackGap;$('rackPowerCapacity').value=state.rackPowerCapacityW>0?state.rackPowerCapacityW:'';$('defaultRowGap').value=state.defaultRowGap;$('lastUToTray').value=state.lastUToTray;$('defaultSlack').value=state.defaultSlack;}
+function updateCanvasEmptyHint(){
+  const hint=$('canvasEmptyHint'); if(!hint)return;
+  const dismissed=localStorage.getItem('dccp_hint_dismissed')==='1';
+  hint.classList.toggle('hidden',dismissed||state.rows.length>0);
+}
+function renderAll(persist=true){ensureFields();updateRoomUI();buildRowsPanel();render();renderProperties();renderCables();updateStructureControls();updateProjectSummary();updateMinimap();updateLifecycleAlertBadge();updateRoomThermalBadge();updateCapacityAlertBadge();updateCanvasEmptyHint();state.snapToEdges=true;if(persist)save();updateHistoryButtons();}
 
-function clearRackMultiSelection(){ state.multiSelected=[]; if(state.selected?.type==='rack') state.selected=null; }
 function svgLocalPoint(clientX,clientY){
   const stage=$('canvasStage');
   const rect=stage.getBoundingClientRect();
@@ -3536,11 +4306,12 @@ function selectTraysInBox(b){
   state.selected=ids.length?{type:'tray',id:ids[ids.length-1]}:null;
 }
 
-function deleteSelectedTrays(){
+async function deleteSelectedTrays(){
   if(structureBlocked())return;
   const ids=[...new Set(state.trayMultiSelected)].filter(id=>state.trays.some(t=>t.id===id));
   if(ids.length<2)return;
-  if(!confirm(`Excluir ${ids.length} calhas selecionadas?`))return;
+  const ok=await uiConfirm('',{title:`Excluir ${ids.length} calhas selecionadas?`,confirmText:'Excluir calhas',danger:true});
+  if(!ok)return;
   const set=new Set(ids);
   state.trayLinks=state.trayLinks.filter(l=>!set.has(l.aTray)&&!set.has(l.bTray));
   state.trayRackLinks=state.trayRackLinks.filter(l=>!set.has(l.trayId));
@@ -3549,11 +4320,12 @@ function deleteSelectedTrays(){
   normalizeState();renderAll();toast(`${ids.length} calhas excluídas`);
 }
 
-function deleteSelectedRacks(){
+async function deleteSelectedRacks(){
   if(structureBlocked())return;
   const ids=[...new Set(state.multiSelected)].filter(id=>state.racks.some(r=>r.id===id));
   if(ids.length<2)return;
-  if(!confirm(`Excluir ${ids.length} racks selecionados?`))return;
+  const ok=await uiConfirm('',{title:`Excluir ${ids.length} racks selecionados?`,confirmText:'Excluir racks',danger:true});
+  if(!ok)return;
   removeRackReferences(ids);
   state.assets.forEach(a=>{if(ids.includes(a.rackId)){a.rackId=null;}});
   state.racks=state.racks.filter(r=>!ids.includes(r.id));
@@ -3569,18 +4341,10 @@ function setupPan(){
   const p=window.__canvasPan;
   if(!Number.isFinite(p.zoom))p.zoom=1;
   const clampZoom=z=>Math.max(0.55,Math.min(2.5,z));
-  const getBounds=()=>{
-    const sw=Math.max(stage.offsetWidth*p.zoom,wrap.clientWidth);
-    const sh=Math.max(stage.offsetHeight*p.zoom,wrap.clientHeight);
-    return {
-      minX:Math.min(0,wrap.clientWidth-sw-40), maxX:40,
-      minY:Math.min(0,wrap.clientHeight-sh-40), maxY:40
-    };
-  };
+  // Movimento livre: sem limite de posição — o canvas se comporta como uma
+  // superfície "infinita" pra planejar quantos racks/fileiras quiser, sem
+  // travar numa borda artificial.
   const apply=()=>{
-    const b=getBounds();
-    p.x=Math.max(b.minX,Math.min(b.maxX,p.x));
-    p.y=Math.max(b.minY,Math.min(b.maxY,p.y));
     stage.style.transform=`translate3d(${p.x}px,${p.y}px,0) scale(${p.zoom})`;
     stage.style.transformOrigin='0 0';
     if(window.__updateMinimap) window.__updateMinimap();
@@ -3645,7 +4409,7 @@ function setupPan(){
     p.x=drag.startX+(e.clientX-drag.x);
     p.y=drag.startY+(e.clientY-drag.y);
     if(raf)cancelAnimationFrame(raf);
-    raf=requestAnimationFrame(apply);
+    raf=requestAnimationFrame(()=>apply());
     e.preventDefault();
   };
   const stop=()=>{
@@ -3668,6 +4432,7 @@ function setupPan(){
     p.x=mx-localX*newZoom;
     p.y=my-localY*newZoom;
     apply();
+    syncZoomUI();
     e.preventDefault();
   };
   wrap.addEventListener('pointerdown',begin,{passive:false});
@@ -3742,7 +4507,6 @@ function updateProjectSummary(){
   if(name) name.textContent=state.projectName||'Data Center';
   if(grid){ const items=[['▤','Fileiras',s.rows],['▥','Racks',s.racks],['━','Calhas',s.trays],['⌁','Cabos',s.cables]]; grid.innerHTML=items.map(([icon,label,value])=>`<div class="summary-metric"><span class="summary-metric-icon">${icon}</span><div><strong>${value}</strong><span>${label}</span></div></div>`).join(''); }
 }
-function openProjectSummary(){ updateProjectSummary(); }
 function closeProjectSummary(){}
 
 function searchableItems(query){
@@ -3771,6 +4535,12 @@ function activateSearchResult(type,id){
   else {const c=state.cables.find(x=>x.id===id);if(!c)return;state.selected={type:'cable',id};const pts=computeRoute(c,g);if(pts.length)centerOnPoint({x:pts.reduce((a,p)=>a+p.x,0)/pts.length,y:pts.reduce((a,p)=>a+p.y,0)/pts.length});}
   closeQuickSearch();renderAll(false);requestAnimationFrame(()=>window.__applyCanvasPan?.());
 }
+function openHelpModal(){const m=$('helpModal');if(!m)return;m.classList.remove('hidden');m.classList.add('open');m.setAttribute('aria-hidden','false');}
+function closeHelpModal(){const m=$('helpModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
+function switchHelpSection(section){
+  document.querySelectorAll('[data-help-section]').forEach(b=>b.classList.toggle('active',b.dataset.helpSection===section));
+  document.querySelectorAll('[data-help-panel]').forEach(p=>p.classList.toggle('hidden',p.dataset.helpPanel!==section));
+}
 function openQuickSearch(){const m=$('quickSearchModal');if(!m)return;m.classList.remove('hidden');m.classList.add('open');m.setAttribute('aria-hidden','false');const i=$('quickSearchInput');if(i){i.value='';renderQuickSearchResults('');requestAnimationFrame(()=>i.focus());}}
 function closeQuickSearch(){const m=$('quickSearchModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
 
@@ -3788,13 +4558,14 @@ function updateMinimap(){
 }
 function setupMinimap(){
   const toggle=$('minimapToggle'),box=$('minimap'),svg=$('minimapSvg'); if(!toggle||!box||!svg)return;
-  const setOpen=open=>{box.classList.toggle('hidden',!open);localStorage.setItem('dccp_minimap_open',open?'1':'0');if(open)requestAnimationFrame(updateMinimap);};
+  const setOpen=open=>{box.classList.toggle('hidden',!open);if(open)requestAnimationFrame(updateMinimap);};
   toggle.addEventListener('click',()=>setOpen(box.classList.contains('hidden')));$('minimapClose')?.addEventListener('click',()=>setOpen(false));
   svg.addEventListener('pointerdown',e=>{const sc=Number(svg.dataset.scale)||1,ox=Number(svg.dataset.ox)||0,oy=Number(svg.dataset.oy)||0,g=geometry(),pt={x:(e.offsetX-ox)/sc,y:(e.offsetY-oy)/sc};const wrap=$('canvasWrap'),p=window.__canvasPan;if(!wrap||!p)return;const z=p.zoom||1;p.x=wrap.clientWidth/2-pt.x*z;p.y=wrap.clientHeight/2-pt.y*z;window.__applyCanvasPan?.();updateMinimap();e.preventDefault();});
-  if(localStorage.getItem('dccp_minimap_open')==='1')box.classList.remove('hidden'); else box.classList.add('hidden');
+  box.classList.add('hidden');
 }
 async function newProject(){
-  if(!confirm('Criar um novo projeto? O projeto atual continuará salvo na nuvem.'))return;
+  const ok=await uiConfirm('O projeto atual continuará salvo na nuvem.',{title:'Criar um novo projeto?',confirmText:'Criar novo projeto'});
+  if(!ok)return;
   await createNewCloudProject();
 }
 
@@ -3807,12 +4578,6 @@ const CATALOG_SHEET_HEADERS = {
   models:['Tipo','Fabricante','Modelo']
 };
 const ASSET_HEADERS = ['Asset Tag','Nome','Serial Number','Modelo','Localização','Rack','U Inicial','Quantidade U','Status','Substatus'];
-function downloadWorkbook(workbook,name){
-  if(!window.XLSX){toast('Biblioteca de planilhas indisponível.');return;}
-  XLSX.writeFile(workbook,name,{bookType:'xlsx'});
-}
-function excelCol(n){let s='';while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;}
-function excelSafeName(value){let s=String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9_]/g,'_');if(!s||/^\d/.test(s))s='L_'+s;return s.slice(0,80);}
 async function ensureExcelJS(){
   if(window.ExcelJS)return true;
   if(window.__exceljsLoading)return window.__exceljsLoading;
@@ -3824,71 +4589,6 @@ async function ensureExcelJS(){
     document.head.appendChild(s);
   });
   return window.__exceljsLoading;
-}
-async function saveExcelJSWorkbook(wb,name){
-  if(!await ensureExcelJS()){toast('Não foi possível carregar a biblioteca de planilhas. Verifique a conexão e tente novamente.');return false;}
-  try{
-    const buffer=await wb.xlsx.writeBuffer();
-    const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    const url=URL.createObjectURL(blob),a=document.createElement('a');
-    a.href=url;a.download=name;a.style.display='none';document.body.appendChild(a);a.click();
-    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1500);
-    return true;
-  }catch(err){console.error('ExcelJS download error',err);toast('Não foi possível gerar o arquivo XLSX.');return false;}
-}
-function styleExcelSheet(ws){ws.views=[{state:'frozen',ySplit:1}];ws.autoFilter={from:'A1',to:excelCol(Math.max(1,ws.columnCount))+'1'};ws.getRow(1).font={bold:true,color:{argb:'FFFFFFFF'}};ws.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1F2937'}};ws.getRow(1).alignment={vertical:'middle'};}
-function addListValidation(ws,range,formula){ws.dataValidations.add(range,{type:'list',allowBlank:true,formulae:[formula],showErrorMessage:true,errorStyle:'stop',errorTitle:'Valor inválido',error:'Selecione um valor da lista.'});}
-function createDefinedList(wb,ws,name,values,col=1,startRow=2){const clean=[...new Set(values.map(v=>String(v??'').trim()).filter(Boolean))];ws.getCell(1,col).value=name;clean.forEach((v,i)=>ws.getCell(startRow+i,col).value=v);if(clean.length)wb.definedNames.add(name,`'Listas'!$${excelCol(col)}$${startRow}:$${excelCol(col)}$${startRow+clean.length-1}`);return clean;}
-function xmlEsc(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
-function xlsxCol(n){let s='';while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;}
-function addDefinedNameXml(xml,name,ref){const tag=`<definedName name="${xmlEsc(name)}">${xmlEsc(ref)}</definedName>`;if(xml.includes('<definedNames>'))return xml.replace('</definedNames>',tag+'</definedNames>');return xml.includes('<calcPr') ? xml.replace(/(<calcPr\b)/,`<definedNames>${tag}</definedNames>$1`) : xml.replace('</workbook>',`<definedNames>${tag}</definedNames></workbook>`);}
-function patchXlsxDataValidations(buf, sheetValidations=[], definedNames=[]){
-  if(!window.JSZip){throw new Error('JSZip indisponível');}
-  return JSZip.loadAsync(buf).then(async zip=>{
-    const wbPath='xl/workbook.xml';let wbXml=await zip.file(wbPath).async('string');
-    definedNames.forEach(d=>{wbXml=addDefinedNameXml(wbXml,d.name,d.ref);});zip.file(wbPath,wbXml);
-    for(const item of sheetValidations){const path=`xl/worksheets/sheet${item.index}.xml`;const f=zip.file(path);if(!f)continue;let xml=await f.async('string');if(item.validations?.length){const body=item.validations.map(v=>`<dataValidation type="list" allowBlank="1" showErrorMessage="1" errorStyle="stop" sqref="${xmlEsc(v.sqref)}"><formula1>${xmlEsc(v.formula)}</formula1></dataValidation>`).join('');const block=`<dataValidations count="${item.validations.length}">${body}</dataValidations>`;if(xml.includes('<dataValidations'))xml=xml.replace(/<dataValidations[\s\S]*?<\/dataValidations>/,block);else xml=xml.replace('</sheetData>',`</sheetData>${block}`);zip.file(path,xml);}}
-    return zip.generateAsync({type:'arraybuffer'});
-  });
-}
-async function downloadSheetJSWorkbook(wb,name,sheetValidations=[],definedNames=[]){
-  if(!window.XLSX){toast('Biblioteca de planilhas indisponível.');return false;}
-  try{
-    let buf=XLSX.write(wb,{bookType:'xlsx',type:'array',compression:true});
-    if(sheetValidations.length||definedNames.length){
-      try{
-        buf=await patchXlsxDataValidations(buf,sheetValidations,definedNames);
-      }catch(patchErr){
-        console.warn('Não foi possível aplicar validações avançadas; baixando o XLSX básico.',patchErr);
-        toast('Template gerado; algumas listas avançadas podem não estar disponíveis.');
-      }
-    }
-    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;a.download=name;a.style.display='none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},2000);
-    return true;
-  }catch(e){
-    console.error('XLSX download error',e);
-    toast('Não foi possível gerar o arquivo XLSX.');
-    return false;
-  }
-}
-function makeSheetJSList(wb,name,values){const ws=XLSX.utils.aoa_to_sheet([[name],...(values||[]).map(v=>[v])]);ws['!cols']=[{wch:34}];XLSX.utils.book_append_sheet(wb,ws,name);return ws;}
-function addDefinedList(defs,name,sheet,col,values){const clean=[...new Set((values||[]).map(v=>String(v??'').trim()).filter(Boolean))];const start=2,end=Math.max(2,start+clean.length-1);const ref=`'${sheet}'!$${xlsxCol(col)}$${start}:$${xlsxCol(col)}$${end}`;defs.push({name,ref});return clean;}
-function makeCatalogTemplate(){
-  normalizeAssetCatalogs();const wb=XLSX.utils.book_new();const info=XLSX.utils.aoa_to_sheet([['Template de cadastros — Data Center Cable Planner'],['Preencha Tipos, Fabricantes e Modelos.'],['Na aba Modelos, cada linha DEVE informar Tipo e Fabricante.'],['O Modelo será vinculado ao Tipo + Fabricante informados.']]);info['!cols']=[{wch:105}];XLSX.utils.book_append_sheet(wb,info,'Instruções');
-  const types=state.assetCatalogs.types||[],mans=state.assetCatalogs.manufacturers||[],models=state.assetCatalogs.models||[];
-  const wt=XLSX.utils.aoa_to_sheet([['Tipo'],...types.map(v=>[v])]);wt['!cols']=[{wch:32}];XLSX.utils.book_append_sheet(wb,wt,'Tipos');
-  const wm=XLSX.utils.aoa_to_sheet([['Fabricante'],...mans.map(v=>[v])]);wm['!cols']=[{wch:36}];XLSX.utils.book_append_sheet(wb,wm,'Fabricantes');
-  const wmod=XLSX.utils.aoa_to_sheet([['Tipo','Fabricante','Modelo'],...models.map(m=>[m.type||'',m.manufacturer||'',m.name||''])]);wmod['!cols']=[{wch:28},{wch:34},{wch:42}];XLSX.utils.book_append_sheet(wb,wmod,'Modelos');
-  const lists=XLSX.utils.aoa_to_sheet([['LISTA_TIPOS','LISTA_FABRICANTES'],...types.map((v,i)=>[v,mans[i]||''])]);lists['!hidden']=true;XLSX.utils.book_append_sheet(wb,lists,'Listas');
-  const defs=[];addDefinedList(defs,'LISTA_TIPOS','Listas',1,types);addDefinedList(defs,'LISTA_FABRICANTES','Listas',2,mans);
-  wb.Workbook={Sheets:wb.SheetNames.map(n=>({name:n,Hidden:n==='Listas'?1:0}))};const validations=[{index:3,validations:[{sqref:'A2:A500',formula:'=LISTA_TIPOS'},{sqref:'B2:B500',formula:'=LISTA_FABRICANTES'}]}];
-  downloadSheetJSWorkbook(wb,'Template_Cadastros_DataCenterCablePlanner.xlsx',validations,defs).then(ok=>{if(ok)toast('Template de cadastros baixado');});
 }
 function assetStatusValues(){ normalizeAssetCatalogs(); return state.assetCatalogs.statuses||DEFAULT_ASSET_STATUSES.slice(); }
 async function makeAssetsTemplate(){
@@ -4204,56 +4904,6 @@ function openImportPreview(kind, rows, errors, title, subtitle, onConfirm){
 }
 
 function closeImportPreview(){pendingImport=null;const m=$('importPreviewModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
-async function importCatalogWorkbook(file){
-  try{
-    const wb=await readWorkbookFile(file); const rows=[]; const errors=[];
-    const incomingTypes=new Set(), incomingManufacturers=new Set();
-    const rawSheets={Tipos:sheetRows(wb,'Tipos'),Fabricantes:sheetRows(wb,'Fabricantes'),Modelos:sheetRows(wb,'Modelos')};
-    rawSheets.Tipos.forEach(raw=>{const v=getCol(raw,['tipo']);if(v)incomingTypes.add(v.toLowerCase());});
-    rawSheets.Fabricantes.forEach(raw=>{const v=getCol(raw,['fabricante']);if(v)incomingManufacturers.add(v.toLowerCase());});
-    const knownTypes=new Set((state.assetCatalogs.types||[]).map(catalogNormalize));
-    const knownManufacturers=new Set((state.assetCatalogs.manufacturers||[]).map(catalogNormalize));
-    incomingTypes.forEach(v=>knownTypes.add(catalogNormalize(v))); incomingManufacturers.forEach(v=>knownManufacturers.add(catalogNormalize(v)));
-    for(const [sheet,key] of [['Tipos','types'],['Fabricantes','manufacturers'],['Modelos','models']]){
-      rawSheets[sheet].forEach((raw,i)=>{
-        const line=i+2; let type='',manufacturer='',model='';
-        if(key==='types') type=getCol(raw,['tipo']);
-        if(key==='manufacturers') manufacturer=getCol(raw,['fabricante']);
-        if(key==='models'){type=getCol(raw,['tipo']);manufacturer=getCol(raw,['fabricante']);model=getCol(raw,['modelo']);}
-        const label=key==='types'?type:key==='manufacturers'?manufacturer:model; let valid=!!label,message='';
-        if(!valid)message='Campo obrigatório vazio.';
-        if(key==='models'&&valid&&(!type||!manufacturer)){valid=false;message='Modelo precisa de Tipo e Fabricante.';}
-        if(key==='models'&&valid&&!knownTypes.has(catalogNormalize(type))){valid=false;message=`Tipo "${type}" não está cadastrado nem foi incluído no arquivo.`;}
-        if(key==='models'&&valid&&!knownManufacturers.has(catalogNormalize(manufacturer))){valid=false;message=`Fabricante "${manufacturer}" não está cadastrado nem foi incluído no arquivo.`;}
-        if(valid&&key==='models'){
-          const existingType=state.assetCatalogs.types.find(v=>catalogNormalize(v)===catalogNormalize(type));
-          const existingMan=state.assetCatalogs.manufacturers.find(v=>catalogNormalize(v)===catalogNormalize(manufacturer));
-          if(existingType)type=existingType;
-          if(existingMan)manufacturer=existingMan;
-        }
-        rows.push({sheet,type,manufacturer,model,valid,line,message}); if(!valid)errors.push({line,sheet,message});
-      });
-    }
-    const seenT=new Set(),seenF=new Set(),seenM=new Set();
-    rows.forEach(r=>{if(!r.valid)return;
-      if(r.sheet==='Tipos'){
-        const k=catalogNormalize(r.type); const exact=state.assetCatalogs.types.find(v=>catalogNormalize(v)===k);
-        if(seenT.has(k)||exact){r.valid=false;r.message=`Tipo já cadastrado${exact?`: ${exact}`:''} ou repetido no arquivo.`;errors.push({line:r.line,message:r.message});} else {const similar=catalogSimilar(r.type,state.assetCatalogs.types);if(similar.length)r.warning=`Possível duplicidade com: ${similar[0]}`;seenT.add(k);}
-      } else if(r.sheet==='Fabricantes'){
-        const k=catalogNormalize(r.manufacturer); const exact=state.assetCatalogs.manufacturers.find(v=>catalogNormalize(v)===k);
-        if(seenF.has(k)||exact){r.valid=false;r.message=`Fabricante já cadastrado${exact?`: ${exact}`:''} ou repetido no arquivo.`;errors.push({line:r.line,message:r.message});} else {const similar=catalogSimilar(r.manufacturer,state.assetCatalogs.manufacturers);if(similar.length)r.warning=`Possível duplicidade com: ${similar[0]}`;seenF.add(k);}
-      } else {
-        const k=[r.type,r.manufacturer,r.model].map(catalogNormalize).join('|');
-        const exact=state.assetCatalogs.models.find(m=>catalogNormalize(m.type)===catalogNormalize(r.type)&&catalogNormalize(m.manufacturer)===catalogNormalize(r.manufacturer)&&catalogNormalize(m.name)===catalogNormalize(r.model));
-        if(seenM.has(k)||exact){r.valid=false;r.message=`Modelo já cadastrado${exact?`: ${exact.name}`:''} ou repetido no arquivo.`;errors.push({line:r.line,message:r.message});} else {const similar=state.assetCatalogs.models.filter(m=>catalogNormalize(m.type)===catalogNormalize(r.type)&&catalogNormalize(m.manufacturer)===catalogNormalize(r.manufacturer)).map(m=>m.name);const near=catalogSimilar(r.model,similar);if(near.length)r.warning=`Possível duplicidade com: ${near[0]}`;seenM.add(k);}
-      }
-    });
-    openImportPreview('catalogs',rows,errors,'Importar cadastros','Revise os dados antes de adicioná-los ao catálogo.',()=>{
-      rows.filter(r=>r.valid).forEach(r=>{if(r.sheet==='Tipos')state.assetCatalogs.types.push(r.type);else if(r.sheet==='Fabricantes')state.assetCatalogs.manufacturers.push(r.manufacturer);else state.assetCatalogs.models.push({id:uid('model'),name:r.model,type:r.type,manufacturer:r.manufacturer});});
-      normalizeAssetCatalogs();save();renderAssetCatalogManufacturerSelect();renderAssetCatalogTypeSelect();renderAssetCatalogs();renderAssetCatalogSelects();toast('Cadastros importados');
-    });
-  }catch(e){console.error(e);toast('Não foi possível ler a planilha.');}
-}
 
 function catalogSingleLabel(kind){return ({types:'Tipos de ativo',manufacturers:'Fabricantes',models:'Modelos',statuses:'Status',substatuses:'Substatus'})[kind]||'Cadastros';}
 function catalogSingleTemplate(kind){
@@ -4507,7 +5157,7 @@ async function processAssetsWorkbook(file){
       validateAssetImportRows(preview);
       const ready=preview.filter(r=>r.valid);
       ready.forEach(item=>{
-        const d=item.data; const resolved=resolveAssetImportLocation(d['Localização']||d.Sala); const room=resolved.room; const stock=resolved.stock; const rack=room&&d.Rack?room.data?.racks?.find(r=>catalogNormalize(r.name)===catalogNormalize(d.Rack)):null; const loc=resolved.loc; const asset={id:uid('asset'),name:d.Nome,type:d.Tipo,manufacturer:d.Fabricante,model:d.Modelo,assetTag:d['Asset Tag'],serial:d['Serial Number'],status:d.Status||'Instalado',substatus:d.Substatus||'',locationType:stock?'stock':'room',locationName:d['Localização']||d.Sala||'',locationId:loc?.id||null,stockId:stock?.id||null,roomId:room?.id||null,rackId:rack?.id||null,uStart:Math.max(1,Math.floor(parseImportNumber(d['U Inicial'],1))),uHeight:Math.max(1,Math.floor(parseImportNumber(d['Quantidade U'],1)))}; state.assets.push(asset); recordAssetAudit({action:'CREATE',asset,after:asset,changes:[]});
+        const d=item.data; const resolved=resolveAssetImportLocation(d['Localização']||d.Sala); const room=resolved.room; const stock=resolved.stock; const rack=room&&d.Rack?room.data?.racks?.find(r=>catalogNormalize(r.name)===catalogNormalize(d.Rack)):null; const loc=resolved.loc; const asset=autoFillAssetFromModel({id:uid('asset'),name:d.Nome,type:d.Tipo,manufacturer:d.Fabricante,model:d.Modelo,assetTag:d['Asset Tag'],serial:d['Serial Number'],status:d.Status||'Instalado',substatus:d.Substatus||'',locationType:stock?'stock':'room',locationName:d['Localização']||d.Sala||'',locationId:loc?.id||null,stockId:stock?.id||null,roomId:room?.id||null,rackId:rack?.id||null,uStart:Math.max(1,Math.floor(parseImportNumber(d['U Inicial'],1))),uHeight:Math.max(1,Math.floor(parseImportNumber(d['Quantidade U'],1))),ports:[],powerW:0,weightKg:0}); state.assets.push(asset); recordAssetAudit({action:'CREATE',asset,after:asset,changes:[]});
       });
       const imported=ready.length;save();closeImportPreview();renderAll(false);renderAssetsList($('assetsSearch')?.value||'');toast(`${imported} asset(s) importado(s)`);
     });
@@ -4539,13 +5189,6 @@ async function importAssetsWorkbook(file){
 
 
 /* Cadastro em massa: o sistema calcula as U livres em vez de delegar isso ao Excel. */
-function bulkAllRacks(){
-  const out=[],seen=new Set();
-  const add=(r,roomName='')=>{if(!r?.id||seen.has(r.id))return;seen.add(r.id);const room=state.rooms?.find(x=>x.id===r.roomId)||state.rooms?.find(x=>x.data?.racks?.some(y=>y.id===r.id));out.push({r,room:room||null,roomName:roomName||room?.name||''});};
-  (state.racks||[]).forEach(r=>add(r));
-  (state.rooms||[]).forEach(room=>(room.data?.racks||[]).forEach(r=>add(r,room.name)));
-  return out;
-}
 function bulkLocationOptions(selected=''){
   normalizeLocations();
   let out='<option value="">Selecione a localização</option>';
@@ -4680,12 +5323,12 @@ function addBulkRow(){const body=$('assetsBulkBody');if(!body)return;body.insert
   model.addEventListener('change',()=>{const opt=model.selectedOptions?.[0];if(!opt||!opt.value)return;const mt=opt.dataset.modelType||'',mm=opt.dataset.modelManufacturer||'';if(mt){type.value=mt;}if(mm){man.value=mm;}refreshAllBulkRows();});
   location.addEventListener('change',()=>{rack.value='';row.querySelector('[data-bulk-field="u"]').value='';refreshAllBulkRows();});
   rack.addEventListener('change',()=>refreshAllBulkRows());row.querySelector('[data-bulk-field="height"]').addEventListener('input',()=>refreshAllBulkRows());row.querySelector('[data-bulk-field="u"]').addEventListener('change',()=>refreshAllBulkRows());row.querySelector('[data-bulk-field="name"]').addEventListener('input',()=>refreshAllBulkRows());row.querySelector('[data-bulk-remove]').addEventListener('click',()=>{row.remove();refreshAllBulkRows();});refreshModel();refreshAllBulkRows();row.querySelector('[data-bulk-field="name"]').focus();}
-function openBulkAssetsModal(){normalizeAssets();normalizeAssetCatalogs();initBulkTableResizers();const m=$('assetsBulkModal');if(!m)return;$('assetsBulkBody').innerHTML='';for(let i=0;i<5;i++)addBulkRow();$('assetsBulkChooser')?.classList.remove('hidden');$('assetsBulkEditor')?.classList.add('hidden');m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.style.zIndex='340';}
+function openBulkAssetsModal(){normalizeAssets();normalizeAssetCatalogs();initBulkTableResizers();const m=$('assetsBulkModal');if(!m)return;$('assetsBulkBody').innerHTML='';for(let i=0;i<5;i++)addBulkRow();$('assetsBulkChooser')?.classList.remove('hidden');$('assetsBulkEditor')?.classList.add('hidden');m.querySelector('.bulk-assets-card')?.classList.remove('wide');m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.style.zIndex='340';}
 function closeBulkAssetsModal(){const m=$('assetsBulkModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
 function saveBulkAssets(){
   normalizeAssets();const rows=[...document.querySelectorAll('#assetsBulkBody tr')].filter(r=>r.querySelector('[data-bulk-field="name"]')?.value.trim());if(!rows.length){toast('Adicione pelo menos um asset.');return;}
   const errors=[],newAssets=[];
-  rows.forEach((row,i)=>{const g=k=>row.querySelector(`[data-bulk-field="${k}"]`)?.value?.trim?.()||row.querySelector(`[data-bulk-field="${k}"]`)?.value||'';const name=g('name'),type=g('type'),manufacturer=g('manufacturer'),model=g('model'),tag=g('tag'),serial=g('serial'),locationValue=g('location'),rackId=g('rack'),uStart=Number(g('u')||0),uHeight=Math.max(1,Math.floor(Number(g('height')||1))),status=g('status')||'Ativo',substatus=g('substatus');const locParts=locationValue.startsWith('stock:')?locationValue.split(':'):null;const locationType=locationValue.startsWith('stock:')?'stock':'room';const roomId=locationType==='room'?locationValue.slice(5)||null:null;const locationId=locationType==='stock'?(locParts?.[1]||null):(roomId?(state.rooms.find(r=>r.id===roomId)?.locationId||null):null);const stockId=locationType==='stock'?(locParts?.[2]||null):null;const rack=assetRack(rackId);let msg='';if(!name)msg='Nome é obrigatório.';else if(!type)msg='Tipo é obrigatório.';else if(!serial)msg='Serial Number é obrigatório.';else if(!locationValue)msg='Localização é obrigatória.';else if(locationType==='stock'&&rackId)msg='Asset em estoque não pode ter rack.';else if(locationType==='stock'&&uStart)msg='Asset em estoque não pode ter U.';else if(rack&&uStart<1)msg='Selecione uma U disponível.';else if(rack&&uStart+uHeight-1>Math.floor(num(rack.units,state.rackUnits)))msg='Quantidade de U ultrapassa o rack.';else if(rack){const used=new Set(state.assets.filter(a=>a.rackId===rackId&&!isAssetArchived(a)).flatMap(a=>{const o=assetOccupancy(a);return Array.from({length:o.end-o.start+1},(_,j)=>o.start+j);}));newAssets.filter(a=>a.rackId===rackId&&!isAssetArchived(a)).forEach(a=>{for(let u=a.uStart;u<a.uStart+a.uHeight;u++)used.add(u);});for(let u=uStart;u<uStart+uHeight;u++)if(used.has(u)){msg=`Conflito: U${u} já está ocupada.`;break;}}if(!msg){newAssets.push({id:uid('asset'),name,type,manufacturer,model,assetTag:tag,serial,locationType,locationName:locationType==='stock'?(state.locations.find(l=>l.id===locationId)?.name||'Estoque'):(state.rooms.find(r=>r.id===roomId)?.name||''),locationId,stockId,roomId,rackId:rackId||null,uStart:uStart||1,uHeight,status,substatus});}if(msg)errors.push(`Linha ${i+1}: ${msg}`);});
+  rows.forEach((row,i)=>{const g=k=>row.querySelector(`[data-bulk-field="${k}"]`)?.value?.trim?.()||row.querySelector(`[data-bulk-field="${k}"]`)?.value||'';const name=g('name'),type=g('type'),manufacturer=g('manufacturer'),model=g('model'),tag=g('tag'),serial=g('serial'),locationValue=g('location'),rackId=g('rack'),uStart=Number(g('u')||0),uHeight=Math.max(1,Math.floor(Number(g('height')||1))),status=g('status')||'Ativo',substatus=g('substatus');const locParts=locationValue.startsWith('stock:')?locationValue.split(':'):null;const locationType=locationValue.startsWith('stock:')?'stock':'room';const roomId=locationType==='room'?locationValue.slice(5)||null:null;const locationId=locationType==='stock'?(locParts?.[1]||null):(roomId?(state.rooms.find(r=>r.id===roomId)?.locationId||null):null);const stockId=locationType==='stock'?(locParts?.[2]||null):null;const rack=assetRack(rackId);let msg='';if(!name)msg='Nome é obrigatório.';else if(!type)msg='Tipo é obrigatório.';else if(!serial)msg='Serial Number é obrigatório.';else if(!locationValue)msg='Localização é obrigatória.';else if(locationType==='stock'&&rackId)msg='Asset em estoque não pode ter rack.';else if(locationType==='stock'&&uStart)msg='Asset em estoque não pode ter U.';else if(rack&&uStart<1)msg='Selecione uma U disponível.';else if(rack&&uStart+uHeight-1>Math.floor(num(rack.units,state.rackUnits)))msg='Quantidade de U ultrapassa o rack.';else if(rack){const used=new Set(state.assets.filter(a=>a.rackId===rackId&&!isAssetArchived(a)).flatMap(a=>{const o=assetOccupancy(a);return Array.from({length:o.end-o.start+1},(_,j)=>o.start+j);}));newAssets.filter(a=>a.rackId===rackId&&!isAssetArchived(a)).forEach(a=>{for(let u=a.uStart;u<a.uStart+a.uHeight;u++)used.add(u);});for(let u=uStart;u<uStart+uHeight;u++)if(used.has(u)){msg=`Conflito: U${u} já está ocupada.`;break;}}if(!msg){newAssets.push(autoFillAssetFromModel({id:uid('asset'),name,type,manufacturer,model,assetTag:tag,serial,locationType,locationName:locationType==='stock'?(state.locations.find(l=>l.id===locationId)?.name||'Estoque'):(state.rooms.find(r=>r.id===roomId)?.name||''),locationId,stockId,roomId,rackId:rackId||null,uStart:uStart||1,uHeight,status,substatus,ports:[],powerW:0,weightKg:0}));}if(msg)errors.push(`Linha ${i+1}: ${msg}`);});
   if(errors.length){toast(errors[0]);return;}
   state.assets.push(...newAssets);save();newAssets.forEach(asset=>recordAssetAudit({action:'CREATE',asset,after:asset,changes:[]}));closeBulkAssetsModal();renderAll(false);renderAssetsList($('assetsSearch')?.value||'');if($('bayfaceModal')?.classList.contains('open'))renderBayface($('bayfaceModal').dataset.rackId);toast(`${newAssets.length} asset(s) cadastrado(s)`);
 }
@@ -4737,21 +5380,30 @@ function bind(){
   $('locationSelect')?.addEventListener('change',e=>fitTopbarSelect(e.target));
   $('roomSelect')?.addEventListener('change',e=>fitTopbarSelect(e.target));
   $('roomSelect')?.addEventListener('change',e=>switchRoom(e.target.value));
-  $('btnAddRoom')?.addEventListener('click',addRoom);
-  $('btnRenameRoom')?.addEventListener('click',showRoomMenu);
+  bindStyledSelect('locationSelect','locationSelectBtn');
+  bindStyledSelect('roomSelect','roomSelectBtn');
+  document.addEventListener('click',e=>{if(!e.target.closest('.dc-select-btn')&&!e.target.closest('.dc-select-panel'))closeStyledSelectPanels();});
+  window.addEventListener('resize',closeStyledSelectPanels);
+  window.addEventListener('scroll',closeStyledSelectPanels,true);
   $('btnLocations')?.addEventListener('click',openLocationsModal);
   $('btnAssets')?.addEventListener('click',openAssetsModal);
+  $('btnLifecycleAlert')?.addEventListener('click',openAssetsModalWithAttentionFilter);
+  $('btnCapacityAlert')?.addEventListener('click',e=>{e.stopPropagation();openCapacityAlertPanel(e.currentTarget);});
+  document.addEventListener('click',e=>{if(!e.target.closest('.capacity-alert-panel')&&!e.target.closest('#btnCapacityAlert'))closeCapacityAlertPanel();});
+  window.addEventListener('resize',closeCapacityAlertPanel);
+  $('assetsAttentionClear')?.addEventListener('click',()=>{assetAttentionOnly=false;renderAssetsList($('assetsSearch')?.value||'');});
   $('assetHistoryClose')?.addEventListener('click',closeAssetHistory);
   $('assetHistoryExport')?.addEventListener('click',exportCurrentAssetHistory);
   $('assetsClose')?.addEventListener('click',closeAssetsModal);
   $('assetsNew')?.addEventListener('click',()=>openAssetModal());
   $('assetsBulk')?.addEventListener('click',openBulkAssetsModal);
+  $('assetsExport')?.addEventListener('click',exportAssetsXLSX);
   $('assetsBulkClose')?.addEventListener('click',closeBulkAssetsModal);
   $('assetsBulkCancel')?.addEventListener('click',closeBulkAssetsModal);
-  $('assetsBulkManual')?.addEventListener('click',()=>{$('assetsBulkChooser')?.classList.add('hidden');$('assetsBulkEditor')?.classList.remove('hidden');});
+  $('assetsBulkManual')?.addEventListener('click',()=>{$('assetsBulkChooser')?.classList.add('hidden');$('assetsBulkEditor')?.classList.remove('hidden');$('assetsBulkModal')?.querySelector('.bulk-assets-card')?.classList.add('wide');});
   $('assetsBulkImport')?.addEventListener('click',()=>{closeBulkAssetsModal();openAssetsImportModal();});
   $('assetsBulkTemplate')?.addEventListener('click',makeAssetsTemplate);
-  $('assetsBulkBack')?.addEventListener('click',()=>{$('assetsBulkEditor')?.classList.add('hidden');$('assetsBulkChooser')?.classList.remove('hidden');});
+  $('assetsBulkBack')?.addEventListener('click',()=>{$('assetsBulkEditor')?.classList.add('hidden');$('assetsBulkChooser')?.classList.remove('hidden');$('assetsBulkModal')?.querySelector('.bulk-assets-card')?.classList.remove('wide');});
   $('assetsBulkAddRow')?.addEventListener('click',addBulkRow);
   $('assetsBulkSave')?.addEventListener('click',saveBulkAssets);
   
@@ -4759,13 +5411,73 @@ function bind(){
   $('assetCatalogClose')?.addEventListener('click',closeAssetCatalogModal);
   
   $('assetsSearch')?.addEventListener('input',e=>renderAssetsList(e.target.value));
+  $('assetsTableHead')?.addEventListener('click',e=>{
+    const filterBtn=e.target.closest('[data-filter-col]');
+    if(filterBtn){
+      e.stopPropagation();
+      const already=filterBtn.classList.contains('menu-open');
+      closeAssetColumnFilterMenus();
+      document.querySelectorAll('#assetsTableHead [data-filter-col]').forEach(b=>b.classList.remove('menu-open'));
+      if(already)return;
+      filterBtn.classList.add('menu-open');
+      openAssetColumnFilterMenu(filterBtn.dataset.filterCol,filterBtn);
+      return;
+    }
+    const sortBtn=e.target.closest('[data-sort-col]');
+    if(sortBtn){
+      const col=sortBtn.dataset.sortCol;
+      if(assetSortColumn===col){assetSortDir=assetSortDir==='asc'?'desc':'asc';}
+      else{assetSortColumn=col;assetSortDir='asc';}
+      renderAssetsList($('assetsSearch')?.value||'');
+    }
+  });
+  $('assetsSelectAll')?.addEventListener('change',e=>{
+    document.querySelectorAll('#assetsList [data-asset-select]').forEach(cb=>{cb.checked=e.target.checked;cb.closest('.asset-row')?.classList.toggle('is-selected',e.target.checked);if(e.target.checked)assetSelectedIds.add(cb.dataset.assetSelect);else assetSelectedIds.delete(cb.dataset.assetSelect);});
+    updateAssetsBulkBar();
+  });
+  $('assetsBulkClear')?.addEventListener('click',()=>{assetSelectedIds=new Set();renderAssetsList($('assetsSearch')?.value||'');});
+  $('assetsBulkDelete')?.addEventListener('click',bulkDeleteAssets);
+  $('assetsBulkStatus')?.addEventListener('change',e=>{const v=e.target.value;e.target.value='';if(v)bulkChangeAssetStatus(v);});
+  $('assetsBulkSubstatus')?.addEventListener('change',e=>{const v=e.target.value;e.target.value='';if(v)bulkChangeAssetSubstatus(v);});
+  $('assetsBulkLocation')?.addEventListener('change',e=>{const v=e.target.value;e.target.value='';if(v)bulkChangeAssetLocation(v);});
+  document.addEventListener('click',e=>{if(!e.target.closest('.col-filter-panel')&&!e.target.closest('[data-filter-col]')){closeAssetColumnFilterMenus();document.querySelectorAll('#assetsTableHead [data-filter-col]').forEach(b=>b.classList.remove('menu-open'));}});
+  window.addEventListener('resize',closeAssetColumnFilterMenus);
   $('assetEditCancel')?.addEventListener('click',closeAssetModal);
   $('assetEditCancelTop')?.addEventListener('click',closeAssetModal);
   $('assetEditForm')?.addEventListener('submit',e=>{e.preventDefault();saveAssetForm();});
+  $('roomEditorForm')?.addEventListener('submit',e=>{e.preventDefault();saveRoomEditor();});
+  $('roomEditorClose')?.addEventListener('click',closeRoomEditor);
+  $('roomEditorCancel')?.addEventListener('click',closeRoomEditor);
+  $('assetPortsAdd')?.addEventListener('click',()=>{assetEditPorts.push({id:uid('port'),label:`Porta ${assetEditPorts.length+1}`,poe:false});renderAssetPortsEditor();const inputs=document.querySelectorAll('#assetPortsList .asset-port-name');const last=inputs[inputs.length-1];if(last){last.focus();last.select();}});
+  $('assetWarrantyExpiration')?.addEventListener('input',updateAssetLifecycleBadge);
+  $('assetEndOfLife')?.addEventListener('input',updateAssetLifecycleBadge);
+  $('assetPortsExport')?.addEventListener('click',exportAssetPortsXLSX);
+  $('portRangeAdd')?.addEventListener('click',()=>{
+    const start=$('portRangeStart').value.trim(), end=$('portRangeEnd').value.trim();
+    if(!start||!end){toast('Informe a primeira e a última porta.');return;}
+    const range=buildPortRange(start,end);
+    if(!range){toast('Não foi possível calcular a sequência. Confira se o padrão das duas portas coincide (ex.: G0/0/1 até G0/0/24).');return;}
+    const existing=new Set(expandPortDefs(catalogEditorPortDefs).map(p=>p.label));
+    const conflicts=range.filter(label=>existing.has(label));
+    if(conflicts.length){toast(`Essas portas já existem neste modelo: ${conflicts.slice(0,5).join(', ')}${conflicts.length>5?`... (${conflicts.length} no total)`:''}`);return;}
+    catalogEditorPortDefs.push({id:uid('portdef'),kind:'range',startLabel:start,endLabel:end,poe:!!$('portRangePoe')?.checked});
+    $('portRangeStart').value='';$('portRangeEnd').value='';if($('portRangePoe'))$('portRangePoe').checked=false;
+    renderCatalogPortDefsEditor();
+  });
+  $('portSingleAdd')?.addEventListener('click',()=>{
+    const label=$('portSingleName').value.trim();
+    if(!label){toast('Informe o nome da porta.');return;}
+    const existing=new Set(expandPortDefs(catalogEditorPortDefs).map(p=>p.label));
+    if(existing.has(label)){toast(`A porta "${label}" já existe neste modelo.`);return;}
+    catalogEditorPortDefs.push({id:uid('portdef'),kind:'single',label,poe:!!$('portSinglePoe')?.checked});
+    $('portSingleName').value='';if($('portSinglePoe'))$('portSinglePoe').checked=false;
+    renderCatalogPortDefsEditor();
+  });
   $('assetManufacturer')?.addEventListener('change',()=>{renderAssetCatalogSelects({assetType:$('assetType')?.value||'',assetManufacturer:$('assetManufacturer')?.value||'',assetModel:''});});
   $('assetType')?.addEventListener('change',()=>{renderAssetCatalogSelects({assetType:$('assetType')?.value||'',assetManufacturer:$('assetManufacturer')?.value||'',assetModel:''});});
   $('assetLocation')?.addEventListener('change',()=>refreshAssetRackOptions(''));
-  $('assetModel')?.addEventListener('change',()=>{const modelName=$('assetModel')?.value||'';if(!modelName)return;normalizeAssetCatalogs();const m=state.assetCatalogs.models.find(x=>String(x.name)===String(modelName));if(!m)return;renderAssetCatalogSelects({assetType:m.type||'',assetManufacturer:m.manufacturer||'',assetModel:m.name||''});});
+  $('assetRack')?.addEventListener('change',updateAssetUFieldsState);
+  $('assetModel')?.addEventListener('change',()=>{const modelName=$('assetModel')?.value||'';if(!modelName)return;normalizeAssetCatalogs();const m=state.assetCatalogs.models.find(x=>String(x.name)===String(modelName));if(!m)return;renderAssetCatalogSelects({assetType:m.type||'',assetManufacturer:m.manufacturer||'',assetModel:m.name||''});autoFillPortsFromModelIfEmpty();autoFillPowerFromModelIfEmpty();autoFillWeightFromModelIfEmpty();});
   $('catalogTypeSearch')?.addEventListener('input',renderAssetCatalogs);
   $('catalogManufacturerSearch')?.addEventListener('input',renderAssetCatalogs);
   $('catalogStatusSearch')?.addEventListener('input',renderAssetCatalogs);
@@ -4785,9 +5497,6 @@ function bind(){
   $('bayfaceAssetPickerClose')?.addEventListener('click',closeBayfaceAssetPicker);
   $('bayfaceAssetPickerSearch')?.addEventListener('input',renderBayfaceAssetPicker);
   
-  document.addEventListener('click',e=>{if(!e.target.closest('#roomMenu')&&!e.target.closest('#btnRenameRoom'))closeRoomMenu();});
-  window.addEventListener('resize',closeRoomMenu);
-  window.addEventListener('scroll',closeRoomMenu,true);
 
   // Bindar os controles do canvas ANTES da renderização do projeto.
   // Isso garante que um erro em renderAll() não deixe os controles mudos.
@@ -4802,15 +5511,13 @@ function bind(){
   
   $('quickSearchInput')?.addEventListener('input',e=>{quickSearchIndex=0;renderQuickSearchResults(e.target.value);});
   $('quickSearchInput')?.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();if(quickSearchItems.length){quickSearchIndex=(quickSearchIndex+1)%quickSearchItems.length;renderQuickSearchResults(e.target.value);}}else if(e.key==='ArrowUp'){e.preventDefault();if(quickSearchItems.length){quickSearchIndex=(quickSearchIndex-1+quickSearchItems.length)%quickSearchItems.length;renderQuickSearchResults(e.target.value);}}else if(e.key==='Enter'&&quickSearchItems[quickSearchIndex]){e.preventDefault();activateSearchResult(quickSearchItems[quickSearchIndex].type,quickSearchItems[quickSearchIndex].id);}});
-  window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openQuickSearch();}else if(e.key==='Escape'){if($('quickSearchModal')?.classList.contains('open'))closeQuickSearch();else if($('projectSummaryModal')?.classList.contains('open'))closeProjectSummary();else if($('catalogEditorModal')?.classList.contains('open'))closeCatalogEditor();else if($('assetCatalogModal')?.classList.contains('open'))closeAssetCatalogModal();else if($('assetsModal')?.classList.contains('open'))closeAssetsModal();else if($('assetEditModal')?.classList.contains('open'))closeAssetModal();else if($('bayfaceAssetPickerModal')?.classList.contains('open'))closeBayfaceAssetPicker();else if($('bayfaceModal')?.classList.contains('open'))closeBayface();}});
+  window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openQuickSearch();}else if(e.key==='Escape'){if(document.querySelector('.dc-select-panel'))closeStyledSelectPanels();else if($('helpModal')?.classList.contains('open'))closeHelpModal();else if($('quickSearchModal')?.classList.contains('open'))closeQuickSearch();else if($('projectSummaryModal')?.classList.contains('open'))closeProjectSummary();else if($('catalogEditorModal')?.classList.contains('open'))closeCatalogEditor();else if($('assetCatalogModal')?.classList.contains('open'))closeAssetCatalogModal();else if($('assetsModal')?.classList.contains('open'))closeAssetsModal();else if($('assetEditModal')?.classList.contains('open'))closeAssetModal();else if($('bayfaceAssetPickerModal')?.classList.contains('open'))closeBayfaceAssetPicker();else if($('bayfaceModal')?.classList.contains('open'))closeBayface();}});
   // Cadeado já foi inicializado por setupStructureLockControl().
   updateStructureControls();
   if($('btnProjects'))$('btnProjects').onclick=async()=>{
-    if(guestMode){toast('Projetos na nuvem não estão disponíveis no modo convidado. Use Exportar projeto.');return;}
     if(cloudDirty){
-      const wantsSave=confirm('Existem alterações não salvas na nuvem. Deseja salvar antes de voltar para Projetos?');
+      const wantsSave=await uiConfirm('Existem alterações não salvas na nuvem.',{title:'Salvar antes de voltar para Projetos?',confirmText:'Salvar e voltar',cancelText:'Continuar sem salvar'});
       if(wantsSave){ const ok=await saveProjectToCloud(true); if(!ok)return; }
-      else { const leave=confirm('Voltar sem salvar pode deixar alterações apenas neste navegador. Deseja continuar?'); if(!leave)return; }
     }
     showDashboard();
   };
@@ -4833,32 +5540,12 @@ function bind(){
   $('btnTheme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';applyTheme();localStorage.setItem(THEME_STORAGE,state.theme);toast(state.theme==='light'?'Tema claro':'Tema escuro');};
   $('btnUndo').onclick=undo; $('btnRedo').onclick=redo;
   window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();}else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();}});
-  $('btnSave').onclick=async()=>{ if(guestMode){toast('Modo convidado: exporte o projeto para salvar uma cópia.');return;} save(); await saveProjectToCloud(true); };
+  $('btnSave').onclick=async()=>{ save(); await saveProjectToCloud(true); };
   $('autosaveToggle')?.addEventListener('change',e=>setAutosaveEnabled(e.target.checked));
   updateAutosaveUI();
   updatePlannerProjectName();
   setCloudStatus(cloudDirty?'pending':'saved');
-  $('btnExport').onclick=()=>{
-    try{
-      // Always synchronize the live room into its persisted representation
-      // before exporting.  This guarantees that room-scoped infrastructure
-      // such as trays, tray links and cables is present in the JSON even when
-      // the user exports immediately after making an edit.
-      syncActiveRoom();
-      normalizeState();
-      const payload=projectCloudPayload();
-      const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),
-            a=document.createElement('a');
-      a.href=URL.createObjectURL(blob);
-      a.download=(state.projectName||'data-center')+'.json';
-      a.click();
-      setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-      toast('Projeto completo exportado');
-    }catch(err){
-      console.error('Export project:',err);
-      toast('Não foi possível exportar o projeto.');
-    }
-  };
+  $('btnExport').onclick=()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(state.projectName||'data-center')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
   $('btnImportProject').onclick=()=>{if(structureBlocked())return;$('projectInput').click();};
   $('projectInput').onchange=e=>{const f=e.target.files[0];if(f&&!isStructureLocked())importProject(f);e.target.value='';};
   $('btnReset').onclick=newProject;
