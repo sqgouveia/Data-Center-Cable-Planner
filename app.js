@@ -299,7 +299,11 @@ async function openAssetHistory(assetId){
       const actionLabel=row.action==='CREATE'?'Criação':row.action==='UPDATE'?'Alteração':row.action==='DELETE'?'Exclusão':row.action==='RESTORE'?'Restauração':row.action;
       return `<div class="asset-history-item"><div class="asset-history-head"><strong>${esc(actionLabel)}</strong><span>${esc(formatProjectDate(row.changed_at))}</span></div><div class="asset-history-meta"><span>Usuário: ${esc(email)}</span><span class="asset-history-action">${esc(row.action)}</span></div>${changeHtml}</div>`;
     }).join('');
-  }catch(err){console.error(err);list.innerHTML=`<div class="empty">Não foi possível carregar o histórico. Execute o SQL de migração da v16 no Supabase.</div>`;}
+  }catch(err){
+    console.error(err);
+    if(!cloudProjectId){list.innerHTML=`<div class="empty">Histórico indisponível: você está no modo convidado, sem conexão com a nuvem. Faça login com uma conta pra acompanhar o histórico de alterações.</div>`;}
+    else list.innerHTML=`<div class="empty">Não foi possível carregar o histórico. Execute o SQL de migração da v16 no Supabase.</div>`;
+  }
 }
 function closeAssetHistory(){const m=$('assetHistoryModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');currentAssetHistoryAssetId=null;currentAssetHistoryRows=[];}
 
@@ -635,7 +639,7 @@ async function openCloudProject(id){
 }
 function resetStateForNewProject(name='Data Center'){
   const keepTheme=state.theme;
-  state.projectName=name;state.rackUnits=48;state.rackWidth=.60;state.rackDepth=1.20;state.rackGap=0;state.rackPowerCapacityW=0;state.defaultRowGap=1.20;state.lastUToTray=1.00;state.defaultSlack=10;state.rows=[];state.racks=[];state.cables=[];state.trays=[];state.trayLinks=[];state.trayRackLinks=[];state.assets=[];state.snapToEdges=true;state.assetCatalogs={types:[...DEFAULT_ASSET_TYPES],manufacturers:[],models:[],statuses:[...DEFAULT_ASSET_STATUSES],substatuses:[...DEFAULT_ASSET_SUBSTATUSES]}; state.locations=[];state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];state.theme=keepTheme;state.rooms=[];state.activeRoomId=null;ensureRooms();
+  state.projectName=name;state.rackUnits=48;state.rackWidth=.60;state.rackDepth=1.20;state.rackGap=0;state.rackPowerCapacityW=0;state.rackWeightCapacityKg=0;state.defaultRowGap=1.20;state.lastUToTray=1.00;state.defaultSlack=10;state.rows=[];state.racks=[];state.cables=[];state.trays=[];state.trayLinks=[];state.trayRackLinks=[];state.assets=[];state.snapToEdges=true;state.assetCatalogs={types:[...DEFAULT_ASSET_TYPES],manufacturers:[],models:[],statuses:[...DEFAULT_ASSET_STATUSES],substatuses:[...DEFAULT_ASSET_SUBSTATUSES]}; state.locations=[];state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];state.theme=keepTheme;state.rooms=[];state.activeRoomId=null;ensureRooms();
   cloudProjectId=null;
   lastCloudSnapshot=null;
   cloudDirty=true;
@@ -698,6 +702,11 @@ function enterGuestMode(){
 function unlockApp(user, forceDashboard=false){
   if(user?.id){ STORAGE = `dc-planner-v7-user-${user.id}`; }
   document.body.classList.remove("auth-locked"); $("authScreen")?.classList.add("hidden"); $("authScreen")?.setAttribute("aria-hidden","true");
+  // Se o usuário tinha entrado no modo convidado antes e agora fez login de
+  // verdade (sem recarregar a página), remove a marca de convidado — senão
+  // o botão "Salvar na nuvem" ficaria preso desativado mesmo estando logado.
+  document.body.classList.remove('guest-mode');
+  const saveBtn=$('btnSave'); if(saveBtn){saveBtn.disabled=false;saveBtn.removeAttribute('title');}
   const e=$("authUserEmail"); if(e)e.textContent=user?.email||"";
   $("dashboardUserEmail").textContent=user?.email||"";
   updatePlannerProjectName();
@@ -872,10 +881,22 @@ function uiPrompt(message, defaultValue='', opts={}){
     setTimeout(()=>{input.focus();input.select();},20);
   });
 }
-const CABLE_TYPES = ['Fibra Multi Mode','Fibra Single Mode','UTP'];
-const CABLE_TYPE_COLORS = {'Fibra Multi Mode':'#2dd4bf','Fibra Single Mode':'#facc15','UTP':'#4f8cff'};
-function cableTypeColor(type){return CABLE_TYPE_COLORS[type]||'var(--route)';}
-const DEFAULT_CABLE_TYPE = 'UTP';
+const DEFAULT_CABLE_TYPES = [{name:'Fibra Multi Mode',color:'#2dd4bf'},{name:'Fibra Single Mode',color:'#facc15'},{name:'UTP',color:'#4f8cff'}];
+function normalizeCableCatalogs(){
+  state.cableCatalogs=state.cableCatalogs&&typeof state.cableCatalogs==='object'?state.cableCatalogs:{};
+  let types=Array.isArray(state.cableCatalogs.types)?state.cableCatalogs.types:null;
+  if(!types||!types.length) types=DEFAULT_CABLE_TYPES.map(t=>({...t}));
+  const seen=new Set(); const clean=[];
+  types.forEach(t=>{
+    const name=String(t?.name||'').trim(); if(!name)return;
+    const key=catalogNormalize(name); if(seen.has(key))return; seen.add(key);
+    clean.push({name,color:/^#[0-9a-fA-F]{6}$/.test(t?.color||'')?t.color:'#4f8cff'});
+  });
+  state.cableCatalogs.types=clean.length?clean:DEFAULT_CABLE_TYPES.map(t=>({...t}));
+}
+function cableTypeNames(){normalizeCableCatalogs();return state.cableCatalogs.types.map(t=>t.name);}
+function defaultCableType(){normalizeCableCatalogs();return state.cableCatalogs.types[0]?.name||'UTP';}
+function cableTypeColor(type){normalizeCableCatalogs();return state.cableCatalogs.types.find(t=>t.name===type)?.color||'var(--route)';}
 
 const state = {
   projectName: 'Data Center',
@@ -1138,6 +1159,8 @@ function load(){
   state.rackGap=Math.max(0,Number(state.rackGap));
   if(!Number.isFinite(Number(state.rackPowerCapacityW))) state.rackPowerCapacityW=0;
   state.rackPowerCapacityW=Math.max(0,Number(state.rackPowerCapacityW));
+  if(!Number.isFinite(Number(state.rackWeightCapacityKg))) state.rackWeightCapacityKg=0;
+  state.rackWeightCapacityKg=Math.max(0,Number(state.rackWeightCapacityKg));
   if(!Number.isFinite(Number(state.rackDepth))) state.rackDepth=1.20;
   state.rackDepth=Math.max(0.1,Number(state.rackDepth));
   if(state.theme!=='light'&&state.theme!=='dark')state.theme='dark';
@@ -1153,7 +1176,7 @@ function rowForRack(r){ return r?state.rows.find(x=>x.id===r.rowId):null; }
 function rowIndex(r){ return r?state.rows.findIndex(x=>x.id===r.rowId):-1; }
 function racksInRow(rowId){ return state.racks.filter(r=>r.rowId===rowId).sort((a,b)=>a.index-b.index); }
 function rackAt(rowId,index){ return racksInRow(rowId).find(r=>r.index===index)||null; }
-function makeRack(row,index){ return {id:uid('rack'),rowId:row.id,index,name:`${row.name||'R'}-${String(index+1).padStart(2,'0')}`,units:state.rackUnits,width:state.rackWidth,depth:state.rackDepth,gapAfter:state.rackGap,riseToTray:state.lastUToTray,powerCapacityW:state.rackPowerCapacityW||0,weightCapacityKg:0,offset:0,yOffset:0,hasTray:false}; }
+function makeRack(row,index){ return {id:uid('rack'),rowId:row.id,index,name:`${row.name||'R'}-${String(index+1).padStart(2,'0')}`,units:state.rackUnits,width:state.rackWidth,depth:state.rackDepth,gapAfter:state.rackGap,riseToTray:state.lastUToTray,powerCapacityW:state.rackPowerCapacityW||0,weightCapacityKg:state.rackWeightCapacityKg||0,offset:0,yOffset:0,hasTray:false}; }
 function normalizeIndices(){
   // Physical slot indexes are preserved so deleting a rack does not move the
   // remaining racks.  rackCount, however, represents the actual number of
@@ -1221,7 +1244,7 @@ function normalizeState(){
   state.cables=state.cables.filter(c=>rackIds.has(c.originRack)&&rackIds.has(c.destRack));
   // Assets are project-level. A missing rack means the asset is unassigned; never delete it.
   state.assets.forEach(a=>{if(a.rackId&&!allRackIds.has(a.rackId)){a.rackId=null;}});
-  state.cables.forEach(c=>{c.type=CABLE_TYPES.includes(c.type)?c.type:DEFAULT_CABLE_TYPE;c.via=(c.via||[]).filter(id=>rackIds.has(id));c.originPortId=c.originPortId||null;c.destPortId=c.destPortId||null;});
+  state.cables.forEach(c=>{c.type=cableTypeNames().includes(c.type)?c.type:defaultCableType();c.via=(c.via||[]).filter(id=>rackIds.has(id));c.originPortId=c.originPortId||null;c.destPortId=c.destPortId||null;c.originPortLabel=String(c.originPortLabel||'');c.destPortLabel=String(c.destPortLabel||'');c.originAssetName=String(c.originAssetName||'');c.destAssetName=String(c.destAssetName||'');});
   if(state.selected?.type==='rack'&&!rackIds.has(state.selected.id))state.selected=null;
   state.multiSelected=Array.isArray(state.multiSelected)?state.multiSelected.filter(id=>rackIds.has(id)):[];
   if(state.selected?.type==='rack' && !state.multiSelected.includes(state.selected.id)) state.multiSelected=[state.selected.id];
@@ -1250,6 +1273,7 @@ async function rebuildStructureFromSettings(){
   state.rackDepth=Math.max(.1,num($('rackDepth').value,1.2));
   state.rackGap=Math.max(0,num($('rackGap').value,0));
   state.rackPowerCapacityW=Math.max(0,num($('rackPowerCapacity').value,0));
+  state.rackWeightCapacityKg=Math.max(0,num($('rackWeightCapacity').value,0));
   state.defaultRowGap=Math.max(0,num($('defaultRowGap').value,1.2));
   state.lastUToTray=Math.max(0,num($('lastUToTray').value,1));
   state.defaultSlack=Math.max(0,num($('defaultSlack').value,0));
@@ -2181,11 +2205,11 @@ function assetsNeedingAttention(){
     return w==='expired'||w==='soon'||e==='expired'||e==='soon';
   });
 }
-function updateLifecycleAlertBadge(){
-  const btn=$('btnLifecycleAlert'); if(!btn)return;
-  const count=assetsNeedingAttention().length;
-  btn.classList.toggle('hidden',count===0);
-  if($('lifecycleAlertCount'))$('lifecycleAlertCount').textContent=String(count);
+function updateAlertsCenterBadge(){
+  const btn=$('btnAlertsCenter'); if(!btn)return;
+  const total=assetsNeedingAttention().length+capacityIssues().length;
+  btn.classList.toggle('hidden',total===0);
+  if($('alertsCenterCount'))$('alertsCenterCount').textContent=String(total);
 }
 function updateRoomThermalBadge(){
   const badge=$('roomThermalBadge'); if(!badge)return;
@@ -2194,7 +2218,7 @@ function updateRoomThermalBadge(){
   if(!room||t.capacity<=0){badge.classList.add('hidden');return;}
   badge.classList.remove('hidden');
   badge.className='room-thermal-badge level-'+t.level;
-  if($('roomThermalBadgeText'))$('roomThermalBadgeText').textContent=`${t.watts}W de ${t.capacity}W (${t.pct}%)`;
+  if($('roomThermalBadgeText'))$('roomThermalBadgeText').textContent=`🌡️ ${t.watts}W de ${t.capacity}W (${t.pct}%)`;
 }
 function allProjectRacks(){
   syncActiveRoom();
@@ -2223,25 +2247,45 @@ function capacityIssues(){
   issues.sort((a,b)=>(a.level==='high'?0:1)-(b.level==='high'?0:1));
   return issues;
 }
-function updateCapacityAlertBadge(){
-  const btn=$('btnCapacityAlert'); if(!btn)return;
-  const count=capacityIssues().length;
-  btn.classList.toggle('hidden',count===0);
-  if($('capacityAlertCount'))$('capacityAlertCount').textContent=String(count);
-}
-function closeCapacityAlertPanel(){document.querySelectorAll('.capacity-alert-panel').forEach(x=>x.remove());}
-function openCapacityAlertPanel(anchorBtn){
-  closeCapacityAlertPanel();
-  const issues=capacityIssues();
+function closeAlertsCenterPanel(){document.querySelectorAll('.alerts-center-panel').forEach(x=>x.remove());}
+function openAlertsCenterPanel(anchorBtn){
+  closeAlertsCenterPanel();
+  const lifecycleIssues=assetsNeedingAttention();
+  const capIssues=capacityIssues();
   const KIND_UNIT_LABEL={power:'de energia',weight:'de carga',cooling:'de refrigeração'};
-  const panel=document.createElement('div'); panel.className='col-filter-panel capacity-alert-panel';
-  panel.innerHTML=`<div class="col-filter-panel-head"><b>Capacidade próxima/excedida</b></div><div class="col-filter-panel-list">${issues.length?issues.map((iss,i)=>`<button type="button" class="capacity-alert-item level-${iss.level}" data-issue-index="${i}"><span>${esc(iss.name)}</span><small>${esc(iss.label)} · ${Math.round(iss.current)}${iss.unit} ${esc(KIND_UNIT_LABEL[iss.kind])} de ${iss.capacity}${iss.unit}</small></button>`).join(''):'<div class="empty">Nenhum alerta no momento.</div>'}</div>`;
+  const panel=document.createElement('div'); panel.className='col-filter-panel alerts-center-panel';
+  let body='';
+  if(!lifecycleIssues.length && !capIssues.length){
+    body='<div class="empty">Nenhum alerta no momento.</div>';
+  }else{
+    if(lifecycleIssues.length){
+      body+='<div class="alerts-center-group-label">Ciclo de vida</div>';
+      body+=lifecycleIssues.map((a,i)=>{
+        const w=assetWarrantyLevel(a), e=assetEndOfLifeLevel(a);
+        const level=(w==='expired'||e==='expired')?'high':'mid';
+        const reason=[w==='expired'?'Garantia vencida':w==='soon'?'Garantia vence em breve':null,e==='expired'?'EOL vencido':e==='soon'?'EOL vence em breve':null].filter(Boolean).join(' · ');
+        return `<button type="button" class="capacity-alert-item level-${level}" data-lifecycle-index="${i}"><span>${esc(a.name||a.assetTag||'Asset')}</span><small>${esc(reason)}</small></button>`;
+      }).join('');
+      if(lifecycleIssues.length>1)body+='<button type="button" class="alerts-center-viewall" id="alertsCenterViewAll">Ver todos no inventário →</button>';
+    }
+    if(capIssues.length){
+      body+='<div class="alerts-center-group-label">Capacidade</div>';
+      body+=capIssues.map((iss,i)=>`<button type="button" class="capacity-alert-item level-${iss.level}" data-capacity-index="${i}"><span>${esc(iss.name)}</span><small>${esc(iss.label)} · ${Math.round(iss.current)}${iss.unit} ${esc(KIND_UNIT_LABEL[iss.kind])} de ${iss.capacity}${iss.unit}</small></button>`).join('');
+    }
+  }
+  panel.innerHTML=`<div class="col-filter-panel-head"><b>Central de alertas</b></div><div class="col-filter-panel-list">${body}</div>`;
   document.body.appendChild(panel);
   const rect=anchorBtn.getBoundingClientRect();
   panel.style.top=`${rect.bottom+4}px`; panel.style.left=`${Math.min(rect.left,window.innerWidth-panel.offsetWidth-12)}px`;
-  panel.querySelectorAll('[data-issue-index]').forEach(btn=>btn.onclick=()=>{
-    const iss=issues[Number(btn.dataset.issueIndex)];
-    closeCapacityAlertPanel();
+  panel.querySelectorAll('[data-lifecycle-index]').forEach(btn=>btn.onclick=()=>{
+    const a=lifecycleIssues[Number(btn.dataset.lifecycleIndex)];
+    closeAlertsCenterPanel();
+    openAssetModal(a.id);
+  });
+  $('alertsCenterViewAll')?.addEventListener('click',()=>{closeAlertsCenterPanel();openAssetsModalWithAttentionFilter();});
+  panel.querySelectorAll('[data-capacity-index]').forEach(btn=>btn.onclick=()=>{
+    const iss=capIssues[Number(btn.dataset.capacityIndex)];
+    closeAlertsCenterPanel();
     if(iss.kind==='cooling'){ openRoomEditor(iss.roomId); return; }
     if(iss.roomId && iss.roomId!==state.activeRoomId) switchRoom(iss.roomId);
     state.multiSelected=[]; state.selected={type:'rack',id:iss.rackId}; renderAll(false); renderProperties();
@@ -2328,6 +2372,38 @@ function catalogSimilar(value,values){
   return [...new Set((values||[]).map(v=>String(v))).values()].filter(v=>catalogNormalize(v)!==norm&&catalogSimilarity(value,v)>=0.84).sort((a,b)=>catalogSimilarity(value,b)-catalogSimilarity(value,a));
 }
 function catalogKeyLabel(key){return key==='types'?'Tipos de ativo':key==='manufacturers'?'Fabricantes':key==='statuses'?'Status':key==='substatuses'?'Substatus':'Modelos';}
+function renderCableTypesCatalog(){
+  normalizeCableCatalogs();
+  const el=$('catalogCableTypes'); if(!el)return;
+  const types=state.cableCatalogs.types;
+  el.innerHTML=types.map((t,i)=>`<div class="catalog-row"><span title="${esc(t.name)}">${esc(t.name)}</span><div><input type="color" class="catalog-color-swatch" data-cable-type-color="${i}" value="${esc(t.color)}" title="Cor deste tipo"><button type="button" class="iconbtn" data-cable-type-edit="${i}" title="Editar">✎</button><button type="button" class="iconbtn danger-icon" data-cable-type-delete="${i}" title="Excluir">×</button></div></div>`).join('')||'<div class="empty">Nenhum tipo cadastrado.</div>';
+  el.querySelectorAll('[data-cable-type-color]').forEach(inp=>{
+    inp.oninput=()=>{types[Number(inp.dataset.cableTypeColor)].color=inp.value;};
+    inp.onchange=()=>{save();renderCables();render();};
+  });
+  el.querySelectorAll('[data-cable-type-edit]').forEach(btn=>btn.onclick=async()=>{
+    const idx=Number(btn.dataset.cableTypeEdit); const oldName=types[idx].name;
+    const newName=await uiPrompt('Digite o novo nome do tipo de cabo.',oldName,{title:'Renomear tipo de cabo',label:'Nome',confirmText:'Salvar'});
+    if(newName===null)return;
+    const trimmed=newName.trim();
+    if(!trimmed){toast('Nome não pode ficar vazio.');return;}
+    if(types.some((t,j)=>j!==idx&&catalogNormalize(t.name)===catalogNormalize(trimmed))){toast('Já existe um tipo de cabo com esse nome.');return;}
+    types[idx].name=trimmed;
+    state.cables.forEach(c=>{if(c.type===oldName)c.type=trimmed;});
+    save();renderAll();renderCableTypesCatalog();
+  });
+  el.querySelectorAll('[data-cable-type-delete]').forEach(btn=>btn.onclick=async()=>{
+    const idx=Number(btn.dataset.cableTypeDelete);
+    if(types.length<=1){toast('Mantenha ao menos um tipo de cabo.');return;}
+    const removed=types[idx].name;
+    const inUse=state.cables.filter(c=>c.type===removed).length;
+    const ok=await uiConfirm(inUse?`${inUse} cabo(s) usam esse tipo e passarão a usar o primeiro tipo restante da lista.`:'',{title:`Excluir "${removed}"?`,confirmText:'Excluir',danger:true});
+    if(!ok)return;
+    types.splice(idx,1);
+    state.cables.forEach(c=>{if(!cableTypeNames().includes(c.type))c.type=defaultCableType();});
+    save();renderAll();renderCableTypesCatalog();
+  });
+}
 function renderAssetCatalogs(){
   normalizeAssetCatalogs();
   const typeEl=$('catalogTypes'), manEl=$('catalogManufacturers'), statusEl=$('catalogStatuses'), substatusEl=$('catalogSubstatuses'), modelEl=$('catalogModels');
@@ -2369,7 +2445,26 @@ function renderAssetCatalogs(){
       if(!locMatch)return null;
       return {l,rooms,stocks};
     }).filter(Boolean);
-    locEl.innerHTML=filtered.map(({l,rooms,stocks})=>`<div class="catalog-row location-row"><div><strong>📍 ${esc(l.name)}</strong><small>${rooms.length} sala(s) · ${stocks.length} estoque(s)</small></div><div class="location-actions"><button type="button" class="btn ghost small location-action-btn" data-location-room="${esc(l.id)}" title="Adicionar sala">＋ Adicionar sala (${esc(l.name)})</button><button type="button" class="btn ghost small location-action-btn" data-location-stock="${esc(l.id)}" title="Adicionar estoque">＋ Adicionar estoque (${esc(l.name)})</button><button type="button" class="iconbtn" data-location-edit="${esc(l.id)}" title="Renomear">✎</button><button type="button" class="iconbtn danger-icon" data-location-delete="${esc(l.id)}" title="Excluir Data Center">×</button></div></div>${rooms.filter(r=>!locQ||r.name.toLowerCase().includes(locQ)||l.name.toLowerCase().includes(locQ)).map(r=>`<div class="catalog-row location-room-row"><span>▣ ${esc(r.name)} <small>(${esc(l.name)})</small></span><div><button type="button" class="iconbtn" data-location-room-edit="${esc(r.id)}" title="Editar sala">✎</button><button type="button" class="iconbtn danger-icon" data-location-room-delete="${esc(r.id)}" title="Excluir sala">×</button></div></div>`).join('')}${stocks.filter(st=>!locQ||st.name.toLowerCase().includes(locQ)||l.name.toLowerCase().includes(locQ)).map(st=>`<div class="catalog-row location-stock-row"><span>📦 ${esc(st.name)} <small>(${esc(l.name)})</small></span><div><button type="button" class="iconbtn" data-location-stock-edit="${esc(l.id)}:${esc(st.id)}" title="Editar estoque">✎</button><button type="button" class="iconbtn danger-icon" data-location-stock-delete="${esc(l.id)}:${esc(st.id)}" title="Excluir estoque">×</button></div></div>`).join('')}`).join('')||'<div class="empty">Nenhuma localização encontrada.</div>';
+    locEl.innerHTML=filtered.map(({l,rooms,stocks})=>{
+      const roomRows=rooms.filter(r=>!locQ||r.name.toLowerCase().includes(locQ)||l.name.toLowerCase().includes(locQ)).map(r=>{
+        const t=roomThermalLoad(r);
+        const cap=t.capacity>0?`<small class="location-child-capacity cap-${t.level}">${t.watts}W / ${t.capacity}W</small>`:'';
+        return `<div class="location-child-row"><span class="location-child-icon room">🚪</span><span class="location-child-name">${esc(r.name)}</span>${cap}<div class="location-child-actions"><button type="button" class="iconbtn" data-location-room-edit="${esc(r.id)}" title="Editar sala">✎</button><button type="button" class="iconbtn danger-icon" data-location-room-delete="${esc(r.id)}" title="Excluir sala">×</button></div></div>`;
+      }).join('');
+      const stockRows=stocks.filter(st=>!locQ||st.name.toLowerCase().includes(locQ)||l.name.toLowerCase().includes(locQ)).map(st=>`<div class="location-child-row"><span class="location-child-icon stock">📦</span><span class="location-child-name">${esc(st.name)}</span><div class="location-child-actions"><button type="button" class="iconbtn" data-location-stock-edit="${esc(l.id)}:${esc(st.id)}" title="Editar estoque">✎</button><button type="button" class="iconbtn danger-icon" data-location-stock-delete="${esc(l.id)}:${esc(st.id)}" title="Excluir estoque">×</button></div></div>`).join('');
+      return `<div class="location-group">
+        <div class="location-dc-row">
+          <div class="location-dc-info"><span class="location-dc-icon">📍</span><div><strong>${esc(l.name)}</strong><small>${rooms.length} sala${rooms.length===1?'':'s'} · ${stocks.length} estoque${stocks.length===1?'':'s'}</small></div></div>
+          <div class="location-dc-actions">
+            <button type="button" class="iconbtn" data-location-room="${esc(l.id)}" title="Adicionar sala em ${esc(l.name)}">🚪＋</button>
+            <button type="button" class="iconbtn" data-location-stock="${esc(l.id)}" title="Adicionar estoque em ${esc(l.name)}">📦＋</button>
+            <button type="button" class="iconbtn" data-location-edit="${esc(l.id)}" title="Renomear">✎</button>
+            <button type="button" class="iconbtn danger-icon" data-location-delete="${esc(l.id)}" title="Excluir Data Center">×</button>
+          </div>
+        </div>
+        ${roomRows||stockRows?`<div class="location-children">${roomRows}${stockRows}</div>`:''}
+      </div>`;
+    }).join('')||'<div class="empty">Nenhuma localização encontrada.</div>';
   }
   document.querySelectorAll('[data-location-edit]').forEach(b=>b.onclick=()=>renameAssetLocation(b.dataset.locationEdit));
   document.querySelectorAll('[data-location-delete]').forEach(b=>b.onclick=()=>deleteAssetLocation(b.dataset.locationDelete));
@@ -2475,7 +2570,7 @@ async function deleteAssetLocation(id){
 async function addAssetStock(locationId){const l=state.locations.find(x=>x.id===locationId);if(!l)return;const name=await uiPrompt(`Dê um nome para o novo estoque em ${l.name}.`,'Estoque '+(l.stocks.length+1),{title:'Novo estoque',label:'Nome do estoque',confirmText:'Criar estoque'});if(!name?.trim())return;const n=name.trim();if(l.stocks.some(s=>catalogNormalize(s.name)===catalogNormalize(n))){toast('Esse estoque já existe nessa localização.');return;}l.stocks.push({id:uid('stock'),name:n});save();renderAssetCatalogs();toast('Estoque criado');}
 async function renameAssetStock(locationId,stockId){const l=state.locations.find(x=>x.id===locationId);if(!l)return;const st=l.stocks.find(x=>x.id===stockId);if(!st)return;const name=await uiPrompt(`Digite o novo nome do estoque em ${l.name}.`,st.name,{title:'Renomear estoque',label:'Nome do estoque',confirmText:'Salvar'});if(!name?.trim())return;const n=name.trim();if(l.stocks.some(s=>s.id!==stockId&&catalogNormalize(s.name)===catalogNormalize(n))){toast('Esse estoque já existe nessa localização.');return;}st.name=n;save();renderAssetCatalogs();renderAssetsList($('assetsSearch')?.value||'');renderAssetCatalogSelects();toast('Estoque atualizado');}
 async function deleteAssetStock(locationId,stockId){const l=state.locations.find(x=>x.id===locationId);if(!l)return;const st=l.stocks.find(x=>x.id===stockId);if(!st)return;if(state.assets.some(a=>a.locationId===locationId&&a.stockId===stockId)){toast('Este estoque está sendo usado por assets.');return;}const ok=await uiConfirm('',{title:`Excluir o estoque "${st.name}"?`,confirmText:'Excluir estoque',danger:true});if(!ok)return;l.stocks=l.stocks.filter(x=>x.id!==stockId);if(!l.stocks.length)l.stocks.push({id:uid('stock'),name:'Estoque Principal'});save();renderAssetCatalogs();}
-function openAssetCatalogModal(){normalizeAssetCatalogs();renderAssetCatalogManufacturerSelect();renderAssetCatalogTypeSelect();renderAssetCatalogs();const m=$('assetCatalogModal');if(!m)return;m.classList.remove('locations-only');$('assetCatalogTitle').textContent='Catálogo de equipamentos';m.querySelector('.catalog-modal-head span').textContent='Gerencie tipos, fabricantes, modelos, status e substatus usados no inventário.';m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.style.zIndex='300';}
+function openAssetCatalogModal(){normalizeAssetCatalogs();renderAssetCatalogManufacturerSelect();renderAssetCatalogTypeSelect();renderAssetCatalogs();renderCableTypesCatalog();const m=$('assetCatalogModal');if(!m)return;m.classList.remove('locations-only');$('assetCatalogTitle').textContent='Cadastros';m.querySelector('.catalog-modal-head span').textContent='Tipos de ativo, fabricantes, modelos, status, substatus, tipos de cabo e localizações usados no sistema.';m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.style.zIndex='300';}
 function openLocationsModal(){normalizeLocations();renderAssetCatalogs();const m=$('assetCatalogModal');if(!m)return;m.classList.add('locations-only');$('assetCatalogTitle').textContent='Localizações';m.querySelector('.catalog-modal-head span').textContent='Gerencie Data Centers, salas e estoques.';m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.style.zIndex='300';}
 function closeAssetCatalogModal(){const m=$('assetCatalogModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');closeCatalogEditor();}
 function renderAssetCatalogManufacturerSelect(){
@@ -2700,20 +2795,26 @@ function normalizeAssets(){
   }));
 }
 function updateAssetUFieldsState(){
+  // "U inicial" é uma posição — só faz sentido com um rack pra se posicionar
+  // dentro. "Quantidade de U" é uma propriedade física do equipamento (quantas
+  // U ele ocupa), que existe independente de estar instalado num rack ou em
+  // estoque — por isso ela nunca deve ficar travada.
   const hasRack=!!$('assetRack')?.value;
-  ['assetUStart','assetUHeight'].forEach(id=>{
-    const el=$(id); if(!el)return;
-    el.disabled=!hasRack;
-    el.closest('label')?.classList.toggle('muted-field',!hasRack);
+  const startEl=$('assetUStart');
+  if(startEl){
+    startEl.disabled=!hasRack;
+    startEl.closest('label')?.classList.toggle('muted-field',!hasRack);
     if(!hasRack){
-      if(el.value)el.dataset.prevValue=el.value;
-      el.value='';
-      el.placeholder='Disponível ao escolher um rack';
+      if(startEl.value)startEl.dataset.prevValue=startEl.value;
+      startEl.value='';
+      startEl.placeholder='Disponível ao escolher um rack';
     }else{
-      el.placeholder='';
-      if(!el.value)el.value=el.dataset.prevValue||'1';
+      startEl.placeholder='';
+      if(!startEl.value)startEl.value=startEl.dataset.prevValue||'1';
     }
-  });
+  }
+  const heightEl=$('assetUHeight');
+  if(heightEl && !heightEl.value) heightEl.value='1';
 }
 function refreshAssetRackOptions(selected=''){
   const loc=$('assetLocation')?.value||''; const sel=$('assetRack'); if(!sel)return;
@@ -2761,7 +2862,7 @@ function renderAssetPortsEditor(){
       const otherRackId=isOrigin?conn.destRack:conn.originRack;
       const otherU=isOrigin?conn.destU:conn.originU;
       const otherPortId=isOrigin?conn.destPortId:conn.originPortId;
-      connLabel=cableEndpointLabel(otherRackId,otherU,otherPortId);
+      connLabel=cableEndpointLabel(otherRackId,otherU,otherPortId,'',isOrigin?conn.destAssetName:conn.originAssetName);
     }
     return `<div class="asset-port-row ${conn?'is-used':'is-free'}"><span class="asset-port-index">${i+1}</span><div class="asset-port-fields"><input type="text" class="asset-port-name" data-port-id="${esc(p.id)}" value="${esc(p.label)}" placeholder="Nome da porta">${conn?`<small class="asset-port-conn" title="${esc(conn.name)} → ${esc(connLabel)}">🔗 ${esc(conn.name)} → ${esc(connLabel)}</small>`:'<small class="asset-port-conn is-free-label">Disponível</small>'}</div><label class="asset-port-poe" title="Porta PoE"><input type="checkbox" data-port-poe="${esc(p.id)}" ${p.poe?'checked':''}><span>PoE</span></label><button type="button" class="iconbtn danger-icon" data-port-remove="${esc(p.id)}" title="Remover porta">×</button></div>`;
   }).join(''):'<div class="empty">Nenhuma porta cadastrada.</div>';
@@ -2783,7 +2884,7 @@ async function exportAssetPortsXLSX(){
         const otherRackId=isOrigin?conn.destRack:conn.originRack;
         const otherU=isOrigin?conn.destU:conn.originU;
         const otherPortId=isOrigin?conn.destPortId:conn.originPortId;
-        connLabel=cableEndpointLabel(otherRackId,otherU,otherPortId);
+        connLabel=cableEndpointLabel(otherRackId,otherU,otherPortId,'',isOrigin?conn.destAssetName:conn.originAssetName);
       }
       return [p.label,p.poe?'Sim':'Não',conn?'Em uso':'Disponível',conn?.name||'',connLabel];
     });
@@ -2837,7 +2938,8 @@ function openAssetModal(assetId=null, rackId=null, uStart=null){
   $('assetLocation').innerHTML=assetLocationChoices(locValue);
   $('assetLocation').value=locValue;
   refreshAssetRackOptions(asset?.rackId||rack?.id||'');
-  if($('assetRack').value){ $('assetUStart').value=asset?.uStart||uStart||1; $('assetUHeight').value=asset?.uHeight||1; }
+  $('assetUHeight').value=asset?.uHeight||1;
+  if($('assetRack').value){ $('assetUStart').value=asset?.uStart||uStart||1; }
   $('assetStatus').value=asset?.status||'Instalado'; $('assetSubstatus').value=asset?.substatus||'';
   assetEditPorts=asset?.ports?cloneData(asset.ports):[];
   if(!assetEditPorts.length)autoFillPortsFromModelIfEmpty();
@@ -2945,9 +3047,9 @@ async function deleteAsset(assetId){
 }
 function locateAsset(assetId){const a=state.assets.find(x=>x.id===assetId);if(!a)return;if(a.roomId&&a.roomId!==state.activeRoomId)switchRoom(a.roomId);if(a.rackId){state.selected={type:'rack',id:a.rackId};state.multiSelected=[a.rackId];state.trayMultiSelected=[];closeAssetsModal();closeBayface();renderAll(false);openBayface(a.rackId);}}
 let assetColumnFilters={};
-const ASSET_COLUMN_ORDER=['check','assetTag','name','type','manufacturer','model','serial','location','rack','u','uHeight','status','substatus','warranty','eol','actions'];
-const ASSET_COLUMN_WIDTHS_DEFAULT={check:36,assetTag:100,name:170,type:100,manufacturer:120,model:130,serial:130,location:170,rack:80,u:64,uHeight:64,status:100,substatus:100,warranty:120,eol:120,actions:150};
-const ASSET_COLUMN_MIN_WIDTHS={check:36,assetTag:70,name:90,type:70,manufacturer:70,model:70,serial:80,location:90,rack:60,u:48,uHeight:48,status:70,substatus:70,warranty:80,eol:80,actions:120};
+const ASSET_COLUMN_ORDER=['check','assetTag','name','type','manufacturer','model','serial','location','rack','u','uHeight','status','substatus','purchaseDate','warranty','eol','actions'];
+const ASSET_COLUMN_WIDTHS_DEFAULT={check:36,assetTag:100,name:170,type:100,manufacturer:120,model:130,serial:130,location:170,rack:80,u:64,uHeight:64,status:100,substatus:100,purchaseDate:110,warranty:120,eol:120,actions:150};
+const ASSET_COLUMN_MIN_WIDTHS={check:36,assetTag:70,name:90,type:70,manufacturer:70,model:70,serial:80,location:90,rack:60,u:48,uHeight:48,status:70,substatus:70,purchaseDate:80,warranty:80,eol:80,actions:120};
 let assetColumnWidths={...ASSET_COLUMN_WIDTHS_DEFAULT};
 let assetColumnsAutoFitted=false;
 function measureTextWidth(text,font){
@@ -2955,7 +3057,7 @@ function measureTextWidth(text,font){
   measureTextWidth._ctx.font=font;
   return measureTextWidth._ctx.measureText(String(text||'')).width;
 }
-const ASSET_COLUMN_HEADER_LABELS={assetTag:'Asset Tag',name:'Nome',type:'Tipo',manufacturer:'Fabricante',model:'Modelo',serial:'Serial Number',location:'Localização',rack:'Rack',u:'U',uHeight:'Qtd. U',status:'Status',substatus:'Substatus',warranty:'Garantia',eol:'EOL'};
+const ASSET_COLUMN_HEADER_LABELS={assetTag:'Asset Tag',name:'Nome',type:'Tipo',manufacturer:'Fabricante',model:'Modelo',serial:'Serial Number',location:'Localização',rack:'Rack',u:'U',uHeight:'Qtd. U',status:'Status',substatus:'Substatus',purchaseDate:'Data de compra',warranty:'Garantia',eol:'EOL'};
 function autoFitAssetColumnText(a,col){
   switch(col){
     case 'assetTag': return a.assetTag||'—';
@@ -2970,6 +3072,7 @@ function autoFitAssetColumnText(a,col){
     case 'uHeight': return assetRack(a.rackId)?String(a.uHeight||1)+'U':'—';
     case 'status': return a.status||'—';
     case 'substatus': return a.substatus||'—';
+    case 'purchaseDate': return formatAssetDate(a.purchaseDate)||'—';
     case 'warranty': return formatAssetDate(a.warrantyExpiration)||'—';
     case 'eol': return formatAssetDate(a.endOfLife)||'—';
     default: return '';
@@ -3018,16 +3121,23 @@ function bindAssetColumnResize(){
     };
   });
 }
-const ASSET_FILTER_COLUMNS={type:'Tipo',manufacturer:'Fabricante',model:'Modelo',location:'Localização',rack:'Rack',status:'Status',substatus:'Substatus',warranty:'Garantia',eol:'EOL'};
+const ASSET_FILTER_COLUMNS={assetTag:'Asset Tag',name:'Nome',type:'Tipo',manufacturer:'Fabricante',model:'Modelo',serial:'Serial Number',location:'Localização',rack:'Rack',u:'U',uHeight:'Qtd. U',status:'Status',substatus:'Substatus',purchaseDate:'Data de compra',warranty:'Garantia',eol:'EOL'};
 function assetColumnValue(a,col){
+  const r=assetRack(a.rackId), u=assetOccupancy(a);
   switch(col){
+    case 'assetTag': return a.assetTag||'—';
+    case 'name': return a.name||'—';
     case 'type': return a.type||'—';
     case 'manufacturer': return a.manufacturer||'—';
     case 'model': return a.model||'—';
+    case 'serial': return a.serial||'—';
     case 'location': return assetLocationLabel(a);
     case 'rack': return assetRack(a.rackId)?.name||'Sem rack';
+    case 'u': return r?`U${u.start}${u.end!==u.start?'–U'+u.end:''}`:'—';
+    case 'uHeight': return r?String(a.uHeight||1)+'U':'—';
     case 'status': return a.status||'—';
     case 'substatus': return a.substatus||'—';
+    case 'purchaseDate': return formatAssetDate(a.purchaseDate)||'—';
     case 'warranty': return {expired:'Vencida',soon:'Vence em breve',ok:'Em garantia',none:'Não informado'}[assetWarrantyLevel(a)];
     case 'eol': return {expired:'Vencido',soon:'Vence em breve',ok:'Dentro do ciclo',none:'Não informado'}[assetEndOfLifeLevel(a)];
     default: return '';
@@ -3091,6 +3201,7 @@ function assetSortValue(a,col){
     case 'uHeight': return r?(a.uHeight||1):-1;
     case 'status': return (a.status||'').toLowerCase();
     case 'substatus': return (a.substatus||'').toLowerCase();
+    case 'purchaseDate': return a.purchaseDate||'9999-99-99';
     case 'warranty': return `${{expired:0,soon:1,ok:2,none:3}[assetWarrantyLevel(a)]}_${a.warrantyExpiration||'9999-99-99'}`;
     case 'eol': return `${{expired:0,soon:1,ok:2,none:3}[assetEndOfLifeLevel(a)]}_${a.endOfLife||'9999-99-99'}`;
     default: return '';
@@ -3200,7 +3311,7 @@ function renderAssetsList(filter=''){
   const warrantyExpiredCount=items.filter(a=>assetWarrantyLevel(a)==='expired').length;
   if($('assetsWarrantyExpiredCount'))$('assetsWarrantyExpiredCount').textContent=String(warrantyExpiredCount);
   if($('assetsWarrantyExpiredStat'))$('assetsWarrantyExpiredStat').classList.toggle('hidden',warrantyExpiredCount===0);
-  wrap.innerHTML=items.length?items.map(a=>{const r=assetRack(a.rackId),u=assetOccupancy(a),color=bayfaceTypeColor(a.type),checked=assetSelectedIds.has(a.id),warrantyLevel=assetWarrantyLevel(a),eolLevel=assetEndOfLifeLevel(a);return `<div class="asset-row ${isAssetArchived(a)?'asset-archived':''} ${checked?'is-selected':''}" style="--type-color:${esc(color)}"><div class="asset-cell asset-cell-check"><input type="checkbox" data-asset-select="${esc(a.id)}" ${checked?'checked':''}></div><div class="asset-cell"><strong>${esc(a.assetTag||'—')}</strong></div><div class="asset-cell">${esc(a.name)}</div><div class="asset-cell"><span class="asset-type-chip"><i></i>${esc(a.type)}</span></div><div class="asset-cell">${esc(a.manufacturer||'—')}</div><div class="asset-cell">${esc(a.model||'—')}</div><div class="asset-cell">${esc(a.serial||'—')}</div><div class="asset-cell">${esc(assetLocationLabel(a))}</div><div class="asset-cell">${esc(r?.name||'Sem rack')}</div><div class="asset-cell">${r?`U${u.start}${u.end!==u.start?'–U'+u.end:''}`:'—'}</div><div class="asset-cell">${r?esc(String(a.uHeight||1)+'U'):'—'}</div><div class="asset-cell"><span class="asset-status ${isAssetArchived(a)?'archived':''}">${esc(a.status||'—')}</span></div><div class="asset-cell">${esc(a.substatus||'—')}</div><div class="asset-cell">${warrantyLevel==='none'?'<span class="asset-warranty-chip level-none">—</span>':`<span class="asset-warranty-chip level-${warrantyLevel}" title="Vencimento: ${esc(formatAssetDate(a.warrantyExpiration))}"><i></i>${esc(formatAssetDate(a.warrantyExpiration))}</span>`}</div><div class="asset-cell">${eolLevel==='none'?'<span class="asset-warranty-chip level-none">—</span>':`<span class="asset-warranty-chip level-${eolLevel}" title="Fim de vida: ${esc(formatAssetDate(a.endOfLife))}"><i></i>${esc(formatAssetDate(a.endOfLife))}</span>`}</div><div class="asset-actions"><button class="iconbtn" type="button" data-asset-locate="${esc(a.id)}" title="Localizar no rack">⌖</button><button class="iconbtn" type="button" data-asset-edit="${esc(a.id)}" title="Editar asset">✎</button><button class="iconbtn" type="button" data-asset-history="${esc(a.id)}" title="Histórico">↺</button><button class="iconbtn danger-icon" type="button" data-asset-delete="${esc(a.id)}" title="Excluir permanentemente">×</button></div></div>`}).join(''):'<div class="empty">Nenhum asset encontrado.</div>';
+  wrap.innerHTML=items.length?items.map(a=>{const r=assetRack(a.rackId),u=assetOccupancy(a),color=bayfaceTypeColor(a.type),checked=assetSelectedIds.has(a.id),warrantyLevel=assetWarrantyLevel(a),eolLevel=assetEndOfLifeLevel(a);return `<div class="asset-row ${isAssetArchived(a)?'asset-archived':''} ${checked?'is-selected':''}" style="--type-color:${esc(color)}"><div class="asset-cell asset-cell-check"><input type="checkbox" data-asset-select="${esc(a.id)}" ${checked?'checked':''}></div><div class="asset-cell"><strong>${esc(a.assetTag||'—')}</strong></div><div class="asset-cell">${esc(a.name)}</div><div class="asset-cell"><span class="asset-type-chip"><i></i>${esc(a.type)}</span></div><div class="asset-cell">${esc(a.manufacturer||'—')}</div><div class="asset-cell">${esc(a.model||'—')}</div><div class="asset-cell">${esc(a.serial||'—')}</div><div class="asset-cell">${esc(assetLocationLabel(a))}</div><div class="asset-cell">${esc(r?.name||'Sem rack')}</div><div class="asset-cell">${r?`U${u.start}${u.end!==u.start?'–U'+u.end:''}`:'—'}</div><div class="asset-cell">${r?esc(String(a.uHeight||1)+'U'):'—'}</div><div class="asset-cell"><span class="asset-status ${isAssetArchived(a)?'archived':''}">${esc(a.status||'—')}</span></div><div class="asset-cell">${esc(a.substatus||'—')}</div><div class="asset-cell">${esc(formatAssetDate(a.purchaseDate)||'—')}</div><div class="asset-cell">${warrantyLevel==='none'?'<span class="asset-warranty-chip level-none">—</span>':`<span class="asset-warranty-chip level-${warrantyLevel}" title="Vencimento: ${esc(formatAssetDate(a.warrantyExpiration))}"><i></i>${esc(formatAssetDate(a.warrantyExpiration))}</span>`}</div><div class="asset-cell">${eolLevel==='none'?'<span class="asset-warranty-chip level-none">—</span>':`<span class="asset-warranty-chip level-${eolLevel}" title="Fim de vida: ${esc(formatAssetDate(a.endOfLife))}"><i></i>${esc(formatAssetDate(a.endOfLife))}</span>`}</div><div class="asset-actions"><button class="iconbtn" type="button" data-asset-locate="${esc(a.id)}" title="Localizar no rack">⌖</button><button class="iconbtn" type="button" data-asset-edit="${esc(a.id)}" title="Editar asset">✎</button><button class="iconbtn" type="button" data-asset-history="${esc(a.id)}" title="Histórico">↺</button><button class="iconbtn danger-icon" type="button" data-asset-delete="${esc(a.id)}" title="Excluir permanentemente">×</button></div></div>`}).join(''):'<div class="empty">Nenhum asset encontrado.</div>';
   wrap.querySelectorAll('[data-asset-locate]').forEach(b=>b.onclick=()=>locateAsset(b.dataset.assetLocate));
   wrap.querySelectorAll('[data-asset-edit]').forEach(b=>b.onclick=()=>openAssetModal(b.dataset.assetEdit));
   wrap.querySelectorAll('[data-asset-history]').forEach(b=>b.onclick=()=>openAssetHistory(b.dataset.assetHistory));
@@ -3325,7 +3436,7 @@ function bayfaceMarkup(rackId){
     const name=String(a.name||a.assetTag||a.type||'Equipamento');
     const model=String(a.model||'');
     const manufacturer=String(a.manufacturer||'');
-    const subtitle=[model,manufacturer].filter(Boolean).join(' · ');
+    const subtitle=[a.assetTag?`Tag: ${a.assetTag}`:'',a.serial?`SN: ${a.serial}`:''].filter(Boolean).join(' · ');
     const identity=[name,model,manufacturer].filter(Boolean).join(' — ');
     const tooltip=[identity,a.assetTag,a.serial].filter(Boolean).join(' · ');
     const heightLabel=span===1?'1U':`${span}U`;
@@ -3391,19 +3502,22 @@ function renderProperties(){
       <div class="grid2"><label>Qtd. U<input id="bulkUnits" type="number" min="1" max="60" placeholder="Não alterar"></label><label>Largura (m)<input id="bulkWidth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label></div>
       <div class="grid2"><label>Profundidade (m)<input id="bulkDepth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label><label>Distância próx. (m)<input id="bulkGap" type="number" min="0" step="0.01" placeholder="Não alterar"></label></div>
       <label>Altura da última U → calha (m)<input id="bulkRise" type="number" min="0" step="0.01" placeholder="Não alterar"></label>
+      <div class="grid2"><label>Capacidade elétrica (W)<input id="bulkPowerCapacity" type="number" min="0" step="1" placeholder="Não alterar"></label><label>Capacidade de carga do piso (kg)<input id="bulkWeightCapacity" type="number" min="0" step="1" placeholder="Não alterar"></label></div>
       <button class="btn primary full" id="applyBulkRack">✓ Aplicar propriedades</button>
       <button class="btn danger full" id="delSelectedRacks">Excluir ${count} racks selecionados</button>
       <button class="btn ghost full" id="clearSelectedRacks">Limpar seleção</button>`;
     $('applyBulkRack').onclick=()=>{if(structureBlocked())return;
       const ids=new Set(state.multiSelected);
-      const unitsVal=$('bulkUnits').value.trim(), widthVal=$('bulkWidth').value.trim(), depthVal=$('bulkDepth').value.trim(), gapVal=$('bulkGap').value.trim(), riseVal=$('bulkRise').value.trim();
-      if(!unitsVal&&!widthVal&&!depthVal&&!gapVal&&!riseVal){toast('Informe pelo menos uma propriedade');return;}
+      const unitsVal=$('bulkUnits').value.trim(), widthVal=$('bulkWidth').value.trim(), depthVal=$('bulkDepth').value.trim(), gapVal=$('bulkGap').value.trim(), riseVal=$('bulkRise').value.trim(), powerCapVal=$('bulkPowerCapacity').value.trim(), weightCapVal=$('bulkWeightCapacity').value.trim();
+      if(!unitsVal&&!widthVal&&!depthVal&&!gapVal&&!riseVal&&!powerCapVal&&!weightCapVal){toast('Informe pelo menos uma propriedade');return;}
       state.racks.filter(r=>ids.has(r.id)).forEach(r=>{
         if(unitsVal){r.units=Math.max(1,Math.min(60,Math.floor(num(unitsVal,r.units))));}
         if(widthVal){const old=Math.max(.1,num(r.width,state.rackWidth)),next=Math.max(.1,num(widthVal,state.rackWidth));r.offset=num(r.offset,0)+(old-next)/2;r.width=next;}
         if(depthVal){const old=Math.max(.1,num(r.depth,state.rackDepth)),next=Math.max(.1,num(depthVal,state.rackDepth));r.yOffset=num(r.yOffset,0)+(old-next)/2;r.depth=next;}
         if(gapVal){r.gapAfter=Math.max(0,num(gapVal,r.gapAfter??state.rackGap));}
         if(riseVal){r.riseToTray=Math.max(0,num(riseVal,r.riseToTray??state.lastUToTray));}
+        if(powerCapVal){r.powerCapacityW=Math.max(0,num(powerCapVal,0));}
+        if(weightCapVal){r.weightCapacityKg=Math.max(0,num(weightCapVal,0));}
       });
       refreshVisuals();renderProperties();toast(`${count} racks atualizados`);
     };
@@ -3526,6 +3640,27 @@ function refreshCableValidation(c){
   if(de)de.textContent=v.dest && (Math.floor(num(c.destU,0))<1||Math.floor(num(c.destU,0))>Math.floor(num(v.dest.units,state.rackUnits)))?`Máximo: ${Math.floor(num(v.dest.units,state.rackUnits))}U.`:'';
   return v;
 }
+// Atualiza só o campo de nome de asset (origem ou destino) ao vivo, enquanto
+// a U ainda está sendo digitada — sem reconstruir o painel inteiro, que
+// derrubaria o foco do campo de U no meio da digitação.
+function updateCableAssetNameField(c,side){
+  const rackId=side==='origin'?c.originRack:c.destRack;
+  const u=Math.floor(num(side==='origin'?c.originU:c.destU,0));
+  const rack=state.racks.find(r=>r.id===rackId);
+  const uInvalid=!rack||u<1||u>Math.max(1,Math.floor(num(rack.units,state.rackUnits)));
+  const asset=uInvalid?null:assetAtRackU(rackId,u);
+  const field=$(side==='origin'?'cbOAssetName':'cbDAssetName'); if(!field)return;
+  const hint=field.closest('label')?.querySelector('.field-help-inline');
+  if(asset){
+    if(side==='origin')c.originAssetName=asset.name; else c.destAssetName=asset.name;
+    field.value=asset.name; field.disabled=true;
+    if(hint)hint.textContent='(preenchido automaticamente pelo asset instalado nessa U)';
+  }else{
+    if(side==='origin')c.originAssetName=''; else c.destAssetName='';
+    field.value=''; field.disabled=false;
+    if(hint)hint.textContent='(opcional — nem todo asset precisa estar cadastrado ainda)';
+  }
+}
 
 function renderCableProperties(p,c){
   if(!c){p.innerHTML='<div class="empty">Cabo não encontrado.</div>';return;}
@@ -3537,15 +3672,23 @@ function renderCableProperties(p,c){
   const duInvalid=!d||Math.floor(num(c.destU,0))<1||Math.floor(num(c.destU,0))>duMax;
   const originAsset=!ouInvalid?assetAtRackU(c.originRack,Math.floor(num(c.originU,0))):null;
   const destAsset=!duInvalid?assetAtRackU(c.destRack,Math.floor(num(c.destU,0))):null;
+  // Enquanto a U tiver um asset instalado, o nome vem sempre desse asset — o
+  // campo fica travado (evita alguém digitar um nome diferente do que está
+  // de fato ali). Sem asset na U, o campo é texto livre, pra cobrir listas de
+  // cabos cadastradas antes de todos os assets existirem.
+  if(originAsset) c.originAssetName=originAsset.name;
+  if(destAsset) c.destAssetName=destAsset.name;
   const portOptions=(asset,selected)=>'<option value="">— Nenhuma —</option>'+(asset?.ports||[]).map(port=>`<option value="${esc(port.id)}" ${port.id===selected?'selected':''}>${esc(port.label)}</option>`).join('');
   const originConflict=c.originPortId?cablePortConflict(c,'origin',c.originPortId):null;
   const destConflict=c.destPortId?cablePortConflict(c,'dest',c.destPortId):null;
   p.innerHTML=`<div class="prop-title">${esc(c.name)}</div><label>Nome<input id="cbName" value="${esc(c.name)}"></label>
-  <label>Tipo<select id="cbType">${CABLE_TYPES.map(t=>`<option value="${esc(t)}" ${c.type===t?'selected':''}>${esc(t)}</option>`).join('')}</select></label>
+  <label>Tipo<select id="cbType">${cableTypeNames().map(t=>`<option value="${esc(t)}" ${c.type===t?'selected':''}>${esc(t)}</option>`).join('')}</select></label>
   <div class="grid2"><label>Rack origem<select id="cbOR">${opts}</select></label><label>U origem<input id="cbOU" class="${ouInvalid?'input-error':''}" type="number" min="1" max="${ouMax}" value="${c.originU}"><small id="cbOUError" class="field-error">${ouInvalid?`Máximo: ${ouMax}U.`:''}</small></label></div>
-  ${originAsset?.ports?.length?`<label>Porta de origem <small class="field-help-inline">(${esc(originAsset.name)})</small><select id="cbOPort">${portOptions(originAsset,c.originPortId)}</select></label>${originConflict?`<div class="field-error">Porta já usada pelo cabo "${esc(originConflict.name)}".</div>`:''}`:''}
+  ${!ouInvalid?`<label>Nome do asset na origem <small class="field-help-inline">${originAsset?'(preenchido automaticamente pelo asset instalado nessa U)':'(opcional — nem todo asset precisa estar cadastrado ainda)'}</small><input id="cbOAssetName" value="${esc(originAsset?originAsset.name:(c.originAssetName||''))}" placeholder="Nome do equipamento nessa U" ${originAsset?'disabled':''}></label>`:''}
+  ${!ouInvalid?(originAsset?.ports?.length?`<label>Porta de origem <small class="field-help-inline">(${esc(originAsset.name)})</small><select id="cbOPort">${portOptions(originAsset,c.originPortId)}</select></label>${originConflict?`<div class="field-error">Porta já usada pelo cabo "${esc(originConflict.name)}".</div>`:''}`:`<label>Porta de origem <small class="field-help-inline">${originAsset?`(${esc(originAsset.name)}, sem portas cadastradas)`:'(opcional)'}</small><input id="cbOPortFree" value="${esc(c.originPortLabel||'')}" placeholder="Digite o nome da porta"></label>`):''}
   <div class="grid2"><label>Rack destino<select id="cbDR">${opts}</select></label><label>U destino<input id="cbDU" class="${duInvalid?'input-error':''}" type="number" min="1" max="${duMax}" value="${c.destU}"><small id="cbDUError" class="field-error">${duInvalid?`Máximo: ${duMax}U.`:''}</small></label></div>
-  ${destAsset?.ports?.length?`<label>Porta de destino <small class="field-help-inline">(${esc(destAsset.name)})</small><select id="cbDPort">${portOptions(destAsset,c.destPortId)}</select></label>${destConflict?`<div class="field-error">Porta já usada pelo cabo "${esc(destConflict.name)}".</div>`:''}`:''}
+  ${!duInvalid?`<label>Nome do asset no destino <small class="field-help-inline">${destAsset?'(preenchido automaticamente pelo asset instalado nessa U)':'(opcional — nem todo asset precisa estar cadastrado ainda)'}</small><input id="cbDAssetName" value="${esc(destAsset?destAsset.name:(c.destAssetName||''))}" placeholder="Nome do equipamento nessa U" ${destAsset?'disabled':''}></label>`:''}
+  ${!duInvalid?(destAsset?.ports?.length?`<label>Porta de destino <small class="field-help-inline">(${esc(destAsset.name)})</small><select id="cbDPort">${portOptions(destAsset,c.destPortId)}</select></label>${destConflict?`<div class="field-error">Porta já usada pelo cabo "${esc(destConflict.name)}".</div>`:''}`:`<label>Porta de destino <small class="field-help-inline">${destAsset?`(${esc(destAsset.name)}, sem portas cadastradas)`:'(opcional)'}</small><input id="cbDPortFree" value="${esc(c.destPortLabel||'')}" placeholder="Digite o nome da porta"></label>`):''}
   ${!v.valid?`<div class="validation-error">⚠ ${v.errors.map(esc).join('<br>')}</div>`:''}
   <label>Folga (%)<input id="cbSlack" type="number" min="0" step="1" value="${c.slack??state.defaultSlack}"></label>
   <div class="result" id="cableResult"></div><div class="route-tools"><b>Roteamento</b><div class="help">Automática: o sistema encontra o caminho pelas calhas. Manual: escolha os racks intermediários e o sistema valida cada trecho.</div>
@@ -3560,20 +3703,28 @@ function renderCableProperties(p,c){
   $('cbOR').value=c.originRack;$('cbDR').value=c.destRack;
   const sync=()=>{refreshVisuals();renderProperties();};
   $('cbType').onchange=()=>{c.type=$('cbType').value;sync();};
-  $('cbOR').onchange=()=>{c.originRack=$('cbOR').value;c.originPortId=null;sync();};
-  $('cbDR').onchange=()=>{c.destRack=$('cbDR').value;c.destPortId=null;sync();};
-  $('cbOU').oninput=()=>{c.originU=Math.floor(num($('cbOU').value,0));refreshCableValidation(c);updateCableResult(c);refreshVisuals();};
-  $('cbDU').oninput=()=>{c.destU=Math.floor(num($('cbDU').value,0));refreshCableValidation(c);updateCableResult(c);refreshVisuals();};
-  $('cbOU').onchange=()=>{c.originPortId=null;renderProperties();};
-  $('cbDU').onchange=()=>{c.destPortId=null;renderProperties();};
+  $('cbOR').onchange=()=>{c.originRack=$('cbOR').value;c.originPortId=null;c.originPortLabel='';c.originAssetName='';sync();};
+  $('cbDR').onchange=()=>{c.destRack=$('cbDR').value;c.destPortId=null;c.destPortLabel='';c.destAssetName='';sync();};
+  $('cbOU').oninput=()=>{c.originU=Math.floor(num($('cbOU').value,0));refreshCableValidation(c);updateCableResult(c);refreshVisuals();updateCableAssetNameField(c,'origin');};
+  $('cbDU').oninput=()=>{c.destU=Math.floor(num($('cbDU').value,0));refreshCableValidation(c);updateCableResult(c);refreshVisuals();updateCableAssetNameField(c,'dest');};
+  $('cbOU').onchange=()=>{c.originPortId=null;c.originPortLabel='';c.originAssetName='';renderProperties();};
+  $('cbDU').onchange=()=>{c.destPortId=null;c.destPortLabel='';c.destAssetName='';renderProperties();};
   $('cbOPort')&&($('cbOPort').onchange=()=>{c.originPortId=$('cbOPort').value||null;renderProperties();});
   $('cbDPort')&&($('cbDPort').onchange=()=>{c.destPortId=$('cbDPort').value||null;renderProperties();});
+  $('cbOPortFree')&&($('cbOPortFree').onchange=()=>{c.originPortLabel=$('cbOPortFree').value.trim();renderProperties();});
+  $('cbDPortFree')&&($('cbDPortFree').onchange=()=>{c.destPortLabel=$('cbDPortFree').value.trim();renderProperties();});
+  $('cbOAssetName')&&($('cbOAssetName').onchange=()=>{c.originAssetName=$('cbOAssetName').value.trim();renderProperties();});
+  $('cbDAssetName')&&($('cbDAssetName').onchange=()=>{c.destAssetName=$('cbDAssetName').value.trim();renderProperties();});
   $('routeMode').onchange=()=>{c.routeMode=$('routeMode').value; if(c.routeMode==='automatic'){c.via=[];window.__manualRoutePicking=false;} refreshVisuals();renderProperties();};
   bindManualRouteControls(c);
   $('cbSlack').onchange=()=>{c.slack=Math.max(0,num($('cbSlack').value,0));refreshVisuals();renderProperties();};
   $('cbName').onchange=()=>{c.name=$('cbName').value.trim()||c.name;refreshVisuals();renderProperties();};
   $('delCable').onclick=()=>{state.cables=state.cables.filter(x=>x.id!==c.id);state.selected=null;window.__manualRoutePicking=false;renderAll();toast('Cabo removido');};
    updateCableResult(c);
+  // Reconfere o campo de nome logo após o próximo quadro de tela — proteção
+  // extra contra qualquer sequência de seleção que deixe o disabled/valor
+  // fora de sincronia com o asset de verdade instalado na U.
+  requestAnimationFrame(()=>{if(state.selected?.type==='cable'&&state.selected.id===c.id){updateCableAssetNameField(c,'origin');updateCableAssetNameField(c,'dest');}});
 }
 function updateCableResult(c){const el=$('cableResult');if(!el)return;const validation=cableUnitValidation(c);if(!validation.valid){el.innerHTML='<div class="validation-error">⚠ '+validation.errors.map(esc).join('<br>')+'</div>';return;}const res=calcCable(c);const rounded=res.reachable?Math.ceil(res.total):0;el.innerHTML=`<div class="metric"><span>Vertical origem</span><b>${res.v1.toFixed(2)} m</b></div><div class="metric"><span>Trecho pelas calhas</span><b>${res.tray.toFixed(2)} m</b></div><div class="metric"><span>Vertical destino</span><b>${res.v2.toFixed(2)} m</b></div><div class="metric"><span>Conexões</span><b>${res.connection.toFixed(2)} m</b></div><div class="metric"><span>Base</span><b>${res.base.toFixed(2)} m</b></div><div class="metric"><span>Folga ${c.slack??state.defaultSlack}%</span><b>${res.slack.toFixed(2)} m</b></div><div class="metric"><span>Total</span><b>${res.total.toFixed(2)} m</b></div><div class="metric total-rounded"><span>Total arredondado para cima</span><b>${res.reachable?rounded:'—'} m</b></div>${res.reachable?'':'<div class="unreachable">Não existe rota pelas calhas cadastradas.</div>'}`;}
 
@@ -3976,9 +4127,9 @@ function calcCable(c){
   const slack=base*(num(c.slack,state.defaultSlack)/100),total=base+slack;
   return{v1,v2,tray,connection,base,slack,total,reachable,path:rr.path};
 }
-function refreshVisuals(){normalizeState();render();renderCables();updateLifecycleAlertBadge();updateRoomThermalBadge();updateCapacityAlertBadge();save();}
+function refreshVisuals(){normalizeState();render();renderCables();updateAlertsCenterBadge();updateRoomThermalBadge();save();}
 
-function addCable(){if(state.racks.length<2){toast('Crie pelo menos 2 racks');return;}const c={id:uid('cable'),name:`Cabo-${String(state.cables.length+1).padStart(3,'0')}`,originRack:state.racks[0].id,originU:state.racks[0].units,destRack:state.racks[1].id,destU:state.racks[1].units,slack:state.defaultSlack,type:DEFAULT_CABLE_TYPE,via:[]};state.cables.push(c);state.multiSelected=[];state.selected={type:'cable',id:c.id};renderAll();toast('Cabo adicionado');}
+function addCable(){if(state.racks.length<2){toast('Crie pelo menos 2 racks');return;}const c={id:uid('cable'),name:`Cabo-${String(state.cables.length+1).padStart(3,'0')}`,originRack:state.racks[0].id,originU:state.racks[0].units,destRack:state.racks[1].id,destU:state.racks[1].units,slack:state.defaultSlack,type:defaultCableType(),via:[]};state.cables.push(c);state.multiSelected=[];state.selected={type:'cable',id:c.id};renderAll();toast('Cabo adicionado');}
 
 function cableRouteLabel(c,res){
   if(!res?.reachable) return '';
@@ -4065,25 +4216,40 @@ function cableRouteLabel(c,res){
 }
 function applyTypeValidation(ws, range='B2:B1000'){
   if(!ws)return;
+  const formula=`"${cableTypeNames().join(',')}"`;
   for(let row=2;row<=1000;row++){
     const cell=ws.getCell(`B${row}`);
-    cell.dataValidation={type:'list',allowBlank:false,formulae:['"Fibra Multi Mode,Fibra Single Mode,UTP"']};
+    cell.dataValidation={type:'list',allowBlank:false,formulae:[formula]};
   }
 }
 async function downloadCableTemplate(){
   try{
     if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
-    const headers=['Nome','Tipo','Rack Origem','U Origem','Porta Origem','Rack Destino','U Destino','Porta Destino'];
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('Cabos');
+    const headers=['Nome','Tipo','Rack Origem','U Origem','Nome Asset Origem','Porta Origem','Rack Destino','U Destino','Nome Asset Destino','Porta Destino'];
     ws.addRow(headers);
-    ws.addRow(['FIB-001','Fibra Multi Mode','Row-1-01',40,'G0/0/1','Row-2-01',40,'G0/0/2']);
+    ws.addRow(['FIB-001',defaultCableType(),'Row-1-01',40,'SWITCH01','G0/0/1','Row-2-01',40,'ROUTER01','G0/0/2']);
     ws.freezePanes={xSplit:0,ySplit:1};
-    ws.autoFilter={from:'A1',to:'H2'};
+    ws.autoFilter={from:'A1',to:'J2'};
     ws.getRow(1).font={bold:true};
-    ws.columns=[{width:20},{width:24},{width:20},{width:12},{width:16},{width:20},{width:12},{width:16}];
-    const note=ws.getCell('J1'); note.value='Porta Origem e Porta Destino são opcionais. Preencha apenas se o asset naquela U já tiver essa porta cadastrada (o nome precisa ser idêntico ao cadastrado).'; note.font={italic:true,color:{argb:'FF8B96AC'}};
+    ws.columns=[{width:20},{width:24},{width:20},{width:12},{width:20},{width:16},{width:20},{width:12},{width:20},{width:16}];
+    const note=ws.getCell('L1'); note.value='Porta Origem e Porta Destino são opcionais. Se o modelo do asset já tiver portas cadastradas, o nome precisa ser idêntico a uma delas. Se o modelo não tiver portas cadastradas, o texto informado é aceito livremente, sem validação. Nome Asset Origem/Destino é opcional: se já existir um asset cadastrado naquele rack/U, o sistema usa o nome dele automaticamente; se não existir, o texto informado é aceito livremente, sem criar nenhum asset novo.'; note.font={italic:true,color:{argb:'FF8B96AC'}};
     applyTypeValidation(ws);
+
+    // Lista suspensa de racks (origem e destino), igual à de Tipo — usa uma
+    // aba de referência oculta em vez de lista inline, pra não esbarrar no
+    // limite de caracteres do Excel quando há muitos racks no projeto.
+    const refWs=wb.addWorksheet('NÃO EDITAR - Referência');
+    const allRacks=[...new Set(allProjectRacks().map(({rack:r})=>r.name).filter(Boolean))];
+    refWs.getColumn(1).values=['Racks',...allRacks];
+    refWs.state='hidden';
+    const rackRange=`'NÃO EDITAR - Referência'!$A$2:$A$${Math.max(2,allRacks.length+1)}`;
+    for(let row=2;row<=1000;row++){
+      ws.getCell(`C${row}`).dataValidation={type:'list',allowBlank:true,formulae:[rackRange]};
+      ws.getCell(`G${row}`).dataValidation={type:'list',allowBlank:true,formulae:[rackRange]};
+    }
+
     const buf=await wb.xlsx.writeBuffer();
     const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='template-importacao-cabos.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
@@ -4111,16 +4277,28 @@ function importCablesXLSX(file){
           const origin=state.racks.find(r=>r.name===String(val(row,'Rack Origem','')).trim());
           const dest=state.racks.find(r=>r.name===String(val(row,'Rack Destino','')).trim());
           if(!origin||!dest){skipped++;continue;}
-          const type=String(val(row,'Tipo',DEFAULT_CABLE_TYPE)).trim();
-          if(!CABLE_TYPES.includes(type)){skipped++;continue;}
+          const type=String(val(row,'Tipo',defaultCableType())).trim();
+          if(!cableTypeNames().includes(type)){skipped++;continue;}
           const originU=Math.floor(num(val(row,'U Origem',origin.units),origin.units));
           const destU=Math.floor(num(val(row,'U Destino',dest.units),dest.units));
-          let originPortId=null, destPortId=null;
+          const originAsset=assetAtRackU(origin.id,originU);
+          const destAsset=assetAtRackU(dest.id,destU);
+          let originPortId=null, destPortId=null, originPortLabelFree='', destPortLabelFree='';
           const originPortLabel=String(val(row,'Porta Origem','')).trim();
           const destPortLabel=String(val(row,'Porta Destino','')).trim();
-          if(originPortLabel){const port=assetAtRackU(origin.id,originU)?.ports?.find(p=>p.label===originPortLabel);if(port)originPortId=port.id;else portsUnmatched++;}
-          if(destPortLabel){const port=assetAtRackU(dest.id,destU)?.ports?.find(p=>p.label===destPortLabel);if(port)destPortId=port.id;else portsUnmatched++;}
-          state.cables.push({id:uid('cable'),name:String(val(row,'Nome',`Cabo-${String(state.cables.length+1).padStart(3,'0')}`)).trim(),type,originRack:origin.id,originU,originPortId,destRack:dest.id,destU,destPortId,slack:state.defaultSlack,via:[]});
+          if(originPortLabel){
+            if(originAsset?.ports?.length){const port=originAsset.ports.find(p=>p.label===originPortLabel);if(port)originPortId=port.id;else portsUnmatched++;}
+            else originPortLabelFree=originPortLabel; // sem portas cadastradas no modelo: aceita o texto livre sem validar
+          }
+          if(destPortLabel){
+            if(destAsset?.ports?.length){const port=destAsset.ports.find(p=>p.label===destPortLabel);if(port)destPortId=port.id;else portsUnmatched++;}
+            else destPortLabelFree=destPortLabel;
+          }
+          // Se já existe um asset instalado nessa U, o nome vem sempre dele;
+          // senão, aceita o texto informado livremente, sem criar asset.
+          const originAssetName=originAsset?originAsset.name:String(val(row,'Nome Asset Origem','')).trim();
+          const destAssetName=destAsset?destAsset.name:String(val(row,'Nome Asset Destino','')).trim();
+          state.cables.push({id:uid('cable'),name:String(val(row,'Nome',`Cabo-${String(state.cables.length+1).padStart(3,'0')}`)).trim(),type,originRack:origin.id,originU,originPortId,originPortLabel:originPortLabelFree,originAssetName,destRack:dest.id,destU,destPortId,destPortLabel:destPortLabelFree,destAssetName,slack:state.defaultSlack,via:[]});
           added++;
         }
         renderAll();
@@ -4142,21 +4320,21 @@ function cableSummaryRows(){
     const res=calcCable(c);
     if(!res.reachable){unreachable++;continue;}
     const length=Math.ceil(res.total);
-    const type=c.type||DEFAULT_CABLE_TYPE;
+    const type=c.type||defaultCableType();
     const key=type+'|'+length;
     groups.set(key,(groups.get(key)||0)+1);
   }
-  const order=new Map(CABLE_TYPES.map((t,i)=>[t,i]));
+  const order=new Map(cableTypeNames().map((t,i)=>[t,i]));
   return [...groups.entries()].map(([key,qty])=>{const [type,length]=key.split('|');return {type,length:Number(length),qty};})
     .sort((a,b)=>(order.get(a.type)-order.get(b.type))||a.length-b.length);
 }
 function excelColumnLetter(n){let s='';while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;}
 function cablePortAt(rackId,u,portId){if(!portId)return null;return assetAtRackU(rackId,u)?.ports?.find(p=>p.id===portId)||null;}
-function cableEndpointLabel(rackId,u,portId){
+function cableEndpointLabel(rackId,u,portId,freeformLabel='',assetNameFallback=''){
   const rack=state.racks.find(r=>r.id===rackId);
   const asset=assetAtRackU(rackId,u);
   const port=cablePortAt(rackId,u,portId);
-  return [rack?.name||'—',`${u}U`,asset?.name||'—',port?.label||'—'].join(' - ');
+  return [rack?.name||'—',`${u}U`,asset?.name||assetNameFallback||'—',port?.label||freeformLabel||'—'].join(' - ');
 }
 function compactPortLabels(labels){
   if(!labels.length)return '';
@@ -4218,13 +4396,13 @@ async function exportAssetsXLSX(){
 async function exportCablesXLSX(){
   try{
     if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
-    const headers=['Nome','Tipo','Rack Origem','U Origem','Porta Origem','Rack Destino','U Destino','Porta Destino','Vertical Origem (m)','Trecho Calhas (m)','Vertical Destino (m)','Conexões (m)','Base (m)','Folga (m)','Total (m)','Total Arredondado (m)','Rota','Etiqueta'];
+    const headers=['Nome','Tipo','Rack Origem','U Origem','Nome Asset Origem','Porta Origem','Rack Destino','U Destino','Nome Asset Destino','Porta Destino','Vertical Origem (m)','Trecho Calhas (m)','Vertical Destino (m)','Conexões (m)','Base (m)','Folga (m)','Total (m)','Total Arredondado (m)','Rota','Etiqueta'];
     const labelCol=headers.indexOf('Etiqueta')+1;
     const rows=state.cables.map(c=>{
       const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack),res=calcCable(c);
       const oPort=cablePortAt(c.originRack,c.originU,c.originPortId), dPort=cablePortAt(c.destRack,c.destU,c.destPortId);
-      const label=`${cableEndpointLabel(c.originRack,c.originU,c.originPortId)}\n${cableEndpointLabel(c.destRack,c.destU,c.destPortId)}`;
-      return [c.name,c.type||DEFAULT_CABLE_TYPE,o?.name||'',c.originU,oPort?.label||'',d?.name||'',c.destU,dPort?.label||'',res.v1,res.tray,res.v2,res.connection,res.base,res.slack,res.total,res.reachable?Math.ceil(res.total):'',cableRouteLabel(c,res),label];
+      const label=`${cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName)}\n${cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName)}`;
+      return [c.name,c.type||defaultCableType(),o?.name||'',c.originU,c.originAssetName||'',oPort?.label||c.originPortLabel||'',d?.name||'',c.destU,c.destAssetName||'',dPort?.label||c.destPortLabel||'',res.v1,res.tray,res.v2,res.connection,res.base,res.slack,res.total,res.reachable?Math.ceil(res.total):'',cableRouteLabel(c,res),label];
     });
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('Cabos');
@@ -4232,7 +4410,7 @@ async function exportCablesXLSX(){
     ws.freezePanes={xSplit:0,ySplit:1}; ws.autoFilter={from:'A1',to:`${excelColumnLetter(headers.length)}${Math.max(1,rows.length+1)}`}; ws.getRow(1).font={bold:true};
     ws.columns=headers.map((h,i)=>i+1===labelCol?{width:44}:{width:Math.min(60,Math.max(12,Math.max(h.length,...rows.map(r=>String(r[i]??'').length))+2))});
     for(let i=2;i<=rows.length+1;i++){
-      ws.getCell(`B${i}`).dataValidation={type:'list',allowBlank:false,formulae:['"Fibra Multi Mode,Fibra Single Mode,UTP"']};
+      ws.getCell(`B${i}`).dataValidation={type:'list',allowBlank:false,formulae:[`"${cableTypeNames().join(',')}"`]};
       const cell=ws.getCell(i,labelCol); cell.alignment={wrapText:true,vertical:'top'};
       ws.getRow(i).height=30;
     }
@@ -4257,14 +4435,14 @@ async function exportCablesXLSX(){
   }catch(err){toast(err.message||'Erro ao exportar Excel');}
 }
 
-function renderCables(){const el=$('cablesList');$('cableCount').textContent=state.cables.length;if(!state.cables.length){el.innerHTML='<div class="empty">Nenhum cabo cadastrado.</div>';return;}el.innerHTML=state.cables.map(c=>{const invalid=!cableUnitValidation(c).valid;const originLabel=cableEndpointLabel(c.originRack,c.originU,c.originPortId);const destLabel=cableEndpointLabel(c.destRack,c.destU,c.destPortId);return`<div class="cable-item ${state.selected?.type==='cable'&&state.selected.id===c.id?'selected':''} ${invalid?'invalid':''}" style="border-left-color:${cableTypeColor(c.type)}" data-cable="${c.id}"><div class="cable-name">${invalid?'⚠ ':''}${esc(c.name)}</div><div class="cable-meta"><span>${esc(originLabel)}</span><span>${esc(destLabel)}</span></div></div>`;}).join('');el.querySelectorAll('[data-cable]').forEach(x=>x.onclick=e=>{e.stopPropagation();state.multiSelected=[];state.selected={type:'cable',id:x.dataset.cable};renderAll();});}
-function ensureFields(){$('projectName').value=state.projectName;$('rowCount').value=state.rows.length;$('defaultRacks').value=state.rows[0]?.rackCount??0;$('rackUnits').value=state.rackUnits;$('rackWidth').value=state.rackWidth;$('rackDepth').value=state.rackDepth;$('rackGap').value=state.rackGap;$('rackPowerCapacity').value=state.rackPowerCapacityW>0?state.rackPowerCapacityW:'';$('defaultRowGap').value=state.defaultRowGap;$('lastUToTray').value=state.lastUToTray;$('defaultSlack').value=state.defaultSlack;}
+function renderCables(){const el=$('cablesList');$('cableCount').textContent=state.cables.length;if(!state.cables.length){el.innerHTML='<div class="empty">Nenhum cabo cadastrado.</div>';return;}el.innerHTML=state.cables.map(c=>{const invalid=!cableUnitValidation(c).valid;const originLabel=cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName);const destLabel=cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName);return`<div class="cable-item ${state.selected?.type==='cable'&&state.selected.id===c.id?'selected':''} ${invalid?'invalid':''}" style="border-left-color:${cableTypeColor(c.type)}" data-cable="${c.id}"><div class="cable-name">${invalid?'⚠ ':''}${esc(c.name)}</div><div class="cable-meta"><span>${esc(originLabel)}</span><span>${esc(destLabel)}</span></div></div>`;}).join('');el.querySelectorAll('[data-cable]').forEach(x=>x.onclick=e=>{e.stopPropagation();state.multiSelected=[];state.selected={type:'cable',id:x.dataset.cable};renderAll();});}
+function ensureFields(){$('projectName').value=state.projectName;$('rowCount').value=state.rows.length;$('defaultRacks').value=state.rows[0]?.rackCount??0;$('rackUnits').value=state.rackUnits;$('rackWidth').value=state.rackWidth;$('rackDepth').value=state.rackDepth;$('rackGap').value=state.rackGap;$('rackPowerCapacity').value=state.rackPowerCapacityW>0?state.rackPowerCapacityW:'';$('rackWeightCapacity').value=state.rackWeightCapacityKg>0?state.rackWeightCapacityKg:'';$('defaultRowGap').value=state.defaultRowGap;$('lastUToTray').value=state.lastUToTray;$('defaultSlack').value=state.defaultSlack;}
 function updateCanvasEmptyHint(){
   const hint=$('canvasEmptyHint'); if(!hint)return;
   const dismissed=localStorage.getItem('dccp_hint_dismissed')==='1';
   hint.classList.toggle('hidden',dismissed||state.rows.length>0);
 }
-function renderAll(persist=true){ensureFields();updateRoomUI();buildRowsPanel();render();renderProperties();renderCables();updateStructureControls();updateProjectSummary();updateMinimap();updateLifecycleAlertBadge();updateRoomThermalBadge();updateCapacityAlertBadge();updateCanvasEmptyHint();state.snapToEdges=true;if(persist)save();updateHistoryButtons();}
+function renderAll(persist=true){ensureFields();updateRoomUI();buildRowsPanel();render();renderProperties();renderCables();updateStructureControls();updateProjectSummary();updateMinimap();updateAlertsCenterBadge();updateRoomThermalBadge();updateCanvasEmptyHint();state.snapToEdges=true;if(persist)save();updateHistoryButtons();}
 
 function svgLocalPoint(clientX,clientY){
   const stage=$('canvasStage');
@@ -4577,7 +4755,304 @@ const CATALOG_SHEET_HEADERS = {
   manufacturers:['Fabricante'],
   models:['Tipo','Fabricante','Modelo']
 };
-const ASSET_HEADERS = ['Asset Tag','Nome','Serial Number','Modelo','Localização','Rack','U Inicial','Quantidade U','Status','Substatus'];
+async function ensureJsPDF(){
+  if(window.jspdf?.jsPDF)return true;
+  if(window.__jspdfLoading)return window.__jspdfLoading;
+  window.__jspdfLoading=new Promise(resolve=>{
+    const s1=document.createElement('script');
+    s1.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+    s1.onload=()=>{
+      const s2=document.createElement('script');
+      s2.src='https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js';
+      s2.onload=()=>resolve(!!window.jspdf?.jsPDF);
+      s2.onerror=()=>resolve(false);
+      document.head.appendChild(s2);
+    };
+    s1.onerror=()=>resolve(false);
+    document.head.appendChild(s1);
+  });
+  return window.__jspdfLoading;
+}
+function hexToRgb(hex){
+  const m=/^#([0-9a-f]{6})$/i.exec(hex||'');
+  if(!m)return [148,163,184];
+  const n=parseInt(m[1],16);
+  return [(n>>16)&255,(n>>8)&255,n&255];
+}
+function buildRackBayfaceTableBody(rack){
+  const units=Math.max(1,Math.floor(num(rack.units,state.rackUnits)));
+  const assets=state.assets.filter(a=>a.rackId===rack.id && !isAssetArchived(a));
+  const occupiedByU=new Map();
+  assets.forEach(a=>{
+    const o=assetOccupancy(a);
+    for(let u=Math.max(1,o.start);u<=Math.min(units,o.end);u++)occupiedByU.set(u,a);
+  });
+  const rows=[]; const startedAssets=new Set();
+  // Uma entrada no array por U, sem pular nenhuma. A célula de U NUNCA mescla
+  // (cada U sempre mostra o próprio número, mesmo dentro de um equipamento de
+  // mais de uma U) — só a célula do equipamento mescla (rowSpan) ao longo do
+  // bloco todo.
+  for(let u=units;u>=1;u--){
+    const asset=occupiedByU.get(u);
+    if(asset){
+      if(startedAssets.has(asset.id)){
+        rows.push([{content:String(u),styles:{halign:'center',fillColor:[235,238,242],fontStyle:'bold'}}]);
+        continue;
+      }
+      startedAssets.add(asset.id);
+      const o=assetOccupancy(asset);
+      const start=Math.max(1,o.start), end=Math.min(units,o.end);
+      const span=end-start+1;
+      const name=String(asset.name||asset.assetTag||'Equipamento');
+      const tag=asset.assetTag?`Tag: ${asset.assetTag}`:'';
+      const sn=asset.serial?`SN: ${asset.serial}`:'';
+      const label=span===1?[name,tag,sn].filter(Boolean).join(' - '):`${[name,tag].filter(Boolean).join(' - ')}\n${sn}`;
+      const [r,g,b]=hexToRgb(bayfaceTypeColor(asset.type));
+      rows.push([
+        {content:String(u),styles:{halign:'center',fillColor:[235,238,242],fontStyle:'bold'}},
+        {content:label,rowSpan:span,styles:{fillColor:[r,g,b],textColor:255,fontStyle:'bold',valign:'middle'}},
+        {content:`${span}U`,rowSpan:span,styles:{fillColor:[r,g,b],textColor:255,halign:'center',valign:'middle',fontStyle:'bold',fontSize:5}},
+      ]);
+    }else{
+      rows.push([{content:String(u),styles:{halign:'center'}},{content:''},{content:''}]);
+    }
+  }
+  return rows;
+}
+function pickRackTableStyle(units,availableHmm){
+  // Escolhe fonte/espaçamento pra caber o rack inteiro numa página só,
+  // reduzindo conforme a quantidade de U aumenta. Aplica uma margem de
+  // segurança de 10% pra nunca estourar a página por uma estimativa imprecisa.
+  const rowH=(availableHmm/units)*0.9;
+  if(rowH>=6)return {fontSize:7.5,cellPadding:1.3};
+  if(rowH>=4.5)return {fontSize:6,cellPadding:0.9};
+  if(rowH>=3.2)return {fontSize:5,cellPadding:0.55};
+  if(rowH>=2.4)return {fontSize:4.2,cellPadding:0.35};
+  return {fontSize:3.5,cellPadding:0.2};
+}
+
+async function generatePDFReport(options={}){
+  const opt={summary:true,status:true,lifecycle:true,cables:true,...options};
+  try{
+    toast('Gerando relatório...');
+    if(!await ensureJsPDF()) throw new Error('Biblioteca de PDF não carregada.');
+    syncActiveRoom();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'mm', format:'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
+
+    doc.setFontSize(18); doc.setFont(undefined,'bold'); doc.setTextColor(0);
+    doc.text('Relatório do Data Center', margin, 20);
+    doc.setFontSize(11); doc.setFont(undefined,'normal');
+    doc.text(`Projeto: ${state.projectName||'Sem nome'}`, margin, 28);
+    doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, margin, 34);
+
+    const allRacksFull = allProjectRacks();
+    const allRacks = options.rackIds?Array.isArray(options.rackIds)?allRacksFull.filter(({rack:r})=>options.rackIds.includes(r.id)):allRacksFull:allRacksFull;
+    const activeAssets = state.assets.filter(a=>!isAssetArchived(a));
+    const lifecycleIssues = assetsNeedingAttention();
+    const capIssues = capacityIssues();
+    let y = 40;
+
+    if(opt.summary){
+      doc.autoTable({
+        startY: 42,
+        head: [['Resumo geral', '']],
+        body: [
+          ['Salas', String(state.rooms.length)],
+          ['Racks', String(allRacksFull.length)],
+          ['Assets ativos', String(activeAssets.length)],
+          ['Cabos cadastrados', String(state.cables.length)],
+          ['Alertas de ciclo de vida', String(lifecycleIssues.length)],
+          ['Alertas de capacidade', String(capIssues.length)],
+        ],
+        theme:'grid', styles:{fontSize:9}, headStyles:{fillColor:[31,41,55]},
+        columnStyles:{0:{fontStyle:'bold',cellWidth:70}},
+      });
+      y = doc.lastAutoTable.finalY + 10;
+    }
+
+    // --- Racks e capacidade ---
+    const rackRows = allRacks.map(({rack:r,room})=>{
+      const occupied = state.assets.filter(a=>a.rackId===r.id && !isAssetArchived(a)).reduce((s,a)=>s+Math.max(1,Math.floor(num(a.uHeight,1))),0);
+      const units = Math.max(1,Math.floor(num(r.units,state.rackUnits)));
+      const powerW = state.assets.filter(a=>a.rackId===r.id).reduce((s,a)=>s+Math.max(0,num(a.powerW,0)),0);
+      const powerCap = num(r.powerCapacityW,0);
+      const weightKg = state.assets.filter(a=>a.rackId===r.id).reduce((s,a)=>s+Math.max(0,num(a.weightKg,0)),0);
+      const weightCap = num(r.weightCapacityKg,0);
+      return [
+        room.name||'—', r.name||'—', `${occupied}U / ${units}U`,
+        powerCap>0?`${powerW}W / ${powerCap}W`:`${powerW}W (sem limite)`,
+        weightCap>0?`${weightKg}kg / ${weightCap}kg`:`${weightKg}kg (sem limite)`,
+      ];
+    });
+    if(rackRows.length){
+      if(y > pageHeight-40){ doc.addPage(); y=20; }
+      doc.setFontSize(13); doc.setFont(undefined,'bold'); doc.setTextColor(0); doc.text('Racks e capacidade', margin, y);
+      doc.autoTable({
+        startY: y+4,
+        head: [['Sala','Rack','Ocupação','Energia','Carga do piso']],
+        body: rackRows,
+        theme:'striped', styles:{fontSize:8}, headStyles:{fillColor:[31,41,55]},
+      });
+      y = doc.lastAutoTable.finalY + 10;
+    }
+
+    // --- Bayface dos racks: tabela simples (U + equipamento), com bordas e
+    // linhas mescladas para equipamentos de mais de uma U. Largura estreita,
+    // proporcional a um rack de verdade, com vários lado a lado quando couberem. ---
+    if(allRacks.length){
+      doc.addPage(); y=20;
+      doc.setFontSize(16); doc.setFont(undefined,'bold'); doc.setTextColor(0);
+      doc.text('Bayface dos racks', margin, y);
+      y += 10;
+      const rackColWidth=54, gap=5;
+      const racksPerRow=Math.max(1,Math.floor((pageWidth-margin*2+gap)/(rackColWidth+gap)));
+      for(let i=0;i<allRacks.length;i+=racksPerRow){
+        // se sobrar pouco espaço na página atual, começa uma nova antes de
+        // desenhar essa fileira de racks (evita espremer a fonte à toa)
+        if(pageHeight-y-15 < 80){ doc.addPage(); y=20; }
+        const availableH=pageHeight-y-15;
+        let maxFinalY=y;
+        const rowItems=allRacks.slice(i,i+racksPerRow);
+        rowItems.forEach((item,idx)=>{
+          const x=margin+idx*(rackColWidth+gap);
+          const units=Math.max(1,Math.floor(num(item.rack.units,state.rackUnits)));
+          doc.setFontSize(7.5); doc.setFont(undefined,'bold'); doc.setTextColor(0);
+          doc.text(`${item.room.name||''} — ${item.rack.name||''}`, x, y, {maxWidth:rackColWidth});
+          const style=pickRackTableStyle(units, availableH-6);
+          doc.autoTable({
+            startY: y+5,
+            body: buildRackBayfaceTableBody(item.rack),
+            theme:'grid',
+            styles:{fontSize:style.fontSize,cellPadding:style.cellPadding,lineColor:[200,200,200],lineWidth:0.1},
+            columnStyles:{0:{cellWidth:8},2:{cellWidth:8}},
+            margin:{left:x},
+            tableWidth:rackColWidth,
+          });
+          maxFinalY=Math.max(maxFinalY, doc.lastAutoTable.finalY);
+        });
+        y=maxFinalY+14;
+      }
+    }
+
+    // --- Assets por status ---
+    if(opt.status){
+      const statusCounts = new Map();
+      activeAssets.forEach(a=>{const s=a.status||'—'; statusCounts.set(s,(statusCounts.get(s)||0)+1);});
+      if(statusCounts.size){
+        if(y > pageHeight-40){ doc.addPage(); y=20; }
+        doc.setFontSize(13); doc.setFont(undefined,'bold'); doc.setTextColor(0); doc.text('Assets por status', margin, y);
+        doc.autoTable({
+          startY: y+4,
+          head: [['Status','Quantidade']],
+          body: [...statusCounts.entries()].map(([s,c])=>[s,String(c)]),
+          theme:'striped', styles:{fontSize:9}, headStyles:{fillColor:[31,41,55]},
+        });
+        y = doc.lastAutoTable.finalY + 10;
+      }
+    }
+
+    // --- Alertas de ciclo de vida ---
+    if(opt.lifecycle && lifecycleIssues.length){
+      if(y > pageHeight-40){ doc.addPage(); y=20; }
+      doc.setFontSize(13); doc.setFont(undefined,'bold'); doc.setTextColor(0); doc.text('Alertas de ciclo de vida', margin, y);
+      const rows = lifecycleIssues.map(a=>{
+        const w=assetWarrantyLevel(a), e=assetEndOfLifeLevel(a);
+        const reason=[w==='expired'?'Garantia vencida':w==='soon'?'Garantia vence em breve':null,e==='expired'?'EOL vencido':e==='soon'?'EOL vence em breve':null].filter(Boolean).join(' · ');
+        return [a.name||a.assetTag||'—', reason];
+      });
+      doc.autoTable({
+        startY: y+4,
+        head: [['Asset','Alerta']],
+        body: rows,
+        theme:'striped', styles:{fontSize:9}, headStyles:{fillColor:[200,80,60]},
+      });
+      y = doc.lastAutoTable.finalY + 10;
+    }
+
+    // --- Resumo de cabos ---
+    if(opt.cables){
+      const cableRows = cableSummaryRows();
+      if(cableRows.length){
+        if(y > pageHeight-40){ doc.addPage(); y=20; }
+        doc.setFontSize(13); doc.setFont(undefined,'bold'); doc.setTextColor(0); doc.text('Resumo de cabos', margin, y);
+        doc.autoTable({
+          startY: y+4,
+          head: [['Tipo','Comprimento (m)','Quantidade']],
+          body: cableRows.map(r=>[r.type, String(r.length), String(r.qty)]),
+          theme:'striped', styles:{fontSize:9}, headStyles:{fillColor:[31,41,55]},
+        });
+      }
+    }
+
+    // --- Numeração de página ---
+    const pageCount = doc.internal.getNumberOfPages();
+    for(let i=1;i<=pageCount;i++){
+      doc.setPage(i);
+      doc.setFontSize(8); doc.setTextColor(140);
+      doc.text(`Página ${i} de ${pageCount}`, pageWidth-margin, pageHeight-8, {align:'right'});
+    }
+
+    doc.save(`Relatorio_${(state.projectName||'DataCenter').replace(/[^A-Za-z0-9_-]/g,'_')}.pdf`);
+    toast('Relatório PDF gerado');
+  }catch(err){
+    console.error('Erro ao gerar relatório PDF:',err);
+    toast('Não foi possível gerar o relatório PDF: '+(err?.message||err));
+  }
+}
+function openPdfReportOptions(){
+  const m=$('pdfReportOptionsModal');if(!m)return;
+  syncActiveRoom();
+  const list=$('pdfRacksList');
+  if(list){
+    const racks=allProjectRacks();
+    const byRoom=new Map();
+    racks.forEach(({rack:r,room})=>{
+      if(!byRoom.has(room.id))byRoom.set(room.id,{room,racks:[]});
+      byRoom.get(room.id).racks.push(r);
+    });
+    let html='';
+    byRoom.forEach(({room,racks:roomRacks})=>{
+      html+=`<div class="pdf-report-room-group">
+        <div class="pdf-report-room-header">
+          <input type="checkbox" data-pdf-room="${esc(room.id)}" checked>
+          <button type="button" class="pdf-report-room-chevron" data-room-expand="${esc(room.id)}">▸</button>
+          <span>${esc(room.name||'Sala')}</span><small>(${roomRacks.length})</small>
+        </div>
+        <div class="pdf-report-room-racks hidden" data-room-racks="${esc(room.id)}">
+          ${roomRacks.map(r=>`<label class="pdf-report-rack-row"><input type="checkbox" data-pdf-rack="${esc(r.id)}" data-pdf-room-of="${esc(room.id)}" checked><span>${esc(r.name||'Rack')}</span></label>`).join('')}
+        </div>
+      </div>`;
+    });
+    list.innerHTML=html||'<div class="empty">Nenhum rack no projeto.</div>';
+    const updateRoomCheckbox=(roomId)=>{
+      const rackBoxes=[...list.querySelectorAll(`[data-pdf-rack][data-pdf-room-of="${roomId}"]`)];
+      const roomBox=list.querySelector(`[data-pdf-room="${roomId}"]`); if(!roomBox)return;
+      const checkedCount=rackBoxes.filter(cb=>cb.checked).length;
+      roomBox.checked=checkedCount===rackBoxes.length;
+      roomBox.indeterminate=checkedCount>0&&checkedCount<rackBoxes.length;
+    };
+    list.querySelectorAll('[data-room-expand]').forEach(btn=>{
+      const toggle=()=>{
+        const racksEl=list.querySelector(`[data-room-racks="${btn.dataset.roomExpand}"]`);
+        const nowHidden=racksEl.classList.toggle('hidden');
+        btn.classList.toggle('expanded',!nowHidden);
+      };
+      btn.addEventListener('click',toggle);
+      btn.closest('.pdf-report-room-header').querySelector('span').addEventListener('click',toggle);
+    });
+    list.querySelectorAll('[data-pdf-room]').forEach(roomBox=>roomBox.addEventListener('change',()=>{
+      list.querySelectorAll(`[data-pdf-rack][data-pdf-room-of="${roomBox.dataset.pdfRoom}"]`).forEach(cb=>cb.checked=roomBox.checked);
+      roomBox.indeterminate=false;
+    }));
+    list.querySelectorAll('[data-pdf-rack]').forEach(cb=>cb.addEventListener('change',()=>updateRoomCheckbox(cb.dataset.pdfRoomOf)));
+  }
+  m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');
+}
+function closePdfReportOptions(){const m=$('pdfReportOptionsModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
 async function ensureExcelJS(){
   if(window.ExcelJS)return true;
   if(window.__exceljsLoading)return window.__exceljsLoading;
@@ -4594,21 +5069,22 @@ function assetStatusValues(){ normalizeAssetCatalogs(); return state.assetCatalo
 async function makeAssetsTemplate(){
   try{
     if(!await ensureExcelJS()) throw new Error('Biblioteca ExcelJS não carregada.');
+    normalizeAssetCatalogs(); normalizeLocations();
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('Assets');
-    const headers=['Asset Tag','Nome','Serial Number','Modelo','Localização','Rack','U Inicial','Quantidade U','Status','Substatus'];
+    const headers=['Asset Tag','Nome','Serial Number','Modelo','Localização','Rack','U Inicial','Quantidade U','Status','Substatus','Potência (W)','Peso (kg)','Data de compra','Vencimento da garantia','Fim de vida (EOL)'];
     ws.addRow(headers);
     (state.assets||[]).forEach(a=>{
       const room=assetRoom(a), rack=assetRack(a.rackId);
       const rackDisplay=rack ? `${room?.name||assetRackRoom(a)?.name||''} / ${rack.name||''}`.replace(/^ \/ /,'') : '';
-      ws.addRow([a.assetTag||'',a.name||'',a.serial||'',a.model||'',assetLocationLabel(a),rackDisplay,a.uStart||'',a.uHeight||1,a.status||'Instalado',a.substatus||'']);
+      ws.addRow([a.assetTag||'',a.name||'',a.serial||'',a.model||'',assetLocationLabel(a),rackDisplay,a.uStart||'',a.uHeight||1,a.status||'Instalado',a.substatus||'',a.powerW||'',a.weightKg||'',a.purchaseDate||'',a.warrantyExpiration||'',a.endOfLife||'']);
     });
     ws.views=[{state:'frozen',ySplit:1}];
-    ws.autoFilter={from:'A1',to:'J1'};
+    ws.autoFilter={from:'A1',to:'O1'};
     ws.getRow(1).font={bold:true,color:{argb:'FFFFFFFF'}};
     ws.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1F2937'}};
     ws.getRow(1).alignment={vertical:'middle'};
-    ws.columns=[18,32,24,30,28,22,12,14,18,22].map(width=>({width}));
+    ws.columns=[18,32,24,30,28,22,12,14,18,22,16,14,16,20,18].map(width=>({width}));
     ws.getRow(1).height=24;
     ws.getCell('A1').note='Opcional. Identificador interno do asset.';
     ws.getCell('B1').note='Obrigatório.';
@@ -4620,10 +5096,57 @@ async function makeAssetsTemplate(){
     ws.getCell('H1').note='Quantidade de U ocupadas pelo asset.';
     ws.getCell('I1').note='Status do asset. Valores sugeridos: Arquivado, Instalado, Reservado, Desligado, Estoque.';
     ws.getCell('J1').note='Substatus. Valores sugeridos: Em estoque, Ligado, Desligado, Disposed, Perdido, Retired, Retornado ao Vendor.';
+    ws.getCell('K1').note='Opcional. Se deixado em branco, usa o valor cadastrado no modelo (Catálogo → Modelos), quando existir.';
+    ws.getCell('L1').note='Opcional. Se deixado em branco, usa o valor cadastrado no modelo (Catálogo → Modelos), quando existir.';
+    ws.getCell('M1').note='Opcional. Formato AAAA-MM-DD ou DD/MM/AAAA.';
+    ws.getCell('N1').note='Opcional. Formato AAAA-MM-DD ou DD/MM/AAAA.';
+    ws.getCell('O1').note='Opcional. Formato AAAA-MM-DD ou DD/MM/AAAA.';
+
+    // --- Aba de referência (oculta), fonte das listas suspensas e da busca
+    // de potência/peso por modelo. Não é pra ser editada pelo usuário. ---
+    const refWs=wb.addWorksheet('NÃO EDITAR - Referência');
+    const allLocations=[];
+    (state.locations||[]).forEach(l=>{
+      (l.rooms||[]).forEach(rid=>{const r=state.rooms.find(x=>x.id===rid); if(r)allLocations.push(`${l.name} / ${r.name}`);});
+      (l.stocks||[]).forEach(st=>allLocations.push(`${l.name} / ${st.name}`));
+    });
+    const allRacks=[...new Set(allProjectRacks().map(({rack:r})=>r.name).filter(Boolean))];
+    const allModels=(state.assetCatalogs.models||[]).filter(m=>m.name);
+    refWs.getColumn(1).values=['Localizações',...allLocations];
+    refWs.getColumn(2).values=['Racks',...allRacks];
+    refWs.getColumn(3).values=['Modelos',...allModels.map(m=>m.name)];
+    refWs.getColumn(4).values=['Potência (W)',...allModels.map(m=>m.powerW||'')];
+    refWs.getColumn(5).values=['Peso (kg)',...allModels.map(m=>m.weightKg||'')];
+    refWs.getColumn(6).values=['Status',...assetStatusValues()];
+    refWs.getColumn(7).values=['Substatus',...assetSubstatusValues()];
+    refWs.state='hidden';
+
+    const locRange=`'NÃO EDITAR - Referência'!$A$2:$A$${Math.max(2,allLocations.length+1)}`;
+    const rackRange=`'NÃO EDITAR - Referência'!$B$2:$B$${Math.max(2,allRacks.length+1)}`;
+    const modelRange=`'NÃO EDITAR - Referência'!$C$2:$C$${Math.max(2,allModels.length+1)}`;
+    const statusRange=`'NÃO EDITAR - Referência'!$F$2:$F$${Math.max(2,assetStatusValues().length+1)}`;
+    const substatusRange=`'NÃO EDITAR - Referência'!$G$2:$G$${Math.max(2,assetSubstatusValues().length+1)}`;
+    const existingRows=(state.assets||[]).length;
+    for(let row=2;row<=1000;row++){
+      ws.getCell(`D${row}`).dataValidation={type:'list',allowBlank:true,formulae:[modelRange]};
+      ws.getCell(`E${row}`).dataValidation={type:'list',allowBlank:true,formulae:[locRange]};
+      ws.getCell(`F${row}`).dataValidation={type:'list',allowBlank:true,formulae:[rackRange]};
+      ws.getCell(`I${row}`).dataValidation={type:'list',allowBlank:true,formulae:[statusRange]};
+      ws.getCell(`J${row}`).dataValidation={type:'list',allowBlank:true,formulae:[substatusRange]};
+      // As fórmulas de potência/peso só vão nas linhas em branco (pra novos
+      // assets) — nas linhas que já têm um asset exportado, mantém o valor
+      // real dele, que pode ter sido alterado manualmente e ser diferente
+      // do padrão cadastrado no modelo.
+      if(row>existingRows+1){
+        ws.getCell(`K${row}`).value={formula:`IFERROR(VLOOKUP(D${row},'NÃO EDITAR - Referência'!$C:$E,2,FALSE),"")`};
+        ws.getCell(`L${row}`).value={formula:`IFERROR(VLOOKUP(D${row},'NÃO EDITAR - Referência'!$C:$E,3,FALSE),"")`};
+      }
+    }
+
     const buf=await wb.xlsx.writeBuffer();
     const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const url=URL.createObjectURL(blob);const a=document.createElement('a');
-    a.href=url;a.download='Modelo_Importacao_Assets_DataCenterCablePlanner.xlsx';a.style.display='none';
+    a.href=url;a.download='Modelo_Importacao_Assets_Stratum.xlsx';a.style.display='none';
     document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},2000);
     toast('Modelo de importação baixado');
   }catch(err){console.error('Assets template error:',err);toast('Não foi possível gerar o modelo: '+(err?.message||err));}
@@ -4639,6 +5162,13 @@ function getCol(row,aliases){
   // by Excel/LibreOffice (e.g. "Fabricantes", "Manufacturer Name").
   const keys=Object.keys(m);
   if(keys.length===1){const k=keys[0]; const v=String(m[k]??'').trim(); if(v) return v;}
+  return '';
+}
+function parseImportDate(value){
+  const s=String(value||'').trim(); if(!s)return '';
+  let m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/); if(m)return s;
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m){const dd=m[1].padStart(2,'0'),mm=m[2].padStart(2,'0');return `${m[3]}-${mm}-${dd}`;}
   return '';
 }
 function assetImportCatalogOptions(kind, selected=''){
@@ -4826,11 +5356,17 @@ function renderImportProblems(item,idx){
 }
 function renderEditableAssetImportPreview(){
   const rows=pendingImport?.rows||[], table=$('importPreviewTable'); if(!table)return;
-  const fields=[['Nome','text'],['Serial Number','text'],['Modelo','model'],['Localização','room'],['Rack','rack'],['U Inicial','u'],['Quantidade U','number'],['Status','status'],['Substatus','substatus']];
-  table.innerHTML=`<table class="asset-import-edit-grid"><thead><tr><th></th>${fields.map(f=>`<th>${esc(f[0])}${['Nome','Serial Number','Modelo'].includes(f[0])?' *':''}</th>`).join('')}<th>Validação</th></tr></thead><tbody>${rows.map((item,idx)=>{const d=item.data||{};const status=item._validated?(item.valid?'valid':'invalid'):'pending';return `<tr class="import-row ${status==='valid'?'import-valid':status==='invalid'?'import-invalid':'import-pending'}" data-import-index="${idx}"><td class="import-row-state">${status==='valid'?'✓':status==='invalid'?'!':'•'}</td>${fields.map(([key,type])=>{let control='';if(type==='model')control=`<select data-import-field="${key}">${assetImportCatalogOptions('model',d[key]||'')}</select>`;else if(type==='room')control=`<select data-import-field="${key}">${assetImportRoomOptions(d[key]||'')}</select>`;else if(type==='rack')control=`<select data-import-field="${key}">${assetImportRackOptions(d['Localização']||d['Sala']||'',d[key]||'')}</select>`;else if(type==='status')control=`<select data-import-field="${key}">${assetImportCatalogOptions('status',d[key]||'Instalado')}</select>`;else if(type==='substatus')control=`<select data-import-field="${key}">${assetImportCatalogOptions('substatus',d[key]||'')}</select>`;else if(type==='u')control=`<select data-import-field="${key}">${assetImportUOptions(item)}</select>`;else control=`<input data-import-field="${key}" type="${type==='number'?'number':'text'}" value="${esc(d[key]??'')}" ${key==='Quantidade U'?'min="1" max="60"':''}>`;return `<td>${control}</td>`}).join('')}<td class="import-row-message">${status==='pending'?'<div class="import-validation-pending">⏳ Aguardando validação</div>':renderImportProblems(item,idx)}</td></tr>`}).join('')}</tbody></table>`;
+  const fields=[['Nome','text'],['Serial Number','text'],['Modelo','model'],['Localização','room'],['Rack','rack'],['U Inicial','u'],['Quantidade U','number'],['Status','status'],['Substatus','substatus'],['Potência (W)','number'],['Peso (kg)','number'],['Data de compra','date'],['Vencimento da garantia','date'],['Fim de vida (EOL)','date']];
+  table.innerHTML=`<table class="asset-import-edit-grid"><thead><tr><th></th>${fields.map(f=>`<th>${esc(f[0])}${['Nome','Serial Number','Modelo'].includes(f[0])?' *':''}</th>`).join('')}<th>Validação</th><th></th></tr></thead><tbody>${rows.map((item,idx)=>{const d=item.data||{};const status=item._validated?(item.valid?'valid':'invalid'):'pending';return `<tr class="import-row ${status==='valid'?'import-valid':status==='invalid'?'import-invalid':'import-pending'}" data-import-index="${idx}"><td class="import-row-state">${status==='valid'?'✓':status==='invalid'?'!':'•'}</td>${fields.map(([key,type])=>{let control='';if(type==='model')control=`<select data-import-field="${key}">${assetImportCatalogOptions('model',d[key]||'')}</select>`;else if(type==='room')control=`<select data-import-field="${key}">${assetImportRoomOptions(d[key]||'')}</select>`;else if(type==='rack')control=`<select data-import-field="${key}">${assetImportRackOptions(d['Localização']||d['Sala']||'',d[key]||'')}</select>`;else if(type==='status')control=`<select data-import-field="${key}">${assetImportCatalogOptions('status',d[key]||'Instalado')}</select>`;else if(type==='substatus')control=`<select data-import-field="${key}">${assetImportCatalogOptions('substatus',d[key]||'')}</select>`;else if(type==='u')control=`<select data-import-field="${key}">${assetImportUOptions(item)}</select>`;else if(type==='date')control=`<input data-import-field="${key}" type="date" value="${esc(d[key]??'')}">`;else control=`<input data-import-field="${key}" type="${type==='number'?'number':'text'}" value="${esc(d[key]??'')}" ${key==='Quantidade U'?'min="1" max="60"':''}>`;return `<td>${control}</td>`}).join('')}<td class="import-row-message">${status==='pending'?'<div class="import-validation-pending">⏳ Aguardando validação</div>':renderImportProblems(item,idx)}</td><td><button type="button" class="iconbtn danger-icon import-row-remove" data-import-remove="${idx}" title="Remover esta linha da importação">×</button></td></tr>`}).join('')}</tbody></table>`;
   table.querySelectorAll('[data-import-field]').forEach(el=>el.addEventListener('change',()=>updateEditableImportRow(el.closest('tr'),{rerenderRow:true})));
-  table.querySelectorAll('[data-import-field="Nome"],[data-import-field="Serial Number"],[data-import-field="Quantidade U"]').forEach(el=>el.addEventListener('input',()=>updateEditableImportRow(el.closest('tr'),{rerenderRow:false})));
+  table.querySelectorAll('[data-import-field="Nome"],[data-import-field="Serial Number"],[data-import-field="Quantidade U"],[data-import-field="Potência (W)"],[data-import-field="Peso (kg)"]').forEach(el=>el.addEventListener('input',()=>updateEditableImportRow(el.closest('tr'),{rerenderRow:false})));
   table.querySelectorAll('.import-model-action').forEach(btn=>btn.addEventListener('click',()=>openImportModelRegistration(Number(btn.dataset.importModel))));
+  table.querySelectorAll('[data-import-remove]').forEach(btn=>btn.addEventListener('click',()=>{
+    const idx=Number(btn.dataset.importRemove); if(!pendingImport?.rows)return;
+    pendingImport.rows.splice(idx,1);
+    renderEditableAssetImportPreview();
+    updateImportPreviewSummary();
+  }));
 }
 
 let pendingImportModelIndex=null;
@@ -4862,6 +5398,7 @@ function updateEditableImportRow(tr, {rerenderRow=false}={}){
   validateAssetImportRows(pendingImport.rows);
   if(rerenderRow){
     renderEditableAssetImportPreview();
+    updateImportPreviewSummary();
   }else{
     // Never rebuild the table while typing: rebuilding destroys the active input
     // and was the cause of the one-character-and-focus-loss bug.
@@ -4905,7 +5442,7 @@ function openImportPreview(kind, rows, errors, title, subtitle, onConfirm){
 
 function closeImportPreview(){pendingImport=null;const m=$('importPreviewModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
 
-function catalogSingleLabel(kind){return ({types:'Tipos de ativo',manufacturers:'Fabricantes',models:'Modelos',statuses:'Status',substatuses:'Substatus'})[kind]||'Cadastros';}
+function catalogSingleLabel(kind){return ({types:'Tipos de ativo',manufacturers:'Fabricantes',models:'Modelos',statuses:'Status',substatuses:'Substatus',cableTypes:'Tipos de cabo'})[kind]||'Cadastros';}
 function catalogSingleTemplate(kind){
   normalizeAssetCatalogs();
   const wb=XLSX.utils.book_new();
@@ -4913,6 +5450,10 @@ function catalogSingleTemplate(kind){
   if(kind==='models'){
     headers=['Modelo','Fabricante','Tipo de Ativo'];
     rows=(state.assetCatalogs.models||[]).map(m=>[m.name||'',m.manufacturer||'',m.type||'']);
+  }else if(kind==='cableTypes'){
+    normalizeCableCatalogs();
+    headers=['Nome','Cor (hex)'];
+    rows=(state.cableCatalogs.types||[]).map(t=>[t.name||'',t.color||'']);
   }else{
     const key={types:'types',manufacturers:'manufacturers',statuses:'statuses',substatuses:'substatuses'}[kind];
     headers=[catalogSingleLabel(kind).replace('Tipos de ativo','Tipo')];
@@ -4935,6 +5476,8 @@ function validateCatalogImportRows(kind,rows){
   const seen=new Map();
   const arrKey={types:'types',manufacturers:'manufacturers',statuses:'statuses',substatuses:'substatuses'}[kind];
   const arr=arrKey?(state.assetCatalogs[arrKey]||[]):[];
+  if(kind==='cableTypes')normalizeCableCatalogs();
+  const cableTypesArr=kind==='cableTypes'?state.cableCatalogs.types:[];
   rows.forEach(r=>{
     const problems=[]; let warning=''; r.existing=false; r.missingManufacturer=false; r.missingType=false;
     if(kind==='models'){
@@ -4956,6 +5499,17 @@ function validateCatalogImportRows(kind,rows){
         const near=state.assetCatalogs.models.filter(m=>catalogNormalize(m.type)===catalogNormalize(r.type)&&catalogNormalize(m.manufacturer)===catalogNormalize(r.manufacturer)).map(m=>m.name);
         const sim=catalogSimilar(r.model,near.filter(n=>catalogNormalize(n)!==catalogNormalize(r.model)));
         if(sim.length&&!warning)warning=`Possível duplicidade com: ${sim[0]}.`;
+      }
+    }else if(kind==='cableTypes'){
+      r.name=(r.name||'').trim();
+      r.color=/^#[0-9a-fA-F]{6}$/.test((r.color||'').trim())?r.color.trim():'#4f8cff';
+      if(!r.name)problems.push('Nome é obrigatório.');
+      const key=catalogNormalize(r.name);
+      if(key){
+        const count=(seen.get(key)||0)+1; seen.set(key,count);
+        if(count>1)problems.push('Nome repetido nesta importação.');
+        const exact=cableTypesArr.find(t=>catalogNormalize(t.name)===key);
+        if(exact){r.existing=true; warning='Tipo de cabo já em uso — será mantido.';}
       }
     }else{
       r.value=(r.value||'').trim();
@@ -4980,7 +5534,7 @@ function renderCatalogSinglePreviewRows(kind, rows){
   $('importPreviewSummary').innerHTML=`<div class="import-stat-valid"><b>${valid}</b> válidos</div><div class="import-stat-invalid"><b>${invalid}</b> com problemas</div><div><b>${rows.length}</b> linhas analisadas</div>`;
   $('importPreviewConfirm').textContent=newRows?`✓ Importar ${newRows} novo${newRows===1?'':'s'}`:(valid?'✓ Concluir':'Nenhum dado válido');
   $('importPreviewConfirm').disabled=valid===0;
-  const headers=kind==='models'?['Linha','Modelo','Fabricante','Tipo de Ativo','Validação']:['Linha','Nome','Validação'];
+  const headers=kind==='models'?['Linha','Modelo','Fabricante','Tipo de Ativo','Validação']:kind==='cableTypes'?['Linha','Nome','Cor','Validação']:['Linha','Nome','Validação'];
   const body=rows.slice(0,300).map((r,i)=>{
     const issues=[];
     if(r.problems?.length) r.problems.forEach(p=>issues.push(`<div class="import-problem-item">🔴 ${esc(p)}</div>`));
@@ -4992,16 +5546,20 @@ function renderCatalogSinglePreviewRows(kind, rows){
     if(!issues.length && r.valid) issues.push(`<div class="import-ok-item">🟢 ${r.existing?'Já em uso — será mantido.':'Válido'}</div>`);
     const status=issues.join('');
     if(kind==='models') return `<tr class="${r.valid?'import-valid':'import-invalid'}"><td>${r.line}</td><td><input class="catalog-edit" data-row="${i}" data-field="model" value="${esc(r.model)}"></td><td><input class="catalog-edit" data-row="${i}" data-field="manufacturer" value="${esc(r.manufacturer)}"></td><td><input class="catalog-edit" data-row="${i}" data-field="type" value="${esc(r.type)}"></td><td class="catalog-validation">${status}</td></tr>`;
+    if(kind==='cableTypes') return `<tr class="${r.valid?'import-valid':'import-invalid'}"><td>${r.line}</td><td><input class="catalog-edit" data-row="${i}" data-field="name" value="${esc(r.name)}"></td><td><input class="catalog-edit" type="color" data-row="${i}" data-field="color" value="${esc(r.color)}"></td><td class="catalog-validation">${status}</td></tr>`;
     return `<tr class="${r.valid?'import-valid':'import-invalid'}"><td>${r.line}</td><td><input class="catalog-edit" data-row="${i}" data-field="value" value="${esc(r.value)}"></td><td class="catalog-validation">${status}</td></tr>`;
   }).join('');
   $('importPreviewTable').innerHTML=`<table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>`;
-  document.querySelectorAll('.catalog-edit').forEach(inp=>inp.addEventListener('input',()=>{
-    const row=rows[Number(inp.dataset.row)]; row[inp.dataset.field]=inp.value;
-    const focus={row:Number(inp.dataset.row),field:inp.dataset.field,start:inp.selectionStart,end:inp.selectionEnd};
-    renderCatalogSinglePreviewRows(kind,rows);
-    const next=document.querySelector(`.catalog-edit[data-row="${focus.row}"][data-field="${focus.field}"]`);
-    if(next){next.focus();try{next.setSelectionRange(focus.start,focus.end)}catch(e){}}
-  }));
+  document.querySelectorAll('.catalog-edit').forEach(inp=>{
+    const evt=inp.type==='color'?'change':'input';
+    inp.addEventListener(evt,()=>{
+      const row=rows[Number(inp.dataset.row)]; row[inp.dataset.field]=inp.value;
+      const focus={row:Number(inp.dataset.row),field:inp.dataset.field,start:inp.selectionStart,end:inp.selectionEnd};
+      renderCatalogSinglePreviewRows(kind,rows);
+      const next=document.querySelector(`.catalog-edit[data-row="${focus.row}"][data-field="${focus.field}"]`);
+      if(next){next.focus();try{next.setSelectionRange(focus.start,focus.end)}catch(e){}}
+    });
+  });
   document.querySelectorAll('.catalog-inline-create').forEach(btn=>btn.onclick=(ev)=>{
     ev.preventDefault(); ev.stopPropagation();
     const rowIndex=Number(btn.dataset.row), field=btn.dataset.catalogCreate, row=rows[rowIndex];
@@ -5016,6 +5574,13 @@ function renderCatalogSinglePreviewRows(kind, rows){
 function openCatalogSinglePreview(kind, rows){
   pendingImport={kind:'catalogs-single',rows,onConfirm:()=>{
     normalizeAssetCatalogs(); let added=0;
+    if(kind==='cableTypes'){
+      normalizeCableCatalogs();
+      rows.filter(r=>r.valid&&!r.existing).forEach(r=>{state.cableCatalogs.types.push({name:r.name,color:r.color}); added++;});
+      save(); renderCableTypesCatalog(); render(); renderCables();
+      toast(added?`${added} tipo(s) de cabo importado(s)`:'Nenhum novo cadastro para importar');
+      return;
+    }
     rows.filter(r=>r.valid&&!r.existing).forEach(r=>{
       if(kind==='models') state.assetCatalogs.models.push({id:uid('model'),name:r.model,type:r.type,manufacturer:r.manufacturer});
       else state.assetCatalogs[{types:'types',manufacturers:'manufacturers',statuses:'statuses',substatuses:'substatuses'}[kind]].push(r.value);
@@ -5052,6 +5617,12 @@ async function importCatalogSingleWorkbook(file,kind){
           type:getCol(r,['tipo de ativo','tipo','tipos','asset type','type']),
           valid:false,existing:false,problems:[],warning:''
         });
+      }else if(kind==='cableTypes'){
+        rows.push({line,
+          name:getCol(r,['nome','name','tipo','tipo de cabo']),
+          color:getCol(r,['cor (hex)','cor','color','hex']),
+          valid:false,existing:false,problems:[],warning:''
+        });
       }else{
         let value=getCol(r,valueAliases[kind]||['nome','name']);
         // If the imported sheet has a single non-empty cell but the header was
@@ -5070,7 +5641,13 @@ async function importCatalogSingleWorkbook(file,kind){
 function parseImportNumber(v,fallback=0){const n=Number(String(v).replace(',','.'));return Number.isFinite(n)?n:fallback;}
 async function processAssetsWorkbook(file){
   try{
-    const wb=await readWorkbookFile(file);const rows=sheetRows(wb,'Assets');
+    const wb=await readWorkbookFile(file);
+    // As listas suspensas da planilha modelo aplicam validação até a linha
+    // 1000, o que faz o Excel/SheetJS considerar essas linhas como parte da
+    // área usada da planilha, mesmo vazias — sem isso, uma lista de 3 assets
+    // apareceria como "999 linhas" pra revisar. Descarta linhas totalmente
+    // em branco antes de validar qualquer coisa.
+    const rows=sheetRows(wb,'Assets').filter(r=>Object.values(r).some(v=>String(v||'').trim()));
     if(!rows.length){toast('A aba Assets está vazia ou não existe.');return;}
     normalizeAssets();ensureRooms();normalizeAssetCatalogs();
     const preview=[],errors=[],warnings=[];
@@ -5093,10 +5670,17 @@ async function processAssetsWorkbook(file){
         'Serial Number':getCol(raw,['serial number','serial','serialnumber','s/n','sn']),
         'Modelo':getCol(raw,['modelo','model','device model']),
         'Sala':getCol(raw,['sala','room','room name']),
+        'Localização':getCol(raw,['localização','localizacao','location']),
         'Rack':getCol(raw,['rack','rack name']),
         'U Inicial':getCol(raw,['u inicial','u start','ustart','position','position u','u']),
         'Quantidade U':getCol(raw,['quantidade u','u height','uheight','quantidade de u','height','u size'])||'1',
-        'Status':getCol(raw,['status','state'])||'Ativo'
+        'Status':getCol(raw,['status','state'])||'Ativo',
+        'Substatus':getCol(raw,['substatus','sub status']),
+        'Potência (W)':getCol(raw,['potência (w)','potencia (w)','potência','potencia','power','power (w)']),
+        'Peso (kg)':getCol(raw,['peso (kg)','peso','weight','weight (kg)']),
+        'Data de compra':parseImportDate(getCol(raw,['data de compra','purchase date','data compra'])),
+        'Vencimento da garantia':parseImportDate(getCol(raw,['vencimento da garantia','warranty expiration','garantia','vencimento garantia'])),
+        'Fim de vida (EOL)':parseImportDate(getCol(raw,['fim de vida (eol)','fim de vida','end of life','eol']))
       };
       const model=getModel(d.Modelo);
       if(model){d.Modelo=model.name;d.Tipo=model.type;d.Fabricante=model.manufacturer;}
@@ -5157,7 +5741,7 @@ async function processAssetsWorkbook(file){
       validateAssetImportRows(preview);
       const ready=preview.filter(r=>r.valid);
       ready.forEach(item=>{
-        const d=item.data; const resolved=resolveAssetImportLocation(d['Localização']||d.Sala); const room=resolved.room; const stock=resolved.stock; const rack=room&&d.Rack?room.data?.racks?.find(r=>catalogNormalize(r.name)===catalogNormalize(d.Rack)):null; const loc=resolved.loc; const asset=autoFillAssetFromModel({id:uid('asset'),name:d.Nome,type:d.Tipo,manufacturer:d.Fabricante,model:d.Modelo,assetTag:d['Asset Tag'],serial:d['Serial Number'],status:d.Status||'Instalado',substatus:d.Substatus||'',locationType:stock?'stock':'room',locationName:d['Localização']||d.Sala||'',locationId:loc?.id||null,stockId:stock?.id||null,roomId:room?.id||null,rackId:rack?.id||null,uStart:Math.max(1,Math.floor(parseImportNumber(d['U Inicial'],1))),uHeight:Math.max(1,Math.floor(parseImportNumber(d['Quantidade U'],1))),ports:[],powerW:0,weightKg:0}); state.assets.push(asset); recordAssetAudit({action:'CREATE',asset,after:asset,changes:[]});
+        const d=item.data; const resolved=resolveAssetImportLocation(d['Localização']||d.Sala); const room=resolved.room; const stock=resolved.stock; const rack=room&&d.Rack?room.data?.racks?.find(r=>catalogNormalize(r.name)===catalogNormalize(d.Rack)):null; const loc=resolved.loc; const asset=autoFillAssetFromModel({id:uid('asset'),name:d.Nome,type:d.Tipo,manufacturer:d.Fabricante,model:d.Modelo,assetTag:d['Asset Tag'],serial:d['Serial Number'],status:d.Status||'Instalado',substatus:d.Substatus||'',locationType:stock?'stock':'room',locationName:d['Localização']||d.Sala||'',locationId:loc?.id||null,stockId:stock?.id||null,roomId:room?.id||null,rackId:rack?.id||null,uStart:Math.max(1,Math.floor(parseImportNumber(d['U Inicial'],1))),uHeight:Math.max(1,Math.floor(parseImportNumber(d['Quantidade U'],1))),ports:[],powerW:Math.max(0,Math.floor(parseImportNumber(d['Potência (W)'],0))),weightKg:Math.max(0,parseImportNumber(d['Peso (kg)'],0)),purchaseDate:parseImportDate(d['Data de compra']),warrantyExpiration:parseImportDate(d['Vencimento da garantia']),endOfLife:parseImportDate(d['Fim de vida (EOL)'])}); state.assets.push(asset); recordAssetAudit({action:'CREATE',asset,after:asset,changes:[]});
       });
       const imported=ready.length;save();closeImportPreview();renderAll(false);renderAssetsList($('assetsSearch')?.value||'');toast(`${imported} asset(s) importado(s)`);
     });
@@ -5254,8 +5838,8 @@ function refreshBulkRow(row, preserveU=true){
   const hasRack=!!rack;
   uEl.disabled=!hasRack;
   uEl.closest('td')?.classList.toggle('muted-field',!hasRack);
-  const hEl=row.querySelector('[data-bulk-field="height"]');
-  if(hEl)hEl.disabled=!hasRack;
+  // Quantidade de U é uma característica física do equipamento, não da
+  // posição — deve continuar editável mesmo sem rack selecionado.
 }
 function refreshAllBulkRows(){document.querySelectorAll('#assetsBulkBody tr').forEach(r=>refreshBulkRow(r,true));const n=document.querySelectorAll('#assetsBulkBody tr').length;const valid=[...document.querySelectorAll('#assetsBulkBody tr')].filter(r=>r.querySelector('[data-bulk-field="name"]')?.value.trim()).length;$('assetsBulkSummary').textContent=`${n} linha(s) · ${valid} preenchida(s)`;}
 function bulkRowHtml(){return `<tr>
@@ -5271,6 +5855,11 @@ function bulkRowHtml(){return `<tr>
 <td><input class="bulk-height" data-bulk-field="height" type="number" min="1" max="60" value="1"></td>
 <td><select data-bulk-field="status">${bulkCatalogOptions('status')}</select></td>
 <td><select data-bulk-field="substatus">${bulkCatalogOptions('substatus')}</select></td>
+<td><input data-bulk-field="power" type="number" min="0" step="1" placeholder="Do modelo"></td>
+<td><input data-bulk-field="weight" type="number" min="0" step="0.1" placeholder="Do modelo"></td>
+<td><input data-bulk-field="purchase" type="date"></td>
+<td><input data-bulk-field="warranty" type="date"></td>
+<td><input data-bulk-field="eol" type="date"></td>
 <td><button class="iconbtn danger-icon" type="button" data-bulk-remove title="Remover linha">×</button></td></tr>`;}
 function initBulkTableResizers(){
   const table=document.querySelector('.bulk-assets-table');
@@ -5278,8 +5867,8 @@ function initBulkTableResizers(){
   table.dataset.resizersReady='1';
   const cols=[...table.querySelectorAll('colgroup col')];
   const heads=[...table.querySelectorAll('thead th')];
-  const defaults={name:13,type:7,manufacturer:9,model:10,tag:9,serial:13,location:18,rack:13,u:6,height:6,status:9,substatus:11,actions:4};
-  const mins={name:90,type:62,manufacturer:80,model:82,tag:76,serial:105,location:150,rack:100,u:52,height:56,status:72,substatus:90,actions:34};
+  const defaults={name:10,type:5,manufacturer:7,model:8,tag:7,serial:9,location:13,rack:9,u:4,height:4,status:7,substatus:8,power:7,weight:7,purchase:8,warranty:9,eol:8,actions:3};
+  const mins={name:90,type:62,manufacturer:80,model:82,tag:76,serial:105,location:150,rack:100,u:52,height:56,status:72,substatus:90,power:82,weight:82,purchase:118,warranty:130,eol:118,actions:34};
   cols.forEach(c=>{c.style.width=(defaults[c.dataset.col]||5)+'%';c.dataset.min=mins[c.dataset.col]||44;});
   heads.forEach((th,i)=>{
     if(i>=heads.length-1)return;
@@ -5328,7 +5917,7 @@ function closeBulkAssetsModal(){const m=$('assetsBulkModal');if(!m)return;m.clas
 function saveBulkAssets(){
   normalizeAssets();const rows=[...document.querySelectorAll('#assetsBulkBody tr')].filter(r=>r.querySelector('[data-bulk-field="name"]')?.value.trim());if(!rows.length){toast('Adicione pelo menos um asset.');return;}
   const errors=[],newAssets=[];
-  rows.forEach((row,i)=>{const g=k=>row.querySelector(`[data-bulk-field="${k}"]`)?.value?.trim?.()||row.querySelector(`[data-bulk-field="${k}"]`)?.value||'';const name=g('name'),type=g('type'),manufacturer=g('manufacturer'),model=g('model'),tag=g('tag'),serial=g('serial'),locationValue=g('location'),rackId=g('rack'),uStart=Number(g('u')||0),uHeight=Math.max(1,Math.floor(Number(g('height')||1))),status=g('status')||'Ativo',substatus=g('substatus');const locParts=locationValue.startsWith('stock:')?locationValue.split(':'):null;const locationType=locationValue.startsWith('stock:')?'stock':'room';const roomId=locationType==='room'?locationValue.slice(5)||null:null;const locationId=locationType==='stock'?(locParts?.[1]||null):(roomId?(state.rooms.find(r=>r.id===roomId)?.locationId||null):null);const stockId=locationType==='stock'?(locParts?.[2]||null):null;const rack=assetRack(rackId);let msg='';if(!name)msg='Nome é obrigatório.';else if(!type)msg='Tipo é obrigatório.';else if(!serial)msg='Serial Number é obrigatório.';else if(!locationValue)msg='Localização é obrigatória.';else if(locationType==='stock'&&rackId)msg='Asset em estoque não pode ter rack.';else if(locationType==='stock'&&uStart)msg='Asset em estoque não pode ter U.';else if(rack&&uStart<1)msg='Selecione uma U disponível.';else if(rack&&uStart+uHeight-1>Math.floor(num(rack.units,state.rackUnits)))msg='Quantidade de U ultrapassa o rack.';else if(rack){const used=new Set(state.assets.filter(a=>a.rackId===rackId&&!isAssetArchived(a)).flatMap(a=>{const o=assetOccupancy(a);return Array.from({length:o.end-o.start+1},(_,j)=>o.start+j);}));newAssets.filter(a=>a.rackId===rackId&&!isAssetArchived(a)).forEach(a=>{for(let u=a.uStart;u<a.uStart+a.uHeight;u++)used.add(u);});for(let u=uStart;u<uStart+uHeight;u++)if(used.has(u)){msg=`Conflito: U${u} já está ocupada.`;break;}}if(!msg){newAssets.push(autoFillAssetFromModel({id:uid('asset'),name,type,manufacturer,model,assetTag:tag,serial,locationType,locationName:locationType==='stock'?(state.locations.find(l=>l.id===locationId)?.name||'Estoque'):(state.rooms.find(r=>r.id===roomId)?.name||''),locationId,stockId,roomId,rackId:rackId||null,uStart:uStart||1,uHeight,status,substatus,ports:[],powerW:0,weightKg:0}));}if(msg)errors.push(`Linha ${i+1}: ${msg}`);});
+  rows.forEach((row,i)=>{const g=k=>row.querySelector(`[data-bulk-field="${k}"]`)?.value?.trim?.()||row.querySelector(`[data-bulk-field="${k}"]`)?.value||'';const name=g('name'),type=g('type'),manufacturer=g('manufacturer'),model=g('model'),tag=g('tag'),serial=g('serial'),locationValue=g('location'),rackId=g('rack'),uStart=Number(g('u')||0),uHeight=Math.max(1,Math.floor(Number(g('height')||1))),status=g('status')||'Ativo',substatus=g('substatus'),powerW=Math.max(0,Math.floor(Number(g('power')||0))),weightKg=Math.max(0,Number(g('weight')||0)),purchaseDate=g('purchase'),warrantyExpiration=g('warranty'),endOfLife=g('eol');const locParts=locationValue.startsWith('stock:')?locationValue.split(':'):null;const locationType=locationValue.startsWith('stock:')?'stock':'room';const roomId=locationType==='room'?locationValue.slice(5)||null:null;const locationId=locationType==='stock'?(locParts?.[1]||null):(roomId?(state.rooms.find(r=>r.id===roomId)?.locationId||null):null);const stockId=locationType==='stock'?(locParts?.[2]||null):null;const rack=assetRack(rackId);let msg='';if(!name)msg='Nome é obrigatório.';else if(!type)msg='Tipo é obrigatório.';else if(!serial)msg='Serial Number é obrigatório.';else if(!locationValue)msg='Localização é obrigatória.';else if(locationType==='stock'&&rackId)msg='Asset em estoque não pode ter rack.';else if(locationType==='stock'&&uStart)msg='Asset em estoque não pode ter U.';else if(rack&&uStart<1)msg='Selecione uma U disponível.';else if(rack&&uStart+uHeight-1>Math.floor(num(rack.units,state.rackUnits)))msg='Quantidade de U ultrapassa o rack.';else if(rack){const used=new Set(state.assets.filter(a=>a.rackId===rackId&&!isAssetArchived(a)).flatMap(a=>{const o=assetOccupancy(a);return Array.from({length:o.end-o.start+1},(_,j)=>o.start+j);}));newAssets.filter(a=>a.rackId===rackId&&!isAssetArchived(a)).forEach(a=>{for(let u=a.uStart;u<a.uStart+a.uHeight;u++)used.add(u);});for(let u=uStart;u<uStart+uHeight;u++)if(used.has(u)){msg=`Conflito: U${u} já está ocupada.`;break;}}if(!msg){newAssets.push(autoFillAssetFromModel({id:uid('asset'),name,type,manufacturer,model,assetTag:tag,serial,locationType,locationName:locationType==='stock'?(state.locations.find(l=>l.id===locationId)?.name||'Estoque'):(state.rooms.find(r=>r.id===roomId)?.name||''),locationId,stockId,roomId,rackId:rackId||null,uStart:uStart||1,uHeight,status,substatus,ports:[],powerW,weightKg,purchaseDate,warrantyExpiration,endOfLife}));}if(msg)errors.push(`Linha ${i+1}: ${msg}`);});
   if(errors.length){toast(errors[0]);return;}
   state.assets.push(...newAssets);save();newAssets.forEach(asset=>recordAssetAudit({action:'CREATE',asset,after:asset,changes:[]}));closeBulkAssetsModal();renderAll(false);renderAssetsList($('assetsSearch')?.value||'');if($('bayfaceModal')?.classList.contains('open'))renderBayface($('bayfaceModal').dataset.rackId);toast(`${newAssets.length} asset(s) cadastrado(s)`);
 }
@@ -5387,10 +5976,9 @@ function bind(){
   window.addEventListener('scroll',closeStyledSelectPanels,true);
   $('btnLocations')?.addEventListener('click',openLocationsModal);
   $('btnAssets')?.addEventListener('click',openAssetsModal);
-  $('btnLifecycleAlert')?.addEventListener('click',openAssetsModalWithAttentionFilter);
-  $('btnCapacityAlert')?.addEventListener('click',e=>{e.stopPropagation();openCapacityAlertPanel(e.currentTarget);});
-  document.addEventListener('click',e=>{if(!e.target.closest('.capacity-alert-panel')&&!e.target.closest('#btnCapacityAlert'))closeCapacityAlertPanel();});
-  window.addEventListener('resize',closeCapacityAlertPanel);
+  $('btnAlertsCenter')?.addEventListener('click',e=>{e.stopPropagation();openAlertsCenterPanel(e.currentTarget);});
+  document.addEventListener('click',e=>{if(!e.target.closest('.alerts-center-panel')&&!e.target.closest('#btnAlertsCenter'))closeAlertsCenterPanel();});
+  window.addEventListener('resize',closeAlertsCenterPanel);
   $('assetsAttentionClear')?.addEventListener('click',()=>{assetAttentionOnly=false;renderAssetsList($('assetsSearch')?.value||'');});
   $('assetHistoryClose')?.addEventListener('click',closeAssetHistory);
   $('assetHistoryExport')?.addEventListener('click',exportCurrentAssetHistory);
@@ -5407,7 +5995,7 @@ function bind(){
   $('assetsBulkAddRow')?.addEventListener('click',addBulkRow);
   $('assetsBulkSave')?.addEventListener('click',saveBulkAssets);
   
-  $('assetsCatalogs')?.addEventListener('click',openAssetCatalogModal);
+  $('btnCatalogs')?.addEventListener('click',openAssetCatalogModal);
   $('assetCatalogClose')?.addEventListener('click',closeAssetCatalogModal);
   
   $('assetsSearch')?.addEventListener('input',e=>renderAssetsList(e.target.value));
@@ -5488,6 +6076,16 @@ function bind(){
   $('catalogModelManufacturer')?.addEventListener('change',renderAssetCatalogs);
   $('catalogModelType')?.addEventListener('change',renderAssetCatalogs);
   $('catalogModelAdd')?.addEventListener('click',()=>openCatalogEditor('models'));
+  $('catalogCableTypeAdd')?.addEventListener('click',async()=>{
+    normalizeCableCatalogs();
+    const name=await uiPrompt('Digite o nome do novo tipo de cabo.','',{title:'Novo tipo de cabo',label:'Nome',confirmText:'Adicionar'});
+    if(name===null)return;
+    const trimmed=name.trim();
+    if(!trimmed){toast('Nome não pode ficar vazio.');return;}
+    if(state.cableCatalogs.types.some(t=>catalogNormalize(t.name)===catalogNormalize(trimmed))){toast('Já existe um tipo de cabo com esse nome.');return;}
+    state.cableCatalogs.types.push({name:trimmed,color:'#4f8cff'});
+    save(); renderCableTypesCatalog();
+  });
   $('catalogEditorSave')?.addEventListener('click',saveCatalogEditor);
   $('catalogEditorCancel')?.addEventListener('click',closeCatalogEditor);
   $('catalogEditorClose')?.addEventListener('click',closeCatalogEditor);
@@ -5511,7 +6109,7 @@ function bind(){
   
   $('quickSearchInput')?.addEventListener('input',e=>{quickSearchIndex=0;renderQuickSearchResults(e.target.value);});
   $('quickSearchInput')?.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();if(quickSearchItems.length){quickSearchIndex=(quickSearchIndex+1)%quickSearchItems.length;renderQuickSearchResults(e.target.value);}}else if(e.key==='ArrowUp'){e.preventDefault();if(quickSearchItems.length){quickSearchIndex=(quickSearchIndex-1+quickSearchItems.length)%quickSearchItems.length;renderQuickSearchResults(e.target.value);}}else if(e.key==='Enter'&&quickSearchItems[quickSearchIndex]){e.preventDefault();activateSearchResult(quickSearchItems[quickSearchIndex].type,quickSearchItems[quickSearchIndex].id);}});
-  window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openQuickSearch();}else if(e.key==='Escape'){if(document.querySelector('.dc-select-panel'))closeStyledSelectPanels();else if($('helpModal')?.classList.contains('open'))closeHelpModal();else if($('quickSearchModal')?.classList.contains('open'))closeQuickSearch();else if($('projectSummaryModal')?.classList.contains('open'))closeProjectSummary();else if($('catalogEditorModal')?.classList.contains('open'))closeCatalogEditor();else if($('assetCatalogModal')?.classList.contains('open'))closeAssetCatalogModal();else if($('assetsModal')?.classList.contains('open'))closeAssetsModal();else if($('assetEditModal')?.classList.contains('open'))closeAssetModal();else if($('bayfaceAssetPickerModal')?.classList.contains('open'))closeBayfaceAssetPicker();else if($('bayfaceModal')?.classList.contains('open'))closeBayface();}});
+  window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openQuickSearch();}else if(e.key==='Escape'){if(document.querySelector('.dc-select-panel'))closeStyledSelectPanels();else if($('pdfReportOptionsModal')?.classList.contains('open'))closePdfReportOptions();else if($('helpModal')?.classList.contains('open'))closeHelpModal();else if($('quickSearchModal')?.classList.contains('open'))closeQuickSearch();else if($('projectSummaryModal')?.classList.contains('open'))closeProjectSummary();else if($('catalogEditorModal')?.classList.contains('open'))closeCatalogEditor();else if($('assetCatalogModal')?.classList.contains('open'))closeAssetCatalogModal();else if($('assetsModal')?.classList.contains('open'))closeAssetsModal();else if($('assetEditModal')?.classList.contains('open'))closeAssetModal();else if($('bayfaceAssetPickerModal')?.classList.contains('open'))closeBayfaceAssetPicker();else if($('bayfaceModal')?.classList.contains('open'))closeBayface();}});
   // Cadeado já foi inicializado por setupStructureLockControl().
   updateStructureControls();
   if($('btnProjects'))$('btnProjects').onclick=async()=>{
@@ -5546,6 +6144,23 @@ function bind(){
   updatePlannerProjectName();
   setCloudStatus(cloudDirty?'pending':'saved');
   $('btnExport').onclick=()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(state.projectName||'data-center')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
+  $('btnPdfReport')?.addEventListener('click',openPdfReportOptions);
+  $('pdfReportOptionsClose')?.addEventListener('click',closePdfReportOptions);
+  $('pdfReportOptionsCancel')?.addEventListener('click',closePdfReportOptions);
+  $('pdfReportOptionsForm')?.addEventListener('submit',e=>{
+    e.preventDefault();
+    const options={
+      summary:$('pdfOptSummary')?.checked!==false,
+      status:$('pdfOptStatus')?.checked!==false,
+      lifecycle:$('pdfOptLifecycle')?.checked!==false,
+      cables:$('pdfOptCables')?.checked!==false,
+      rackIds:[...document.querySelectorAll('#pdfRacksList [data-pdf-rack]:checked')].map(el=>el.dataset.pdfRack),
+    };
+    closePdfReportOptions();
+    generatePDFReport(options);
+  });
+  $('pdfRacksSelectAll')?.addEventListener('click',()=>{document.querySelectorAll('#pdfRacksList [data-pdf-rack]').forEach(cb=>cb.checked=true);document.querySelectorAll('#pdfRacksList [data-pdf-room]').forEach(cb=>{cb.checked=true;cb.indeterminate=false;});});
+  $('pdfRacksSelectNone')?.addEventListener('click',()=>{document.querySelectorAll('#pdfRacksList [data-pdf-rack]').forEach(cb=>cb.checked=false);document.querySelectorAll('#pdfRacksList [data-pdf-room]').forEach(cb=>{cb.checked=false;cb.indeterminate=false;});});
   $('btnImportProject').onclick=()=>{if(structureBlocked())return;$('projectInput').click();};
   $('projectInput').onchange=e=>{const f=e.target.files[0];if(f&&!isStructureLocked())importProject(f);e.target.value='';};
   $('btnReset').onclick=newProject;
