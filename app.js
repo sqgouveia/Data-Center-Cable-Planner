@@ -3656,8 +3656,11 @@ function updateCableAssetNameField(c,side){
     field.value=asset.name; field.disabled=true;
     if(hint)hint.textContent='(preenchido automaticamente pelo asset instalado nessa U)';
   }else{
-    if(side==='origin')c.originAssetName=''; else c.destAssetName='';
-    field.value=''; field.disabled=false;
+    // Sem asset nessa U: NÃO apaga o que já está guardado no cabo — pode ser
+    // uma referência que o usuário digitou pra uma posição sem asset formal.
+    // Só garante que o campo fique editável e mostre o valor atual salvo.
+    field.value=side==='origin'?(c.originAssetName||''):(c.destAssetName||'');
+    field.disabled=false;
     if(hint)hint.textContent='(opcional — nem todo asset precisa estar cadastrado ainda)';
   }
 }
