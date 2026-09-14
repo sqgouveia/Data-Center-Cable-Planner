@@ -1143,7 +1143,7 @@ function cloneData(value){
 function esc(s){ return String(s ?? '').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function num(v,fallback=0){ const n=Number(v); return Number.isFinite(n)?n:fallback; }
 function toast(text){ const t=$('toast'); t.textContent=text; t.classList.add('show'); clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(()=>t.classList.remove('show'),1800); }
-function save(){ recordHistory(); localStorage.setItem(THEME_STORAGE,state.theme); applyTheme(); updatePlannerProjectName(); scheduleCloudSave(); }
+function save(){ recordHistory(); localStorage.setItem(THEME_STORAGE,state.theme); applyTheme(); updatePlannerProjectName(); updateAlertsCenterBadge(); scheduleCloudSave(); }
 function load(){
   // Project data is cloud-first. This startup routine only normalizes a clean
   // in-memory state before authentication/project loading. It never restores
@@ -4261,6 +4261,8 @@ async function downloadCableTemplate(){
     toast('Template XLSX baixado');
   }catch(err){toast(err.message||'Erro ao baixar template');}
 }
+let pendingCableImportRows=null;
+const CABLE_TYPE_AUTO_COLORS=['#f472b6','#a78bfa','#fb923c','#34d399','#60a5fa','#f87171','#c084fc','#38bdf8'];
 function importCablesXLSX(file){
   try{
     const reader=new FileReader();
@@ -4275,46 +4277,104 @@ function importCablesXLSX(file){
         const required=['Nome','Tipo','Rack Origem','U Origem','Rack Destino','U Destino'];
         const missing=required.filter(h=>!(h in map));
         if(missing.length)throw new Error('Colunas obrigatórias ausentes: '+missing.join(', '));
-        const val=(row,name,def='')=>{const i=map[name];return i==null||i>=row.length||row[i]===''||row[i]==null?def:row[i];};
-        let added=0,skipped=0,portsUnmatched=0;
-        for(const row of rows.slice(1)){
-          if(!row.some(v=>v!==null&&String(v).trim()))continue;
-          const origin=state.racks.find(r=>r.name===String(val(row,'Rack Origem','')).trim());
-          const dest=state.racks.find(r=>r.name===String(val(row,'Rack Destino','')).trim());
-          if(!origin||!dest){skipped++;continue;}
-          const type=String(val(row,'Tipo',defaultCableType())).trim();
-          if(!cableTypeNames().includes(type)){skipped++;continue;}
-          const originU=Math.floor(num(val(row,'U Origem',origin.units),origin.units));
-          const destU=Math.floor(num(val(row,'U Destino',dest.units),dest.units));
-          const originAsset=assetAtRackU(origin.id,originU);
-          const destAsset=assetAtRackU(dest.id,destU);
-          let originPortId=null, destPortId=null, originPortLabelFree='', destPortLabelFree='';
-          const originPortLabel=String(val(row,'Porta Origem','')).trim();
-          const destPortLabel=String(val(row,'Porta Destino','')).trim();
-          if(originPortLabel){
-            if(originAsset?.ports?.length){const port=originAsset.ports.find(p=>p.label===originPortLabel);if(port)originPortId=port.id;else portsUnmatched++;}
-            else originPortLabelFree=originPortLabel; // sem portas cadastradas no modelo: aceita o texto livre sem validar
-          }
-          if(destPortLabel){
-            if(destAsset?.ports?.length){const port=destAsset.ports.find(p=>p.label===destPortLabel);if(port)destPortId=port.id;else portsUnmatched++;}
-            else destPortLabelFree=destPortLabel;
-          }
-          // Se já existe um asset instalado nessa U, o nome vem sempre dele;
-          // senão, aceita o texto informado livremente, sem criar asset.
-          const originAssetName=originAsset?originAsset.name:String(val(row,'Nome Asset Origem','')).trim();
-          const destAssetName=destAsset?destAsset.name:String(val(row,'Nome Asset Destino','')).trim();
-          state.cables.push({id:uid('cable'),name:String(val(row,'Nome',`Cabo-${String(state.cables.length+1).padStart(3,'0')}`)).trim(),type,originRack:origin.id,originU,originPortId,originPortLabel:originPortLabelFree,originAssetName,destRack:dest.id,destU,destPortId,destPortLabel:destPortLabelFree,destAssetName,slack:state.defaultSlack,via:[]});
-          added++;
+        const dataRows=rows.slice(1).filter(row=>row.some(v=>v!==null&&String(v).trim()));
+
+        // Detecta tipos usados na planilha que não batem (ignorando maiúscula/
+        // minúscula e acentos) com nenhum tipo já cadastrado no catálogo.
+        normalizeCableCatalogs();
+        const existingTypes=cableTypeNames();
+        const existingNorm=new Map(existingTypes.map(t=>[catalogNormalize(t),t]));
+        const newTypesSeen=new Map(); // normalizado -> {label, count}
+        dataRows.forEach(row=>{
+          const raw=String(map['Tipo']!=null?(row[map['Tipo']]??''):'').trim();
+          if(!raw)return;
+          const norm=catalogNormalize(raw);
+          if(existingNorm.has(norm))return;
+          if(!newTypesSeen.has(norm))newTypesSeen.set(norm,{label:raw,count:0});
+          newTypesSeen.get(norm).count++;
+        });
+
+        pendingCableImportRows={map,dataRows};
+        if(newTypesSeen.size){
+          openCableTypeReviewModal([...newTypesSeen.values()],existingTypes);
+        }else{
+          processCableImportRows();
         }
-        renderAll();
-        const parts=[`${added} cabo(s) importado(s).`];
-        if(skipped)parts.push(`${skipped} ignorado(s).`);
-        if(portsUnmatched)parts.push(`${portsUnmatched} porta(s) não encontrada(s) e deixada(s) em branco.`);
-        toast(parts.join(' '));
       }catch(err){toast(err.message||'Erro ao importar Excel');}
     };
     reader.readAsArrayBuffer(file);
   }catch(err){toast(err.message||'Erro ao importar Excel');}
+}
+function openCableTypeReviewModal(newTypes,existingTypes){
+  const list=$('cableTypeReviewList');
+  if(list){
+    list.innerHTML=newTypes.map(t=>{
+      const similar=catalogSimilar(t.label,existingTypes);
+      return `<label class="cable-type-review-item"><input type="checkbox" data-cable-type-review="${esc(t.label)}" checked><span class="cable-type-review-name">${esc(t.label)}</span><span class="cable-type-review-count">${t.count}× na planilha</span></label>${similar.length?`<div class="cable-type-review-warning">⚠ Parecido com "${esc(similar[0])}", já cadastrado — pode ser o mesmo tipo escrito diferente.</div>`:''}`;
+    }).join('');
+  }
+  const m=$('cableTypeReviewModal'); if(!m)return;
+  m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');
+}
+function closeCableTypeReviewModal(){
+  const m=$('cableTypeReviewModal'); if(!m)return;
+  m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');
+}
+function processCableImportRows(selectedNewTypes=[]){
+  if(!pendingCableImportRows)return;
+  const {map,dataRows}=pendingCableImportRows;
+  pendingCableImportRows=null;
+  // Cadastra no catálogo só os tipos marcados na revisão — os demais ainda
+  // são usados nos cabos importados, só não ficam salvos pra uso futuro.
+  if(selectedNewTypes.length){
+    normalizeCableCatalogs();
+    let colorIdx=state.cableCatalogs.types.length;
+    selectedNewTypes.forEach(label=>{
+      if(!cableTypeNames().some(t=>catalogNormalize(t)===catalogNormalize(label))){
+        state.cableCatalogs.types.push({name:label,color:CABLE_TYPE_AUTO_COLORS[colorIdx%CABLE_TYPE_AUTO_COLORS.length]});
+        colorIdx++;
+      }
+    });
+  }
+  const val=(row,name,def='')=>{const i=map[name];return i==null||i>=row.length||row[i]===''||row[i]==null?def:row[i];};
+  let added=0,skipped=0,portsUnmatched=0;
+  for(const row of dataRows){
+    const origin=state.racks.find(r=>r.name===String(val(row,'Rack Origem','')).trim());
+    const dest=state.racks.find(r=>r.name===String(val(row,'Rack Destino','')).trim());
+    if(!origin||!dest){skipped++;continue;}
+    const typeRaw=String(val(row,'Tipo',defaultCableType())).trim();
+    // Usa o tipo já cadastrado com a grafia oficial dele (ignora diferença de
+    // maiúscula/minúscula), ou o texto da planilha se for um tipo não marcado
+    // pra cadastro (segue existindo só naquele cabo).
+    const matched=cableTypeNames().find(t=>catalogNormalize(t)===catalogNormalize(typeRaw));
+    const type=matched||typeRaw||defaultCableType();
+    const originU=Math.floor(num(val(row,'U Origem',origin.units),origin.units));
+    const destU=Math.floor(num(val(row,'U Destino',dest.units),dest.units));
+    const originAsset=assetAtRackU(origin.id,originU);
+    const destAsset=assetAtRackU(dest.id,destU);
+    let originPortId=null, destPortId=null, originPortLabelFree='', destPortLabelFree='';
+    const originPortLabel=String(val(row,'Porta Origem','')).trim();
+    const destPortLabel=String(val(row,'Porta Destino','')).trim();
+    if(originPortLabel){
+      if(originAsset?.ports?.length){const port=originAsset.ports.find(p=>p.label===originPortLabel);if(port)originPortId=port.id;else portsUnmatched++;}
+      else originPortLabelFree=originPortLabel; // sem portas cadastradas no modelo: aceita o texto livre sem validar
+    }
+    if(destPortLabel){
+      if(destAsset?.ports?.length){const port=destAsset.ports.find(p=>p.label===destPortLabel);if(port)destPortId=port.id;else portsUnmatched++;}
+      else destPortLabelFree=destPortLabel;
+    }
+    // Se já existe um asset instalado nessa U, o nome vem sempre dele;
+    // senão, aceita o texto informado livremente, sem criar asset.
+    const originAssetName=originAsset?originAsset.name:String(val(row,'Nome Asset Origem','')).trim();
+    const destAssetName=destAsset?destAsset.name:String(val(row,'Nome Asset Destino','')).trim();
+    state.cables.push({id:uid('cable'),name:String(val(row,'Nome',`Cabo-${String(state.cables.length+1).padStart(3,'0')}`)).trim(),type,originRack:origin.id,originU,originPortId,originPortLabel:originPortLabelFree,originAssetName,destRack:dest.id,destU,destPortId,destPortLabel:destPortLabelFree,destAssetName,slack:state.defaultSlack,via:[]});
+    added++;
+  }
+  renderAll();
+  const parts=[`${added} cabo(s) importado(s).`];
+  if(skipped)parts.push(`${skipped} ignorado(s).`);
+  if(portsUnmatched)parts.push(`${portsUnmatched} porta(s) não encontrada(s) e deixada(s) em branco.`);
+  toast(parts.join(' '));
 }
 function cableSummaryRows(){
   const groups=new Map();
@@ -4477,6 +4537,13 @@ function renderCables(){
     else cableMultiSelected=cableMultiSelected.filter(x=>x!==id);
     renderCables();
   });
+  const selectAll=$('cablesSelectAll');
+  if(selectAll){
+    const visibleIds=filtered.map(c=>c.id);
+    const selectedVisible=visibleIds.filter(id=>cableMultiSelected.includes(id)).length;
+    selectAll.checked=visibleIds.length>0&&selectedVisible===visibleIds.length;
+    selectAll.indeterminate=selectedVisible>0&&selectedVisible<visibleIds.length;
+  }
   updateCablesBulkBar();
 }
 function updateCablesBulkBar(){
@@ -6167,7 +6234,7 @@ function bind(){
   
   $('quickSearchInput')?.addEventListener('input',e=>{quickSearchIndex=0;renderQuickSearchResults(e.target.value);});
   $('quickSearchInput')?.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();if(quickSearchItems.length){quickSearchIndex=(quickSearchIndex+1)%quickSearchItems.length;renderQuickSearchResults(e.target.value);}}else if(e.key==='ArrowUp'){e.preventDefault();if(quickSearchItems.length){quickSearchIndex=(quickSearchIndex-1+quickSearchItems.length)%quickSearchItems.length;renderQuickSearchResults(e.target.value);}}else if(e.key==='Enter'&&quickSearchItems[quickSearchIndex]){e.preventDefault();activateSearchResult(quickSearchItems[quickSearchIndex].type,quickSearchItems[quickSearchIndex].id);}});
-  window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openQuickSearch();}else if(e.key==='Escape'){if(document.querySelector('.dc-select-panel'))closeStyledSelectPanels();else if($('pdfReportOptionsModal')?.classList.contains('open'))closePdfReportOptions();else if($('helpModal')?.classList.contains('open'))closeHelpModal();else if($('quickSearchModal')?.classList.contains('open'))closeQuickSearch();else if($('projectSummaryModal')?.classList.contains('open'))closeProjectSummary();else if($('catalogEditorModal')?.classList.contains('open'))closeCatalogEditor();else if($('assetCatalogModal')?.classList.contains('open'))closeAssetCatalogModal();else if($('assetsModal')?.classList.contains('open'))closeAssetsModal();else if($('assetEditModal')?.classList.contains('open'))closeAssetModal();else if($('bayfaceAssetPickerModal')?.classList.contains('open'))closeBayfaceAssetPicker();else if($('bayfaceModal')?.classList.contains('open'))closeBayface();}});
+  window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openQuickSearch();}else if(e.key==='Escape'){if(document.querySelector('.dc-select-panel'))closeStyledSelectPanels();else if($('cableTypeReviewModal')?.classList.contains('open')){pendingCableImportRows=null;closeCableTypeReviewModal();}else if($('pdfReportOptionsModal')?.classList.contains('open'))closePdfReportOptions();else if($('helpModal')?.classList.contains('open'))closeHelpModal();else if($('quickSearchModal')?.classList.contains('open'))closeQuickSearch();else if($('projectSummaryModal')?.classList.contains('open'))closeProjectSummary();else if($('catalogEditorModal')?.classList.contains('open'))closeCatalogEditor();else if($('assetCatalogModal')?.classList.contains('open'))closeAssetCatalogModal();else if($('assetsModal')?.classList.contains('open'))closeAssetsModal();else if($('assetEditModal')?.classList.contains('open'))closeAssetModal();else if($('bayfaceAssetPickerModal')?.classList.contains('open'))closeBayfaceAssetPicker();else if($('bayfaceModal')?.classList.contains('open'))closeBayface();}});
   // Cadeado já foi inicializado por setupStructureLockControl().
   updateStructureControls();
   if($('btnProjects'))$('btnProjects').onclick=async()=>{
@@ -6193,6 +6260,20 @@ function bind(){
   $('cablesSearch')?.addEventListener('input',()=>{cablesSearchQuery=$('cablesSearch').value;renderCables();});
   $('cablesBulkDelete')?.addEventListener('click',deleteCablesBulk);
   $('cablesBulkClear')?.addEventListener('click',()=>{cableMultiSelected=[];renderCables();});
+  $('cableTypeReviewClose')?.addEventListener('click',()=>{pendingCableImportRows=null;closeCableTypeReviewModal();});
+  $('cableTypeReviewCancel')?.addEventListener('click',()=>{pendingCableImportRows=null;closeCableTypeReviewModal();toast('Importação cancelada');});
+  $('cableTypeReviewConfirm')?.addEventListener('click',()=>{
+    const selected=[...document.querySelectorAll('#cableTypeReviewList [data-cable-type-review]:checked')].map(cb=>cb.dataset.cableTypeReview);
+    closeCableTypeReviewModal();
+    processCableImportRows(selected);
+  });
+  $('cablesSelectAll')?.addEventListener('change',e=>{
+    const q=cablesSearchQuery.trim().toLowerCase();
+    const visible=q?state.cables.filter(c=>cableSearchHaystack(c).includes(q)):state.cables;
+    if(e.target.checked){visible.forEach(c=>{if(!cableMultiSelected.includes(c.id))cableMultiSelected.push(c.id);});}
+    else{const visibleIds=new Set(visible.map(c=>c.id));cableMultiSelected=cableMultiSelected.filter(id=>!visibleIds.has(id));}
+    renderCables();
+  });
   $('btnTemplate').onclick=downloadCableTemplate;
   $('btnExportCables').onclick=exportCablesXLSX;
   $('excelInput').onchange=e=>{const f=e.target.files[0];if(f)importCablesXLSX(f);e.target.value='';};
