@@ -151,8 +151,12 @@
     </div>
   </main>
   <aside class="sidebar right">
-    <section><div class="section-head"><h2>Propriedades</h2></div><div id="properties"><div class="empty">Selecione um rack, calha ou cabo.</div></div></section>
-    <section class="cables-section"><div class="section-head"><h2>Cabos</h2><span id="cableCount" class="badge">0</span></div><div id="cablesList"></div></section>
+    <section><div class="section-head-sticky"><div class="section-head"><h2>Propriedades</h2></div><div id="propTitleSticky" class="prop-title-sticky"></div></div><div id="properties"><div class="empty">Selecione um rack, calha ou cabo.</div></div></section>
+    <section class="cables-section"><div class="section-head"><h2>Cabos</h2><span id="cableCount" class="badge">0</span></div>
+      <div class="cables-search"><span>⌕</span><input id="cablesSearch" type="search" placeholder="Buscar por nome, tipo, rack, U, porta, asset..." autocomplete="off"></div>
+      <div id="cablesBulkBar" class="cables-bulk-bar hidden"><span><b id="cablesBulkCount">0</b> selecionado(s)</span><button type="button" id="cablesBulkDelete" class="btn ghost small danger-icon">× Excluir selecionados</button><button type="button" id="cablesBulkClear" class="btn ghost small">Cancelar seleção</button></div>
+      <div id="cablesList"></div>
+    </section>
   </aside>
 </div>
 <div id="quickSearchModal" class="modal-backdrop hidden" aria-hidden="true"><div class="quick-search-card" role="dialog" aria-modal="true" aria-labelledby="quickSearchTitle"><div class="quick-search-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div><div><h3 id="quickSearchTitle">Buscar no projeto</h3><span>Rack, calha ou cabo</span></div><button id="quickSearchClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div><div class="quick-search-input-wrap"><span>⌕</span><input id="quickSearchInput" type="search" autocomplete="off" placeholder="Digite um nome ou número..." /></div><div id="quickSearchResults" class="quick-search-results"><div class="empty">Digite para pesquisar.</div></div><div class="quick-search-footer"><span><kbd>↑</kbd><kbd>↓</kbd> navegar</span><span><kbd>Enter</kbd> abrir</span><span><kbd>Esc</kbd> fechar</span></div></div></div><div id="projectSummaryModal" class="modal-backdrop hidden" aria-hidden="true"><div class="summary-card" role="dialog" aria-modal="true" aria-labelledby="projectSummaryTitle"><div class="summary-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/><path d="M9 15h6M9 11h6M9 7h2"/><path d="M16 3h5v5"/><path d="M14 10 21 3"/></svg></div><div><h3 id="projectSummaryTitle">Resumo do projeto</h3><span id="summaryProjectName">Data Center</span></div><button id="summaryClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div><div id="projectSummaryGrid" class="summary-grid"></div></div></div><div id="minimap" class="minimap hidden" aria-label="Mini mapa da planta"><div class="minimap-head"><span>Mini mapa</span><button id="minimapClose" class="iconbtn" type="button" title="Fechar mini mapa" aria-label="Fechar mini mapa">×</button></div><svg id="minimapSvg" xmlns="http://www.w3.org/2000/svg"></svg></div><div id="toast"></div>
@@ -488,7 +492,7 @@
     </form>
   </div>
 </div>
-<script src="app.js?v=78"></script>
+<script src="app.js?v=82"></script>
 
 </body>
 </html>

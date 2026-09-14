@@ -3482,12 +3482,13 @@ function closeBayface(){closeBayfaceAssetPicker();const m=$('bayfaceModal');if(!
 
 function openRackBayface(rackId){if(!assetRack(rackId))return;openBayface(rackId);}
 
+function setPropTitleSticky(text){ const el=$('propTitleSticky'); if(el)el.textContent=text||''; }
 function renderProperties(){
   const p=$('properties');
   if(state.trayMultiSelected.length>1){
     const count=state.trayMultiSelected.length;
-    p.innerHTML=`<div class="prop-title">${count} calhas selecionadas</div>
-      <div class="help">Várias calhas selecionadas. Para evitar alterações acidentais na geometria e nas conexões, somente a exclusão em lote está disponível.</div>
+    setPropTitleSticky(`${count} calhas selecionadas`);
+    p.innerHTML=`<div class="help">Várias calhas selecionadas. Para evitar alterações acidentais na geometria e nas conexões, somente a exclusão em lote está disponível.</div>
       <button class="btn danger full" id="delSelectedTrays">Excluir ${count} calhas selecionadas</button>
       <button class="btn ghost full" id="clearSelectedTrays">Limpar seleção</button>`;
     $('delSelectedTrays').onclick=deleteSelectedTrays;
@@ -3496,8 +3497,8 @@ function renderProperties(){
   }
   if(state.multiSelected.length>1){
     const count=state.multiSelected.length;
-    p.innerHTML=`<div class="prop-title">${count} racks selecionados</div>
-      ${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. As propriedades dos racks estão somente para consulta.</div>':''}
+    setPropTitleSticky(`${count} racks selecionados`);
+    p.innerHTML=`${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. As propriedades dos racks estão somente para consulta.</div>':''}
       <div class="help">As propriedades abaixo serão aplicadas a todos os racks selecionados. Deixe um campo vazio para não alterá-lo. Largura e profundidade mantêm cada rack centrado.</div>
       <div class="grid2"><label>Qtd. U<input id="bulkUnits" type="number" min="1" max="60" placeholder="Não alterar"></label><label>Largura (m)<input id="bulkWidth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label></div>
       <div class="grid2"><label>Profundidade (m)<input id="bulkDepth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label><label>Distância próx. (m)<input id="bulkGap" type="number" min="0" step="0.01" placeholder="Não alterar"></label></div>
@@ -3525,7 +3526,7 @@ function renderProperties(){
     $('clearSelectedRacks').onclick=()=>{state.multiSelected=[];state.selected=null;renderAll();};
     return;
   }
-  if(!state.selected){p.innerHTML='<div class="empty">Selecione um rack, calha ou cabo.</div>';return;}
+  if(!state.selected){setPropTitleSticky('');p.innerHTML='<div class="empty">Selecione um rack, calha ou cabo.</div>';return;}
   if(state.selected.type==='rack'){
     const r=state.racks.find(x=>x.id===state.selected.id); if(!r){state.selected=null;return renderProperties();}
     const row=rowForRack(r);
@@ -3537,8 +3538,8 @@ function renderProperties(){
     const weightCapacity=num(r.weightCapacityKg,0);
     const weightPct=weightCapacity>0?Math.round(rackWeightKg/weightCapacity*100):null;
     const weightLevel=weightCapacity<=0?'none':(rackWeightKg>weightCapacity?'high':weightPct>=80?'mid':'low');
-    p.innerHTML=`<div class="prop-title">${esc(r.name)}</div>
-      ${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. Desbloqueie para alterar este rack.</div>':''}
+    setPropTitleSticky(r.name);
+    p.innerHTML=`${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. Desbloqueie para alterar este rack.</div>':''}
       <label>Nome<input id="prName" value="${esc(r.name)}"></label>
       <div class="grid2"><label>Qtd. U<input id="prUnits" type="number" min="1" max="60" value="${r.units}"></label><label>Largura (m)<input id="prWidth" type="number" min="0.1" step="0.01" value="${r.width}"></label></div>
       <div class="grid2"><label>Profundidade (m)<input id="prDepth" type="number" min="0.1" step="0.01" value="${r.depth??state.rackDepth}"></label><label>Distância próx. (m)<input id="prGapAfter" type="number" min="0" step="0.01" value="${r.gapAfter??state.rackGap}"></label></div>
@@ -3594,8 +3595,8 @@ function renderProperties(){
     const t=state.trays.find(x=>x.id===state.selected.id); if(!t){state.selected=null;return renderProperties();}
     const g=geometry();
     const currentLength=trayLengthMeters(t,g);
-    p.innerHTML=`<div class="prop-title">${esc(t.name||'Calha')}</div>
-      ${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. Desbloqueie para alterar esta calha.</div>':''}
+    setPropTitleSticky(t.name||'Calha');
+    p.innerHTML=`${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. Desbloqueie para alterar esta calha.</div>':''}
       <label>Nome<input id="trName" value="${esc(t.name||'Calha')}"></label>
       <label>Comprimento da calha (m)<input id="trLength" type="number" min="0.01" step="0.01" value="${currentLength.toFixed(2)}"></label>
       <div class="help">Calha independente: não está vinculada a nenhuma fileira ou rack. Pode existir sozinha em qualquer área do ambiente.</div>
@@ -3684,7 +3685,8 @@ function renderCableProperties(p,c){
   const portOptions=(asset,selected)=>'<option value="">— Nenhuma —</option>'+(asset?.ports||[]).map(port=>`<option value="${esc(port.id)}" ${port.id===selected?'selected':''}>${esc(port.label)}</option>`).join('');
   const originConflict=c.originPortId?cablePortConflict(c,'origin',c.originPortId):null;
   const destConflict=c.destPortId?cablePortConflict(c,'dest',c.destPortId):null;
-  p.innerHTML=`<div class="prop-title">${esc(c.name)}</div><label>Nome<input id="cbName" value="${esc(c.name)}"></label>
+  setPropTitleSticky(c.name);
+  p.innerHTML=`<label>Nome<input id="cbName" value="${esc(c.name)}"></label>
   <label>Tipo<select id="cbType">${cableTypeNames().map(t=>`<option value="${esc(t)}" ${c.type===t?'selected':''}>${esc(t)}</option>`).join('')}</select></label>
   <div class="grid2"><label>Rack origem<select id="cbOR">${opts}</select></label><label>U origem<input id="cbOU" class="${ouInvalid?'input-error':''}" type="number" min="1" max="${ouMax}" value="${c.originU}"><small id="cbOUError" class="field-error">${ouInvalid?`Máximo: ${ouMax}U.`:''}</small></label></div>
   ${!ouInvalid?`<label>Nome do asset na origem <small class="field-help-inline">${originAsset?'(preenchido automaticamente pelo asset instalado nessa U)':'(opcional — nem todo asset precisa estar cadastrado ainda)'}</small><input id="cbOAssetName" value="${esc(originAsset?originAsset.name:(c.originAssetName||''))}" placeholder="Nome do equipamento nessa U" ${originAsset?'disabled':''}></label>`:''}
@@ -4438,7 +4440,60 @@ async function exportCablesXLSX(){
   }catch(err){toast(err.message||'Erro ao exportar Excel');}
 }
 
-function renderCables(){const el=$('cablesList');$('cableCount').textContent=state.cables.length;if(!state.cables.length){el.innerHTML='<div class="empty">Nenhum cabo cadastrado.</div>';return;}el.innerHTML=state.cables.map(c=>{const invalid=!cableUnitValidation(c).valid;const originLabel=cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName);const destLabel=cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName);return`<div class="cable-item ${state.selected?.type==='cable'&&state.selected.id===c.id?'selected':''} ${invalid?'invalid':''}" style="border-left-color:${cableTypeColor(c.type)}" data-cable="${c.id}"><div class="cable-name">${invalid?'⚠ ':''}${esc(c.name)}</div><div class="cable-meta"><span>${esc(originLabel)}</span><span>${esc(destLabel)}</span></div></div>`;}).join('');el.querySelectorAll('[data-cable]').forEach(x=>x.onclick=e=>{e.stopPropagation();state.multiSelected=[];state.selected={type:'cable',id:x.dataset.cable};renderAll();});}
+let cablesSearchQuery='';
+let cableMultiSelected=[];
+function cableSearchHaystack(c){
+  const o=state.racks.find(r=>r.id===c.originRack), d=state.racks.find(r=>r.id===c.destRack);
+  const originLabel=cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName);
+  const destLabel=cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName);
+  return [c.name,c.type,o?.name,d?.name,c.originU,c.destU,c.originPortLabel,c.destPortLabel,c.originAssetName,c.destAssetName,originLabel,destLabel].filter(Boolean).join(' ').toLowerCase();
+}
+function renderCables(){
+  const el=$('cablesList'); if(!el)return;
+  $('cableCount').textContent=state.cables.length;
+  cableMultiSelected=cableMultiSelected.filter(id=>state.cables.some(c=>c.id===id));
+  const q=cablesSearchQuery.trim().toLowerCase();
+  const filtered=q?state.cables.filter(c=>cableSearchHaystack(c).includes(q)):state.cables;
+  if(!filtered.length){el.innerHTML=`<div class="empty">${q?'Nenhum cabo encontrado.':'Nenhum cabo cadastrado.'}</div>`;}
+  else{
+    el.innerHTML=filtered.map(c=>{
+      const invalid=!cableUnitValidation(c).valid;
+      const originLabel=cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName);
+      const destLabel=cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName);
+      const checked=cableMultiSelected.includes(c.id);
+      return `<div class="cable-item ${state.selected?.type==='cable'&&state.selected.id===c.id?'selected':''} ${invalid?'invalid':''} ${checked?'is-checked':''}" style="border-left-color:${cableTypeColor(c.type)}" data-cable="${c.id}">
+        <label class="cable-item-check" onclick="event.stopPropagation()"><input type="checkbox" data-cable-check="${c.id}" ${checked?'checked':''}></label>
+        <div class="cable-item-body">
+          <div class="cable-name-row"><span class="cable-name">${invalid?'⚠ ':''}${esc(c.name)}</span><span class="cable-type-tag" style="color:${cableTypeColor(c.type)}">${esc(c.type||'')}</span></div>
+          <div class="cable-meta"><span>${esc(originLabel)}</span><span>${esc(destLabel)}</span></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  el.querySelectorAll('[data-cable]').forEach(x=>x.onclick=e=>{e.stopPropagation();state.multiSelected=[];state.selected={type:'cable',id:x.dataset.cable};renderAll();});
+  el.querySelectorAll('[data-cable-check]').forEach(cb=>cb.onchange=()=>{
+    const id=cb.dataset.cableCheck;
+    if(cb.checked){if(!cableMultiSelected.includes(id))cableMultiSelected.push(id);}
+    else cableMultiSelected=cableMultiSelected.filter(x=>x!==id);
+    renderCables();
+  });
+  updateCablesBulkBar();
+}
+function updateCablesBulkBar(){
+  const bar=$('cablesBulkBar'); if(!bar)return;
+  bar.classList.toggle('hidden',cableMultiSelected.length===0);
+  if($('cablesBulkCount'))$('cablesBulkCount').textContent=String(cableMultiSelected.length);
+}
+async function deleteCablesBulk(){
+  const ids=[...cableMultiSelected];
+  if(!ids.length)return;
+  const ok=await uiConfirm('',{title:`Excluir ${ids.length} cabo(s) selecionado(s)?`,confirmText:'Excluir cabos',danger:true});
+  if(!ok)return;
+  state.cables=state.cables.filter(c=>!ids.includes(c.id));
+  if(state.selected?.type==='cable' && ids.includes(state.selected.id))state.selected=null;
+  cableMultiSelected=[];
+  renderAll();toast(`${ids.length} cabo(s) excluído(s)`);
+}
 function ensureFields(){$('projectName').value=state.projectName;$('rowCount').value=state.rows.length;$('defaultRacks').value=state.rows[0]?.rackCount??0;$('rackUnits').value=state.rackUnits;$('rackWidth').value=state.rackWidth;$('rackDepth').value=state.rackDepth;$('rackGap').value=state.rackGap;$('rackPowerCapacity').value=state.rackPowerCapacityW>0?state.rackPowerCapacityW:'';$('rackWeightCapacity').value=state.rackWeightCapacityKg>0?state.rackWeightCapacityKg:'';$('defaultRowGap').value=state.defaultRowGap;$('lastUToTray').value=state.lastUToTray;$('defaultSlack').value=state.defaultSlack;}
 function updateCanvasEmptyHint(){
   const hint=$('canvasEmptyHint'); if(!hint)return;
@@ -6135,6 +6190,9 @@ function bind(){
   };
   $('btnAddTray').onclick=()=>{ if(structureBlocked())return; const g=geometry(); const y=g.rows.length?g.rows[0].y-80:VIEW_PAD; createIndependentTray(g,g.x0,y,g.x0+Math.max(240,g.scale*3),y); };
   $('btnAddCable').onclick=addCable;$('btnImport').onclick=()=>$('excelInput').click();
+  $('cablesSearch')?.addEventListener('input',()=>{cablesSearchQuery=$('cablesSearch').value;renderCables();});
+  $('cablesBulkDelete')?.addEventListener('click',deleteCablesBulk);
+  $('cablesBulkClear')?.addEventListener('click',()=>{cableMultiSelected=[];renderCables();});
   $('btnTemplate').onclick=downloadCableTemplate;
   $('btnExportCables').onclick=exportCablesXLSX;
   $('excelInput').onchange=e=>{const f=e.target.files[0];if(f)importCablesXLSX(f);e.target.value='';};
