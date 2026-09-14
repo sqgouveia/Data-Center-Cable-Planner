@@ -94,9 +94,6 @@ body {
     color-mix(in srgb, var(--panel) 100%, #fff 2%),
     var(--panel)
   );
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.03),
-    0 14px 34px rgba(2, 5, 12, 0.28);
   position: relative;
   z-index: 5;
   min-width: 0;
