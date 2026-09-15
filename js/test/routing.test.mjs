@@ -1,7 +1,7 @@
 import './helpers.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resetState, buildTwoRackScenario } from './helpers.mjs';
+import { resetState, buildTwoRackScenario, buildChainScenario } from './helpers.mjs';
 import { state } from '../state.js';
 import { geometry } from '../geometry.js';
 import {
@@ -95,4 +95,40 @@ test('dedupeRoutePoints collapses points closer than 0.5px but keeps distinct on
   const pts = [{ x: 0, y: 0 }, { x: 0.1, y: 0 }, { x: 10, y: 0 }];
   const out = dedupeRoutePoints(pts);
   assert.deepEqual(out, [{ x: 0, y: 0 }, { x: 10, y: 0 }]);
+});
+
+// Three racks, two separate trays (rack0<->rack1, rack1<->rack2) that are NOT
+// linked to each other. Automatic mode has no valid path rack0->rack2: an
+// intermediate rack only counts as a connection point in manual mode, where
+// the user explicitly picks it as a waypoint.
+test('automatic mode cannot hop rack0 -> rack2 through an unlinked intermediate rack', () => {
+  resetState(state);
+  buildChainScenario(state, 3);
+  const cable = { originRack: 'rack0', destRack: 'rack2', originU: 1, destU: 1, slack: 10, routeMode: 'automatic', via: [] };
+  const res = calcCable(cable);
+  assert.equal(res.reachable, false);
+});
+
+test('manual mode routes rack0 -> rack2 through an explicit via waypoint', () => {
+  resetState(state);
+  const { racks } = buildChainScenario(state, 3);
+  const cable = { originRack: 'rack0', destRack: 'rack2', originU: 3, destU: 3, slack: 10, routeMode: 'manual', via: ['rack1'] };
+
+  const md = manualRouteData(cable);
+  assert.equal(md.reachable, true);
+  assert.equal(md.segments.length, 2, 'one segment per hop: rack0->rack1, rack1->rack2');
+  assert.ok(md.length > 0);
+
+  const res = calcCable(cable);
+  assert.equal(res.reachable, true);
+  assert.ok(res.v1 > 0, 'origin vertical leg comes from the first segment');
+  assert.ok(res.v2 > 0, 'destination vertical leg comes from the last segment');
+  assert.ok(Math.abs(res.total - (res.v1 + res.tray + res.v2 + 0.60) * 1.10) < 1e-9);
+});
+
+test('validateManualRouteCandidate accepts a rack reachable from the current route tail', () => {
+  resetState(state);
+  buildChainScenario(state, 3);
+  const cable = { originRack: 'rack0', destRack: 'rack2', via: [] };
+  assert.equal(validateManualRouteCandidate(cable, 'rack1').ok, true, 'rack1 has a tray straight to rack0');
 });
