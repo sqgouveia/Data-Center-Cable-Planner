@@ -5,6 +5,7 @@ import {
 } from './js/utils.js';
 import { state, THEME_STORAGE } from './js/state.js';
 import { uiConfirm, uiPrompt } from './js/dialogs.js';
+import { closeStyledSelectPanels, syncSelectButton, openStyledSelectPanel, bindStyledSelect } from './js/styled-select.js';
 import {
   VIEW_PAD, rowForRack, rowIndex, racksInRow, rackAt, makeRack, rowDepth, geometry,
   slotPhysicalWidth, slotGapAfter, rowSlotPhysicalX, rackRect, rackCenter, rowCenterY,
@@ -69,48 +70,6 @@ function fitTopbarSelect(el){
   ctx.font=`${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
   const width=Math.ceil(ctx.measureText(text).width)+48;
   el.style.width=Math.max(78,width)+'px';
-}
-// --- Dropdown estilizado para <select> (o navegador não permite estilizar
-// a lista aberta de um <select> nativo). O <select> real continua no DOM
-// como fonte de verdade dos valores; este botão só espelha a seleção.
-function closeStyledSelectPanels(){document.querySelectorAll('.dc-select-panel').forEach(p=>p.remove());document.querySelectorAll('.dc-select-btn[aria-expanded="true"]').forEach(b=>b.setAttribute('aria-expanded','false'));}
-function syncSelectButton(selectId,btnId){
-  const sel=$(selectId), btn=$(btnId);
-  if(!sel||!btn)return;
-  const opt=sel.options[sel.selectedIndex];
-  const label=btn.querySelector('.dc-select-label');
-  if(label)label.textContent=opt?opt.textContent:'—';
-}
-function openStyledSelectPanel(selectId,btnId){
-  const sel=$(selectId), btn=$(btnId);
-  if(!sel||!btn)return;
-  const alreadyOpen=btn.getAttribute('aria-expanded')==='true';
-  closeStyledSelectPanels();
-  if(alreadyOpen)return;
-  const panel=document.createElement('div');
-  panel.className='dc-select-panel';
-  panel.setAttribute('role','listbox');
-  panel.innerHTML=[...sel.options].map(o=>`<button type="button" role="option" data-value="${esc(o.value)}" aria-selected="${o.value===sel.value}">${esc(o.textContent)}</button>`).join('');
-  document.body.appendChild(panel);
-  const r=btn.getBoundingClientRect();
-  const pw=panel.offsetWidth||190;
-  panel.style.left=Math.max(8,Math.min(window.innerWidth-pw-8,r.left))+'px';
-  panel.style.top=(r.bottom+6)+'px';
-  requestAnimationFrame(()=>panel.classList.add('open'));
-  btn.setAttribute('aria-expanded','true');
-  panel.querySelectorAll('button').forEach(o=>o.addEventListener('click',ev=>{
-    ev.preventDefault();ev.stopPropagation();
-    sel.value=o.dataset.value;
-    sel.dispatchEvent(new Event('change',{bubbles:true}));
-    closeStyledSelectPanels();
-    btn.focus();
-  }));
-}
-function bindStyledSelect(selectId,btnId){
-  const btn=$(btnId);
-  if(!btn||btn.dataset.bound)return;
-  btn.dataset.bound='1';
-  btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openStyledSelectPanel(selectId,btnId);});
 }
 function updateRoomUI(){
   ensureRooms(); normalizeLocations();
