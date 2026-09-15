@@ -1,4 +1,5 @@
 import { uid, cloneData, esc, num } from './js/utils.js';
+import { state, THEME_STORAGE } from './js/state.js';
 
 // --- Supabase authentication -------------------------------------------------
 const SUPABASE_URL = 'https://qfkygzzzavtvfupsohxu.supabase.co';
@@ -803,7 +804,6 @@ const U_MM = 44.45;
 const GLOBAL_STORAGE = 'dc-planner-v7';
 let STORAGE = GLOBAL_STORAGE;
 const LEGACY_STORAGE = 'dc-planner-v6';
-const THEME_STORAGE = 'dc-planner-theme';
 const $ = id => document.getElementById(id);
 
 // --- UI dialogs: styled replacements for window.confirm()/window.prompt() ---
@@ -899,19 +899,6 @@ function cableTypeNames(){normalizeCableCatalogs();return state.cableCatalogs.ty
 function defaultCableType(){normalizeCableCatalogs();return state.cableCatalogs.types[0]?.name||'UTP';}
 function cableTypeColor(type){normalizeCableCatalogs();return state.cableCatalogs.types.find(t=>t.name===type)?.color||'var(--route)';}
 
-const state = {
-  projectName: 'Data Center',
-  rackUnits: 48,
-  rackWidth: 0.60,
-  rackGap: 0,
-  rackDepth: 1.20,
-  defaultRowGap: 1.20,
-  lastUToTray: 1.00,
-  defaultSlack: 10,
-  rows: [], racks: [], cables: [], trays: [], trayLinks: [], assets: [], selected: null, multiSelected: [], trayMultiSelected: [],
-  theme: localStorage.getItem(THEME_STORAGE) || localStorage.getItem('dc-theme') || 'dark',
-  structureLocked: false, snapToEdges: true, rooms: [], activeRoomId: null, assetCatalogs: {types:['Servidor','Switch','Storage','PDU','Patch Panel','Firewall','Roteador','Outro'], manufacturers:[], models:[]}
-};
 let pan = null;
 const VIEW_PAD = 2500;
 const ROW_GAP_VISUAL = 1.00;
