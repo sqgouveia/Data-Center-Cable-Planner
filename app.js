@@ -1,4 +1,8 @@
-import { uid, cloneData, esc, num, $ } from './js/utils.js';
+import {
+  uid, cloneData, esc, num, $, dateUrgencyLevel, formatAssetDate, catalogNormalize,
+  catalogSimilarity, catalogSimilar, catalogKeyLabel, parsePortTemplate, buildPortRange,
+  expandPortDefs, totalPortDefsCount, excelColumnLetter, parseImportDate, parseImportNumber
+} from './js/utils.js';
 import { state, THEME_STORAGE } from './js/state.js';
 import {
   VIEW_PAD, rowForRack, rowIndex, racksInRow, rackAt, makeRack, rowDepth, geometry,
@@ -1818,22 +1822,6 @@ function assetOccupancy(asset){
   return {start,end:start+height-1};
 }
 function isAssetArchived(asset){ return String(asset?.status||'')==='Arquivado'; }
-function dateUrgencyLevel(dateStr,warnDays){
-  if(!dateStr)return 'none';
-  const today=new Date(); today.setHours(0,0,0,0);
-  const d=new Date(dateStr+'T00:00:00');
-  if(isNaN(d.getTime()))return 'none';
-  const daysLeft=Math.round((d-today)/86400000);
-  if(daysLeft<0)return 'expired';
-  if(daysLeft<=warnDays)return 'soon';
-  return 'ok';
-}
-function formatAssetDate(dateStr){
-  if(!dateStr)return '';
-  const d=new Date(dateStr+'T00:00:00');
-  if(isNaN(d.getTime()))return '';
-  return d.toLocaleDateString('pt-BR');
-}
 const ASSET_WARRANTY_WARN_DAYS=60, ASSET_EOL_WARN_DAYS=60;
 function assetWarrantyLevel(a){ return dateUrgencyLevel(a?.warrantyExpiration,ASSET_WARRANTY_WARN_DAYS); }
 function assetEndOfLifeLevel(a){ return dateUrgencyLevel(a?.endOfLife,ASSET_EOL_WARN_DAYS); }
@@ -2001,20 +1989,6 @@ const BAYFACE_TYPE_DEFAULTS={'is-switch':'#4cc9f0','is-storage':'#9b8cff','is-po
 function defaultBayfaceTypeColor(type){return BAYFACE_TYPE_DEFAULTS[bayfaceAssetTypeClass(type)]||'#6fd38c';}
 function bayfaceTypeColor(type){normalizeAssetCatalogs();return state.assetCatalogs.typeColors?.[type]||defaultBayfaceTypeColor(type);}
 function setBayfaceTypeColor(type,color){normalizeAssetCatalogs();state.assetCatalogs.typeColors[type]=color;save();if($('bayfaceModal')?.classList.contains('open')){const rid=$('bayfaceModal').dataset.rackId;if(rid)openBayface(rid);}}
-function catalogNormalize(value){
-  return String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'');
-}
-function catalogSimilarity(a,b){
-  const x=catalogNormalize(a),y=catalogNormalize(b); if(!x||!y)return 0; if(x===y)return 1;
-  const prev=Array.from({length:y.length+1},(_,i)=>i);
-  for(let i=1;i<=x.length;i++){let cur=[i];for(let j=1;j<=y.length;j++)cur[j]=Math.min(cur[j-1]+1,prev[j]+1,prev[j-1]+(x[i-1]===y[j-1]?0:1));prev.splice(0,prev.length,...cur);}
-  return 1-prev[y.length]/Math.max(x.length,y.length);
-}
-function catalogSimilar(value,values){
-  const norm=catalogNormalize(value); if(!norm)return [];
-  return [...new Set((values||[]).map(v=>String(v))).values()].filter(v=>catalogNormalize(v)!==norm&&catalogSimilarity(value,v)>=0.84).sort((a,b)=>catalogSimilarity(value,b)-catalogSimilarity(value,a));
-}
-function catalogKeyLabel(key){return key==='types'?'Tipos de ativo':key==='manufacturers'?'Fabricantes':key==='statuses'?'Status':key==='substatuses'?'Substatus':'Modelos';}
 function renderCableTypesCatalog(){
   normalizeCableCatalogs();
   const el=$('catalogCableTypes'); if(!el)return;
@@ -2221,41 +2195,6 @@ function renderAssetCatalogManufacturerSelect(){
 }
 function renderAssetCatalogTypeSelect(){
   normalizeAssetCatalogs();const el=$('catalogModelType');if(!el)return;const current=el.value||'';el.innerHTML='<option value="">Todos os tipos</option>'+state.assetCatalogs.types.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');el.value=current&&state.assetCatalogs.types.includes(current)?current:'';
-}
-function parsePortTemplate(str){
-  const m=String(str||'').match(/^(.*?)(\d+)(\D*)$/);
-  if(!m)return null;
-  return {prefix:m[1],suffix:m[3],num:parseInt(m[2],10),width:m[2].length};
-}
-function buildPortRange(startLabel,endLabel){
-  const a=parsePortTemplate(startLabel), b=parsePortTemplate(endLabel);
-  if(!a||!b)return null;
-  if(a.prefix!==b.prefix||a.suffix!==b.suffix)return null;
-  if(b.num<a.num)return null;
-  if(b.num-a.num+1>500)return null;
-  const width=Math.max(a.width,b.width);
-  const out=[];
-  for(let n=a.num;n<=b.num;n++) out.push(a.prefix+String(n).padStart(width,'0')+a.suffix);
-  return out;
-}
-function expandPortDefs(portDefs){
-  const ports=[];
-  (portDefs||[]).forEach(def=>{
-    if(def.kind==='range'){
-      const range=buildPortRange(def.startLabel,def.endLabel);
-      if(!range)return;
-      range.forEach(label=>ports.push({id:uid('port'),label,poe:!!def.poe}));
-    }else{
-      ports.push({id:uid('port'),label:def.label,poe:!!def.poe});
-    }
-  });
-  return ports;
-}
-function totalPortDefsCount(portDefs){
-  return (portDefs||[]).reduce((sum,def)=>{
-    if(def.kind==='range'){const r=buildPortRange(def.startLabel,def.endLabel);return sum+(r?r.length:0);}
-    return sum+1;
-  },0);
 }
 let catalogEditorPortDefs=[];
 function renderCatalogPortDefsEditor(){
@@ -3653,7 +3592,6 @@ function cableSummaryRows(){
   return [...groups.entries()].map(([key,qty])=>{const [type,length]=key.split('|');return {type,length:Number(length),qty};})
     .sort((a,b)=>(order.get(a.type)-order.get(b.type))||a.length-b.length);
 }
-function excelColumnLetter(n){let s='';while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;}
 function cablePortAt(rackId,u,portId){if(!portId)return null;return assetAtRackU(rackId,u)?.ports?.find(p=>p.id===portId)||null;}
 function cableEndpointLabel(rackId,u,portId,freeformLabel='',assetNameFallback=''){
   const rack=state.racks.find(r=>r.id===rackId);
@@ -4549,13 +4487,6 @@ function getCol(row,aliases){
   if(keys.length===1){const k=keys[0]; const v=String(m[k]??'').trim(); if(v) return v;}
   return '';
 }
-function parseImportDate(value){
-  const s=String(value||'').trim(); if(!s)return '';
-  let m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/); if(m)return s;
-  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if(m){const dd=m[1].padStart(2,'0'),mm=m[2].padStart(2,'0');return `${m[3]}-${mm}-${dd}`;}
-  return '';
-}
 function assetImportCatalogOptions(kind, selected=''){
   normalizeAssetCatalogs();
   if(kind==='type') return '<option value="">Selecione</option>'+state.assetCatalogs.types.map(v=>`<option value="${esc(v)}" ${catalogNormalize(v)===catalogNormalize(selected)?'selected':''}>${esc(v)}</option>`).join('');
@@ -5023,7 +4954,6 @@ async function importCatalogSingleWorkbook(file,kind){
   }catch(e){console.error('Catalog import error:',e);toast('Não foi possível ler a planilha: '+(e?.message||e));}
 }
 
-function parseImportNumber(v,fallback=0){const n=Number(String(v).replace(',','.'));return Number.isFinite(n)?n:fallback;}
 async function processAssetsWorkbook(file){
   try{
     const wb=await readWorkbookFile(file);
