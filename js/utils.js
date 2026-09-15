@@ -1,4 +1,6 @@
 // Pure helpers with no dependency on app state or the DOM.
+export const $ = id => document.getElementById(id);
+
 export function uid(prefix){ return `${prefix}_${Math.random().toString(36).slice(2,9)}`; }
 
 export function cloneData(value){
