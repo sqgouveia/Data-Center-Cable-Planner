@@ -2889,8 +2889,7 @@ function bayfaceMarkup(rackId){
   assets.forEach(a=>{const o=assetOccupancy(a);for(let u=o.start;u<=o.end;u++)if(u>=1&&u<=units)occupiedUnits.add(u);});
   const usedUnits=occupiedUnits.size;
   const freeUnits=Math.max(0,units-usedUnits);
-  const availableH=Math.max(260,Math.floor(window.innerHeight*0.78-160));
-  const rowH=Math.max(10,Math.min(24,Math.floor(availableH/units)));
+  const rowH=26;
   const gridH=units*rowH;
   let rows='';
   for(let u=units;u>=1;u--){
@@ -5286,7 +5285,6 @@ function bind(){
   $('assetsBulkCancel')?.addEventListener('click',closeBulkAssetsModal);
   $('assetsBulkManual')?.addEventListener('click',()=>{$('assetsBulkChooser')?.classList.add('hidden');$('assetsBulkEditor')?.classList.remove('hidden');$('assetsBulkModal')?.querySelector('.bulk-assets-card')?.classList.add('wide');});
   $('assetsBulkImport')?.addEventListener('click',()=>{closeBulkAssetsModal();openAssetsImportModal();});
-  $('assetsBulkTemplate')?.addEventListener('click',makeAssetsTemplate);
   $('assetsBulkBack')?.addEventListener('click',()=>{$('assetsBulkEditor')?.classList.add('hidden');$('assetsBulkChooser')?.classList.remove('hidden');$('assetsBulkModal')?.querySelector('.bulk-assets-card')?.classList.remove('wide');});
   $('assetsBulkAddRow')?.addEventListener('click',addBulkRow);
   $('assetsBulkSave')?.addEventListener('click',saveBulkAssets);
