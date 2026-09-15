@@ -1365,11 +1365,10 @@ function render(){
       const gap=Math.max(0,num(row.gap,0));
       const upperBottom=prev.y+(rowDepth(prev)*g.scale);
       const lowerTop=cur.y;
-      // Dimension line is intentionally placed outside the racks/fileira labels.
-      // The extension lines point from the rack edge to the external dimension,
-      // keeping the gap itself visually free even when rows are very close.
-      const xDim=Math.max(40, g.x0-88);
-      const xExt=g.x0-50;
+      // Dimension line sits just left of the racks, closer than the fileira
+      // label, so it still reads as attached to the racks it measures.
+      const xDim=Math.max(40, g.x0-40);
+      const xExt=g.x0-16;
       const midY=(upperBottom+lowerTop)/2;
       svg.insertAdjacentHTML('beforeend',`<line class="row-gap-dim" x1="${xDim}" y1="${upperBottom}" x2="${xDim}" y2="${lowerTop}"/>`
         +`<line class="row-gap-ext" x1="${xDim}" y1="${upperBottom}" x2="${xExt}" y2="${upperBottom}"/>`
@@ -1519,6 +1518,11 @@ function render(){
       state.selected={type:'rack',id};
     }
     renderAll();
+  }));
+  svg.querySelectorAll('[data-rack]').forEach(el=>el.addEventListener('dblclick',e=>{
+    e.stopPropagation();
+    if(window.__manualRoutePicking)return;
+    openRackBayface(el.dataset.rack);
   }));
   svg.querySelectorAll('.rack-text,.svg-label').forEach(el=>el.style.pointerEvents='none');
   svg.querySelectorAll('[data-tray]').forEach(el=>el.addEventListener('click',e=>{

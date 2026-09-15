@@ -750,10 +750,10 @@ body.guest-mode #btnSave{pointer-events:none;opacity:.45;cursor:not-allowed}
 .bayface-asset-body b{font-size:var(--fs-bf-micro);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.15;letter-spacing:.005em;display:block;min-width:0;max-width:100%}
 .bayface-asset-body small{font-size:var(--fs-bf-micro);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.1;display:block;max-width:100%}
 .bayface-asset-u{font-size:var(--fs-bf-micro);font-weight:800;color:var(--muted);border:1px solid rgba(255,255,255,.16);padding:0 4px;border-radius:3px;grid-column:2;display:flex;align-items:center;justify-content:center;min-width:24px;height:calc(100% - 4px);line-height:1;background:rgba(0,0,0,.18)}
-.bayface-asset.is-compact .bayface-asset-body small{display:block;font-size:var(--fs-bf-micro)}
+.bayface-asset.is-compact .bayface-asset-body small{display:none}
 .bayface-asset.is-compact .bayface-asset-u{display:flex}
 .bayface-asset.is-compact .bayface-asset-body b{font-size:var(--fs-bf-micro)}
-.bayface-asset.is-compact .bayface-asset-body{gap:0;line-height:1.05}
+.bayface-asset.is-compact .bayface-asset-body{gap:0;line-height:1.05;justify-content:center}
 .assets-toolbar-actions{display:flex;gap:8px;align-items:center;flex:0 0 auto}
 .asset-catalog-card{width:min(1500px,calc(100vw - 24px));max-width:1500px;padding-bottom:14px}
 .catalog-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;align-items:stretch}
