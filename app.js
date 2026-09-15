@@ -857,16 +857,19 @@ function projectSnapshot(){
   };
   return JSON.stringify(copy);
 }
+const THEME_ICON_SUN='<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>';
+const THEME_ICON_MOON='<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>';
 function applyTheme(){
   const light=state.theme==='light';
   document.documentElement.classList.toggle('light',light);
   document.documentElement.dataset.theme=light?'light':'dark';
   document.documentElement.style.colorScheme=light?'light':'dark';
   localStorage.setItem(THEME_STORAGE,state.theme);
+  const icon=light?THEME_ICON_SUN:THEME_ICON_MOON;
   const b=$('btnTheme');
-  if(b){ b.textContent=light?'☀ Tema':'☾ Tema'; b.title=light?'Alternar para tema escuro':'Alternar para tema claro'; }
-  const db=$('dashboardTheme'); if(db){ db.textContent=light?'☀ Tema':'☾ Tema'; db.title=light?'Alternar para tema escuro':'Alternar para tema claro'; }
-  const ab=$('authTheme'); if(ab){ ab.textContent=light?'☀':'☾'; ab.title=light?'Alternar para tema escuro':'Alternar para tema claro'; ab.setAttribute('aria-label',ab.title); }
+  if(b){ b.innerHTML=icon+' Tema'; b.title=light?'Alternar para tema escuro':'Alternar para tema claro'; }
+  const db=$('dashboardTheme'); if(db){ db.innerHTML=icon+' Tema'; db.title=light?'Alternar para tema escuro':'Alternar para tema claro'; }
+  const ab=$('authTheme'); if(ab){ ab.innerHTML=icon; ab.title=light?'Alternar para tema escuro':'Alternar para tema claro'; ab.setAttribute('aria-label',ab.title); }
 }
 function historyContextKey(projectId=cloudProjectId, roomId=state.activeRoomId){
   return `${projectId||'local'}::${roomId||'default'}`;

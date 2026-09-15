@@ -317,6 +317,8 @@ body.guest-mode #btnSave{pointer-events:none;opacity:.45;cursor:not-allowed}
 .project-menu-panel button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:0;background:transparent;color:var(--text);padding:8px 9px;border-radius:var(--r-sm);cursor:pointer;font-size:12px;font-weight:600}
 .project-menu-panel button:hover{background:var(--panel2)}
 .project-menu-panel button .ic{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+#btnTheme,#dashboardTheme,#authTheme{display:inline-flex;align-items:center;justify-content:center;gap:5px}
+#btnTheme .ic,#dashboardTheme .ic,#authTheme .ic{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .project-menu-panel .menu-divider{height:1px;margin:5px 4px;background:var(--border-soft,var(--border))}
 .project-menu-panel button.danger{color:var(--red)}
 .project-menu-panel button.danger:hover{background:color-mix(in srgb,var(--red) 12%,transparent)}
