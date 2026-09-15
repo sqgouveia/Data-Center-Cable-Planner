@@ -1,3 +1,4 @@
+import { uid, cloneData, esc, num } from './js/utils.js';
 
 // --- Supabase authentication -------------------------------------------------
 const SUPABASE_URL = 'https://qfkygzzzavtvfupsohxu.supabase.co';
@@ -1133,15 +1134,6 @@ function redo(){
   toast('Refeito');
 }
 
-function uid(prefix){ return `${prefix}_${Math.random().toString(36).slice(2,9)}`; }
-function cloneData(value){
-  if(value===undefined)return undefined;
-  if(value===null)return null;
-  if(typeof structuredClone==='function'){try{return structuredClone(value);}catch(_){}}
-  try{return JSON.parse(JSON.stringify(value));}catch(_){return value;}
-}
-function esc(s){ return String(s ?? '').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-function num(v,fallback=0){ const n=Number(v); return Number.isFinite(n)?n:fallback; }
 function toast(text){ const t=$('toast'); t.textContent=text; t.classList.add('show'); clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(()=>t.classList.remove('show'),1800); }
 function save(){ recordHistory(); localStorage.setItem(THEME_STORAGE,state.theme); applyTheme(); updatePlannerProjectName(); updateAlertsCenterBadge(); scheduleCloudSave(); }
 function load(){
