@@ -1,3 +1,24 @@
+import {
+  uid, cloneData, esc, num, $, dateUrgencyLevel, formatAssetDate, catalogNormalize,
+  catalogSimilarity, catalogSimilar, catalogKeyLabel, parsePortTemplate, buildPortRange,
+  expandPortDefs, totalPortDefsCount, excelColumnLetter, parseImportDate, parseImportNumber
+} from './js/utils.js';
+import { state, THEME_STORAGE } from './js/state.js';
+import { uiConfirm, uiPrompt } from './js/dialogs.js';
+import { closeStyledSelectPanels, syncSelectButton, openStyledSelectPanel, bindStyledSelect } from './js/styled-select.js';
+import {
+  VIEW_PAD, rowForRack, rowIndex, racksInRow, rackAt, makeRack, rowDepth, geometry,
+  slotPhysicalWidth, slotGapAfter, rowSlotPhysicalX, rackRect, rackCenter, rowCenterY,
+  rowTrayBounds, trayPointForRowIndex, syncStructuralTrayEndpoints, syncAttachedTrayEndpoints,
+  trayLengthPx, trayLengthMeters, trayPointAt, nearestPointOnSegment, nearestTrayConnection,
+  rackConnectionPoint, nearestTrayOrRackSnap, linkTrayPoints, segmentIntersection,
+  trayLinkExistsAt, cleanupAutoCrossingLinks, updateLinksForTray, trayEndpointConnected,
+  connectCrossingsForTray
+} from './js/geometry.js';
+import {
+  buildRouteGraph, calcAutomaticTrayLength, routePointsForAutomatic, routeBetweenRacks,
+  manualRouteData, computeRoute, validateManualRouteCandidate, rackNameById, calcCable
+} from './js/routing.js';
 
 // --- Supabase authentication -------------------------------------------------
 const SUPABASE_URL = 'https://qfkygzzzavtvfupsohxu.supabase.co';
@@ -49,48 +70,6 @@ function fitTopbarSelect(el){
   ctx.font=`${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
   const width=Math.ceil(ctx.measureText(text).width)+48;
   el.style.width=Math.max(78,width)+'px';
-}
-// --- Dropdown estilizado para <select> (o navegador não permite estilizar
-// a lista aberta de um <select> nativo). O <select> real continua no DOM
-// como fonte de verdade dos valores; este botão só espelha a seleção.
-function closeStyledSelectPanels(){document.querySelectorAll('.dc-select-panel').forEach(p=>p.remove());document.querySelectorAll('.dc-select-btn[aria-expanded="true"]').forEach(b=>b.setAttribute('aria-expanded','false'));}
-function syncSelectButton(selectId,btnId){
-  const sel=$(selectId), btn=$(btnId);
-  if(!sel||!btn)return;
-  const opt=sel.options[sel.selectedIndex];
-  const label=btn.querySelector('.dc-select-label');
-  if(label)label.textContent=opt?opt.textContent:'—';
-}
-function openStyledSelectPanel(selectId,btnId){
-  const sel=$(selectId), btn=$(btnId);
-  if(!sel||!btn)return;
-  const alreadyOpen=btn.getAttribute('aria-expanded')==='true';
-  closeStyledSelectPanels();
-  if(alreadyOpen)return;
-  const panel=document.createElement('div');
-  panel.className='dc-select-panel';
-  panel.setAttribute('role','listbox');
-  panel.innerHTML=[...sel.options].map(o=>`<button type="button" role="option" data-value="${esc(o.value)}" aria-selected="${o.value===sel.value}">${esc(o.textContent)}</button>`).join('');
-  document.body.appendChild(panel);
-  const r=btn.getBoundingClientRect();
-  const pw=panel.offsetWidth||190;
-  panel.style.left=Math.max(8,Math.min(window.innerWidth-pw-8,r.left))+'px';
-  panel.style.top=(r.bottom+6)+'px';
-  requestAnimationFrame(()=>panel.classList.add('open'));
-  btn.setAttribute('aria-expanded','true');
-  panel.querySelectorAll('button').forEach(o=>o.addEventListener('click',ev=>{
-    ev.preventDefault();ev.stopPropagation();
-    sel.value=o.dataset.value;
-    sel.dispatchEvent(new Event('change',{bubbles:true}));
-    closeStyledSelectPanels();
-    btn.focus();
-  }));
-}
-function bindStyledSelect(selectId,btnId){
-  const btn=$(btnId);
-  if(!btn||btn.dataset.bound)return;
-  btn.dataset.bound='1';
-  btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openStyledSelectPanel(selectId,btnId);});
 }
 function updateRoomUI(){
   ensureRooms(); normalizeLocations();
@@ -568,9 +547,9 @@ async function renderDashboardProjects(){
     grid.innerHTML=projects.map(project=>{
       const st=projectStats(project);
       return `<article class="project-card" data-project-card="${esc(project.id)}">
-        <div class="project-card-head"><div style="display:flex;gap:12px;align-items:flex-start"><div class="project-icon">📁</div><div><h3 class="project-name">${esc(project.name||'Projeto sem nome')}</h3><div class="project-date">Atualizado ${esc(formatProjectDate(project.updated_at))}</div></div></div>
-          <div class="project-menu"><button class="btn ghost" data-project-menu="${esc(project.id)}" title="Mais opções">⋮</button></div></div>
+        <div class="project-card-head"><div class="project-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg></div><div><h3 class="project-name">${esc(project.name||'Projeto sem nome')}</h3><div class="project-date">Atualizado ${esc(formatProjectDate(project.updated_at))}</div></div></div>
         <div class="project-stats"><span><b>${st.rooms}</b> sala${st.rooms===1?'':'s'}</span><span><b>${st.rows}</b> fileira${st.rows===1?'':'s'}</span><span><b>${st.racks}</b> rack${st.racks===1?'':'s'}</span><span><b>${st.cables}</b> cabo${st.cables===1?'':'s'}</span><span><b>${st.trays}</b> calha${st.trays===1?'':'s'}</span></div>
+        <div class="project-menu"><button class="btn ghost" data-project-menu="${esc(project.id)}" title="Mais opções">⋮</button></div>
         <div class="project-actions"><button class="btn primary" data-project-open="${esc(project.id)}">Abrir</button></div>
       </article>`;
     }).join('');
@@ -732,6 +711,7 @@ function bindPasswordToggles(){
 }
 
 async function startAuth(){
+  applyTheme();
   lockApp();
   showAuthView('authLoginView');
   $('btnGuestMode')?.addEventListener('click',enterGuestMode);
@@ -798,89 +778,10 @@ function friendlyAuthError(error){
   return m;
 }
 
-const U_MM = 44.45;
 const GLOBAL_STORAGE = 'dc-planner-v7';
 let STORAGE = GLOBAL_STORAGE;
 const LEGACY_STORAGE = 'dc-planner-v6';
-const THEME_STORAGE = 'dc-planner-theme';
-const $ = id => document.getElementById(id);
 
-// --- UI dialogs: styled replacements for window.confirm()/window.prompt() ---
-// Both return a Promise so call sites use `await uiConfirm(...)` / `await uiPrompt(...)`.
-function _uiDialogOpen(){
-  const modal=$('uiConfirmModal');
-  modal.classList.add('open');
-  modal.setAttribute('aria-hidden','false');
-  return modal;
-}
-function _uiDialogClose(modal){
-  modal.classList.remove('open');
-  modal.setAttribute('aria-hidden','true');
-}
-const ICON_WARNING='<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>';
-const ICON_HELP='<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.5 1.7c0 1.7-2.6 2.3-2.6 3.8"/><path d="M12 17.5h.01"/>';
-const ICON_EDIT='<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>';
-function uiConfirm(message, opts={}){
-  return new Promise(resolve=>{
-    const modal=$('uiConfirmModal');
-    const title=$('uiConfirmTitle'), sub=$('uiConfirmSubtitle'), body=$('uiConfirmBody'), icon=$('uiConfirmIcon');
-    const ok=$('uiConfirmOk'), cancel=$('uiConfirmCancel'), promptWrap=$('uiConfirmPromptWrap');
-    title.textContent=opts.title||'Confirmar ação';
-    if(opts.subtitle){sub.textContent=opts.subtitle;sub.classList.remove('hidden');}else{sub.textContent='';sub.classList.add('hidden');}
-    body.textContent=message||'';
-    body.classList.toggle('hidden',!message);
-    promptWrap.classList.add('hidden');
-    ok.textContent=opts.confirmText||'Confirmar';
-    cancel.textContent=opts.cancelText||'Cancelar';
-    ok.className='btn '+(opts.danger?'danger-btn':'primary');
-    icon.className='ui-confirm-icon'+(opts.danger?' danger':'');
-    icon.querySelector('svg').innerHTML=opts.danger?ICON_WARNING:ICON_HELP;
-    _uiDialogOpen();
-    const finish=val=>{_uiDialogClose(modal);ok.onclick=null;cancel.onclick=null;modal.onclick=null;document.removeEventListener('keydown',onKey);resolve(val);};
-    const onKey=e=>{if(e.key==='Escape'){e.preventDefault();finish(false);}else if(e.key==='Enter'){e.preventDefault();finish(true);}};
-    document.addEventListener('keydown',onKey);
-    ok.onclick=()=>finish(true);
-    cancel.onclick=()=>finish(false);
-    modal.onclick=e=>{if(e.target===modal)finish(false);};
-    setTimeout(()=>ok.focus(),20);
-  });
-}
-function uiPrompt(message, defaultValue='', opts={}){
-  return new Promise(resolve=>{
-    const modal=$('uiConfirmModal');
-    const title=$('uiConfirmTitle'), sub=$('uiConfirmSubtitle'), body=$('uiConfirmBody'), icon=$('uiConfirmIcon');
-    const ok=$('uiConfirmOk'), cancel=$('uiConfirmCancel');
-    const promptWrap=$('uiConfirmPromptWrap'), label=$('uiConfirmPromptLabel'), input=$('uiConfirmPromptInput'), err=$('uiConfirmPromptError');
-    icon.className='ui-confirm-icon';
-    icon.querySelector('svg').innerHTML=ICON_EDIT;
-    title.textContent=opts.title||'Renomear';
-    sub.textContent='';sub.classList.add('hidden');
-    body.textContent=message||'';
-    if(body.textContent)body.classList.remove('hidden');else body.classList.add('hidden');
-    label.textContent=opts.label||'Nome';
-    err.textContent='';
-    promptWrap.classList.remove('hidden');
-    input.type=opts.type||'text';
-    input.value=defaultValue||'';
-    ok.textContent=opts.confirmText||'Confirmar';
-    cancel.textContent=opts.cancelText||'Cancelar';
-    ok.className='btn primary';
-    _uiDialogOpen();
-    const finish=val=>{_uiDialogClose(modal);ok.onclick=null;cancel.onclick=null;input.onkeydown=null;modal.onclick=null;document.removeEventListener('keydown',onKey);body.classList.remove('hidden');resolve(val);};
-    const onKey=e=>{if(e.key==='Escape'){e.preventDefault();finish(null);}};
-    document.addEventListener('keydown',onKey);
-    const submit=()=>{
-      const v=input.value;
-      if(opts.required!==false && !v.trim()){err.textContent=opts.errorText||'Preencha este campo.';input.focus();return;}
-      finish(v);
-    };
-    ok.onclick=submit;
-    cancel.onclick=()=>finish(null);
-    modal.onclick=e=>{if(e.target===modal)finish(null);};
-    input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();submit();}};
-    setTimeout(()=>{input.focus();input.select();},20);
-  });
-}
 const DEFAULT_CABLE_TYPES = [{name:'Fibra Multi Mode',color:'#2dd4bf'},{name:'Fibra Single Mode',color:'#facc15'},{name:'UTP',color:'#4f8cff'}];
 function normalizeCableCatalogs(){
   state.cableCatalogs=state.cableCatalogs&&typeof state.cableCatalogs==='object'?state.cableCatalogs:{};
@@ -898,22 +799,7 @@ function cableTypeNames(){normalizeCableCatalogs();return state.cableCatalogs.ty
 function defaultCableType(){normalizeCableCatalogs();return state.cableCatalogs.types[0]?.name||'UTP';}
 function cableTypeColor(type){normalizeCableCatalogs();return state.cableCatalogs.types.find(t=>t.name===type)?.color||'var(--route)';}
 
-const state = {
-  projectName: 'Data Center',
-  rackUnits: 48,
-  rackWidth: 0.60,
-  rackGap: 0,
-  rackDepth: 1.20,
-  defaultRowGap: 1.20,
-  lastUToTray: 1.00,
-  defaultSlack: 10,
-  rows: [], racks: [], cables: [], trays: [], trayLinks: [], assets: [], selected: null, multiSelected: [], trayMultiSelected: [],
-  theme: localStorage.getItem(THEME_STORAGE) || localStorage.getItem('dc-theme') || 'dark',
-  structureLocked: false, snapToEdges: true, rooms: [], activeRoomId: null, assetCatalogs: {types:['Servidor','Switch','Storage','PDU','Patch Panel','Firewall','Roteador','Outro'], manufacturers:[], models:[]}
-};
 let pan = null;
-const VIEW_PAD = 2500;
-const ROW_GAP_VISUAL = 1.00;
 const history = { undo: [], redo: [], last: null, restoring: false, max: 80, projectId: null, roomId: null, contexts: new Map() };
 function isStructureLocked(){ return state.structureLocked===true; }
 function setStructureLock(locked, persist=true){
@@ -971,16 +857,19 @@ function projectSnapshot(){
   };
   return JSON.stringify(copy);
 }
+const THEME_ICON_SUN='<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>';
+const THEME_ICON_MOON='<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>';
 function applyTheme(){
   const light=state.theme==='light';
   document.documentElement.classList.toggle('light',light);
   document.documentElement.dataset.theme=light?'light':'dark';
   document.documentElement.style.colorScheme=light?'light':'dark';
   localStorage.setItem(THEME_STORAGE,state.theme);
+  const icon=light?THEME_ICON_SUN:THEME_ICON_MOON;
   const b=$('btnTheme');
-  if(b){ b.textContent=light?'☀ Tema':'☾ Tema'; b.title=light?'Alternar para tema escuro':'Alternar para tema claro'; }
-  const db=$('dashboardTheme'); if(db){ db.textContent=light?'☀ Tema':'☾ Tema'; db.title=light?'Alternar para tema escuro':'Alternar para tema claro'; }
-  const ab=$('authTheme'); if(ab){ ab.textContent=light?'☀':'☾'; ab.title=light?'Alternar para tema escuro':'Alternar para tema claro'; ab.setAttribute('aria-label',ab.title); }
+  if(b){ b.innerHTML=icon+' Tema'; b.title=light?'Alternar para tema escuro':'Alternar para tema claro'; }
+  const db=$('dashboardTheme'); if(db){ db.innerHTML=icon+' Tema'; db.title=light?'Alternar para tema escuro':'Alternar para tema claro'; }
+  const ab=$('authTheme'); if(ab){ ab.innerHTML=icon; ab.title=light?'Alternar para tema escuro':'Alternar para tema claro'; ab.setAttribute('aria-label',ab.title); }
 }
 function historyContextKey(projectId=cloudProjectId, roomId=state.activeRoomId){
   return `${projectId||'local'}::${roomId||'default'}`;
@@ -1133,15 +1022,6 @@ function redo(){
   toast('Refeito');
 }
 
-function uid(prefix){ return `${prefix}_${Math.random().toString(36).slice(2,9)}`; }
-function cloneData(value){
-  if(value===undefined)return undefined;
-  if(value===null)return null;
-  if(typeof structuredClone==='function'){try{return structuredClone(value);}catch(_){}}
-  try{return JSON.parse(JSON.stringify(value));}catch(_){return value;}
-}
-function esc(s){ return String(s ?? '').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-function num(v,fallback=0){ const n=Number(v); return Number.isFinite(n)?n:fallback; }
 function toast(text){ const t=$('toast'); t.textContent=text; t.classList.add('show'); clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(()=>t.classList.remove('show'),1800); }
 function save(){ recordHistory(); localStorage.setItem(THEME_STORAGE,state.theme); applyTheme(); updatePlannerProjectName(); updateAlertsCenterBadge(); scheduleCloudSave(); }
 function load(){
@@ -1172,11 +1052,6 @@ function load(){
   applyTheme();
   normalizeState();
 }
-function rowForRack(r){ return r?state.rows.find(x=>x.id===r.rowId):null; }
-function rowIndex(r){ return r?state.rows.findIndex(x=>x.id===r.rowId):-1; }
-function racksInRow(rowId){ return state.racks.filter(r=>r.rowId===rowId).sort((a,b)=>a.index-b.index); }
-function rackAt(rowId,index){ return racksInRow(rowId).find(r=>r.index===index)||null; }
-function makeRack(row,index){ return {id:uid('rack'),rowId:row.id,index,name:`${row.name||'R'}-${String(index+1).padStart(2,'0')}`,units:state.rackUnits,width:state.rackWidth,depth:state.rackDepth,gapAfter:state.rackGap,riseToTray:state.lastUToTray,powerCapacityW:state.rackPowerCapacityW||0,weightCapacityKg:state.rackWeightCapacityKg||0,offset:0,yOffset:0,hasTray:false}; }
 function normalizeIndices(){
   // Physical slot indexes are preserved so deleting a rack does not move the
   // remaining racks.  rackCount, however, represents the actual number of
@@ -1440,90 +1315,6 @@ function applyRenameRow(){
   toast(`${racks.length} racks renomeados`);
 }
 
-function rowDepth(row){
-  // A row has its own fixed layout depth. Changing an individual rack depth
-  // must not move the whole row or any other row.
-  return Math.max(0.1,num(row?.depth,state.rackDepth));
-}
-function geometry(){
-  const wrap=$('canvasWrap'), vw=wrap.clientWidth||900, vh=wrap.clientHeight||700;
-  const maxSlot=Math.max(1,...state.rows.map(r=>Math.max(0,num(r.rackCount,0))),1);
-  const nominalW=Math.max(0.1,num(state.rackWidth,.6));
-  const scale=Math.max(95,Math.min(125,(vw-180)/(maxSlot*(nominalW+Math.max(0,num(state.rackGap,.02)))+1)));
-  const x0=VIEW_PAD+90; let y=VIEW_PAD+70; const rows=[];
-  state.rows.forEach((row,ri)=>{
-    if(ri>0){
-      const prev=state.rows[ri-1];
-      y+=rowDepth(prev)*scale + Math.max(0,num(row.gap,0))*ROW_GAP_VISUAL*scale;
-    }
-    rows.push({row,y});
-  });
-  let maxRight=x0+200;
-  let maxBottom=y+rowDepth(state.rows[state.rows.length-1]||{id:''})*scale+150;
-  state.rows.forEach(row=>racksInRow(row.id).forEach(r=>{
-    const x=x0+rowSlotPhysicalX(row,r.index)*scale+num(r.offset,0);
-    maxRight=Math.max(maxRight,x+num(r.width,nominalW)*scale+140);
-  }));
-  return {w:maxRight+VIEW_PAD,h:maxBottom+VIEW_PAD,vw,vh,scale,x0,rows};
-}
-function slotPhysicalWidth(row,index){
-  const r=rackAt(row.id,index);
-  return r?num(r.width,state.rackWidth):num(state.rackWidth,.6);
-}
-function slotGapAfter(row,index){
-  const r=rackAt(row.id,index);
-  return r?Math.max(0,num(r.gapAfter,state.rackGap)):Math.max(0,num(state.rackGap,.02));
-}
-function rowSlotPhysicalX(row,index){
-  let x=0;
-  for(let i=0;i<Math.max(0,index);i++) x+=slotPhysicalWidth(row,i)+slotGapAfter(row,i);
-  return x;
-}
-function rackRect(r,g){
-  const info=g.rows.find(x=>x.row.id===r.rowId);
-  const x=g.x0+rowSlotPhysicalX(rowForRack(r),r.index)*g.scale+num(r.offset,0);
-  const y=(info?info.y:0)+num(r.yOffset,0);
-  const ww=num(r.width,state.rackWidth)*g.scale;
-  const hh=num(r.depth,state.rackDepth)*g.scale;
-  return{x,y,w:ww,h:hh};
-}
-function rackCenter(r,g){const q=rackRect(r,g);return{x:q.x+q.w/2,y:q.y+q.h/2};}
- 
-
-function rowCenterY(rowIndexValue,g){const info=g.rows[rowIndexValue]; if(!info)return 0; const rs=racksInRow(info.row.id); if(!rs.length)return info.y; const ys=rs.map(r=>rackCenter(r,g).y); return ys.reduce((a,b)=>a+b,0)/ys.length;}
-function rowTrayBounds(row,g){
-  const rs=racksInRow(row.id);
-  const y=rowCenterY(state.rows.findIndex(x=>x.id===row.id),g);
-  if(!rs.length){
-    const x=g.x0;
-    return {left:x-20,right:x-20,y};
-  }
-  const rects=rs.map(r=>rackRect(r,g));
-  const left=Math.min(...rects.map(q=>q.x));
-  const right=Math.max(...rects.map(q=>q.x+q.w));
-  return {left:left-20,right:right+20,y};
-}
-function trayPointForRowIndex(row,index,g,side){
-  const b=rowTrayBounds(row,g);
-  if(!b)return {x:g.x0,y:rowCenterY(state.rows.findIndex(x=>x.id===row.id),g)};
-  const i=Math.max(0,Number(index)||0);
-  const rs=racksInRow(row.id);
-  const maxIndex=Math.max(0,Number(row.rackCount||0)-1);
-  // Edge interconnections belong to the calha endpoint, never to the edge rack.
-  if(side==='left')return {x:b.left,y:b.y};
-  if(side==='right')return {x:b.right,y:b.y};
-  if(i===0)return {x:b.left,y:b.y};
-  if(i===maxIndex)return {x:b.right,y:b.y};
-  const ref=rs.find(r=>r.index===i);
-  if(ref)return {x:rackCenter(ref,g).x,y:b.y};
-  const nominal=num(state.rackWidth,.6)*g.scale;
-  let px=0; for(let k=0;k<i;k++) px+=slotPhysicalWidth(row,k)*g.scale+slotGapAfter(row,k)*g.scale;
-  return {x:b.left+20+px+nominal/2,y:b.y};
-}
-
-
-
-
 
 function migrateLegacyTrays(g){
   const legacy=state.trays.filter(t=>t._legacy); if(!legacy.length)return;
@@ -1542,59 +1333,6 @@ function migrateLegacyTrays(g){
   state.trays=state.trays.filter(t=>!t._legacy).concat(converted);
   if(converted.length)localStorage.setItem(STORAGE,JSON.stringify(state));
 }
-// Keep tray endpoints that were snapped to racks physically attached to those
-// racks. This makes an existing calha follow changes in rack width, depth or
-// spacing without moving free/independent trays. The saved link also preserves
-// which side/point of the rack the endpoint was attached to.
-function syncStructuralTrayEndpoints(g){
-  if(!g)return;
-  // Inter-row calhas created from one rack/fileira to another are structural
-  // connections, not free-floating geometry. Their endpoints must be derived
-  // from the current rack positions on both rows every render. This makes them
-  // follow changes to row spacing as well as rack width/gap changes.
-  state.trays.forEach(t=>{
-    if(!t?.fromRowId || !t?.toRowId)return;
-    const ra=state.rows.find(r=>r.id===t.fromRowId);
-    const rb=state.rows.find(r=>r.id===t.toRowId);
-    if(!ra||!rb)return;
-    const a=trayPointForRowIndex(ra,t.fromIndex,g,t.sideFrom||null);
-    const b=trayPointForRowIndex(rb,t.toIndex,g,t.sideTo||null);
-    if(a&&Number.isFinite(a.x)&&Number.isFinite(a.y)){t.x1=a.x;t.y1=a.y;}
-    if(b&&Number.isFinite(b.x)&&Number.isFinite(b.y)){t.x2=b.x;t.y2=b.y;}
-  });
-}
-
-function syncAttachedTrayEndpoints(g){
-  if(!g)return;
-  syncStructuralTrayEndpoints(g);
-  if(!Array.isArray(state.trayRackLinks) || !state.trayRackLinks.length)return;
-  state.trayRackLinks.forEach(link=>{
-    const t=state.trays.find(x=>x.id===link.trayId);
-    const r=state.racks.find(x=>x.id===link.rackId);
-    if(!t||!r)return;
-    const q=rackRect(r,g);
-    let p;
-    if(Number.isFinite(Number(link.rx)) && Number.isFinite(Number(link.ry)) && link.connectionKind==='edge'){
-      p={x:q.x+Math.max(0,Math.min(1,Number(link.rx)))*q.w,y:q.y+Math.max(0,Math.min(1,Number(link.ry)))*q.h};
-    }else{
-      switch(link.point){
-        case 'left': p={x:q.x,y:q.y+q.h/2}; break;
-        case 'right': p={x:q.x+q.w,y:q.y+q.h/2}; break;
-        case 'top': p={x:q.x+q.w/2,y:q.y}; break;
-        case 'bottom': p={x:q.x+q.w/2,y:q.y+q.h}; break;
-        case 'top-left': p={x:q.x,y:q.y}; break;
-        case 'top-right': p={x:q.x+q.w,y:q.y}; break;
-        case 'bottom-left': p={x:q.x,y:q.y+q.h}; break;
-        case 'bottom-right': p={x:q.x+q.w,y:q.y+q.h}; break;
-        default: p={x:q.x+q.w/2,y:q.y+q.h/2};
-      }
-    }
-    if(Number(link.end)===0){t.x1=p.x;t.y1=p.y;}
-    else {t.x2=p.x;t.y2=p.y;}
-  });
-}
-function trayLengthPx(t){return Math.hypot(num(t.x2)-num(t.x1),num(t.y2)-num(t.y1));}
-function trayLengthMeters(t,g){syncAttachedTrayEndpoints(g);return trayLengthPx(t)/Math.max(1,g.scale);}
 function createIndependentTray(g,x1,y1,x2,y2){
   if(structureBlocked())return;
   const t={id:uid('tray'),name:`Calha ${state.trays.length+1}`,x1,y1,x2,y2,width:.10};
@@ -1627,11 +1365,10 @@ function render(){
       const gap=Math.max(0,num(row.gap,0));
       const upperBottom=prev.y+(rowDepth(prev)*g.scale);
       const lowerTop=cur.y;
-      // Dimension line is intentionally placed outside the racks/fileira labels.
-      // The extension lines point from the rack edge to the external dimension,
-      // keeping the gap itself visually free even when rows are very close.
-      const xDim=Math.max(40, g.x0-88);
-      const xExt=g.x0-50;
+      // Dimension line sits just left of the racks, closer than the fileira
+      // label, so it still reads as attached to the racks it measures.
+      const xDim=Math.max(40, g.x0-40);
+      const xExt=g.x0-16;
       const midY=(upperBottom+lowerTop)/2;
       svg.insertAdjacentHTML('beforeend',`<line class="row-gap-dim" x1="${xDim}" y1="${upperBottom}" x2="${xDim}" y2="${lowerTop}"/>`
         +`<line class="row-gap-ext" x1="${xDim}" y1="${upperBottom}" x2="${xExt}" y2="${upperBottom}"/>`
@@ -1781,6 +1518,11 @@ function render(){
       state.selected={type:'rack',id};
     }
     renderAll();
+  }));
+  svg.querySelectorAll('[data-rack]').forEach(el=>el.addEventListener('dblclick',e=>{
+    e.stopPropagation();
+    if(window.__manualRoutePicking)return;
+    openRackBayface(el.dataset.rack);
   }));
   svg.querySelectorAll('.rack-text,.svg-label').forEach(el=>el.style.pointerEvents='none');
   svg.querySelectorAll('[data-tray]').forEach(el=>el.addEventListener('click',e=>{
@@ -1950,209 +1692,6 @@ function render(){
 
 }
 
-function trayPointAt(t,tValue){
-  const u=Math.max(0,Math.min(1,Number(tValue)||0));
-  return {x:num(t.x1)+(num(t.x2)-num(t.x1))*u,y:num(t.y1)+(num(t.y2)-num(t.y1))*u};
-}
-function nearestPointOnSegment(px,py,ax,ay,bx,by){
-  const dx=bx-ax,dy=by-ay,den=dx*dx+dy*dy;
-  if(!den)return {x:ax,y:ay,t:0,d:Math.hypot(px-ax,py-ay)};
-  let t=((px-ax)*dx+(py-ay)*dy)/den;t=Math.max(0,Math.min(1,t));
-  const x=ax+t*dx,y=ay+t*dy;return {x,y,t,d:Math.hypot(px-x,py-y)};
-}
-function nearestTrayConnection(ignoreId,x,y,maxDist){
-  let best=null,bestD=maxDist;
-  state.trays.forEach(t=>{
-    if(t.id===ignoreId)return;
-    const q=nearestPointOnSegment(x,y,num(t.x1),num(t.y1),num(t.x2),num(t.y2));
-    if(q.d<=bestD){best={type:'tray',tray:t,x:q.x,y:q.y,t:q.t,end:q.t<=0.001?'a':q.t>=0.999?'b':null};bestD=q.d;}
-  });
-  return best;
-}
-function rackConnectionPoint(r,g,x,y){
-  const q=rackRect(r,g);
-  const cx=q.x+q.w/2,cy=q.y+q.h/2;
-  const points=[
-    {point:'center',x:cx,y:cy,kind:'center'},
-    {point:'top',x:cx,y:q.y,kind:'edge',side:'top'},
-    {point:'bottom',x:cx,y:q.y+q.h,kind:'edge',side:'bottom'},
-    {point:'left',x:q.x,y:cy,kind:'edge',side:'left'},
-    {point:'right',x:q.x+q.w,y:cy,kind:'edge',side:'right'},
-    {point:'top-left',x:q.x,y:q.y,kind:'edge',side:'top-left'},
-    {point:'top-right',x:q.x+q.w,y:q.y,kind:'edge',side:'top-right'},
-    {point:'bottom-left',x:q.x,y:q.y+q.h,kind:'edge',side:'bottom-left'},
-    {point:'bottom-right',x:q.x+q.w,y:q.y+q.h,kind:'edge',side:'bottom-right'}
-  ];
-  points.forEach(p=>p.d=Math.hypot(x-p.x,y-p.y));
-  return {center:points[0],edgePoints:points.slice(1),points};
-}
-function nearestTrayOrRackSnap(ignoreTrayId,x,y,maxDist){
-  const g=geometry();
-  let best=null,bestD=maxDist;
-
-  // 1) Existing tray-to-tray connection remains fully free-form: any point
-  // along another calha can be used as a junction.
-  const tray=nearestTrayConnection(ignoreTrayId,x,y,maxDist);
-  if(tray){best=tray;bestD=Math.hypot(x-tray.x,y-tray.y);}
-
-  // 2) Rack snap targets are deliberately discrete: center + center of each
-  // lateral + four corners. We also detect when an existing tray passes close
-  // to one of these exact rack anchors. In that situation, the preferred snap
-  // is the rack anchor itself, while the tray junction is stored at the
-  // corresponding point along the existing tray. This lets an intermediate
-  // calha be connected cleanly at the rack's center/corner instead of ending
-  // a few pixels away from the rack anchor.
-  state.racks.forEach(r=>{
-    const rc=rackConnectionPoint(r,g,x,y);
-    const candidates=rc.points;
-    candidates.forEach(c=>{
-      const d=Math.hypot(x-c.x,y-c.y);
-      if(d>maxDist)return;
-      let linkedTray=null,linkedHit=null,linkedDist=Infinity;
-      state.trays.forEach(other=>{
-        if(other.id===ignoreTrayId)return;
-        const hit=nearestPointOnSegment(c.x,c.y,num(other.x1),num(other.y1),num(other.x2),num(other.y2));
-        if(hit.d<linkedDist){linkedDist=hit.d;linkedTray=other;linkedHit=hit;}
-      });
-
-      // A tray is considered to pass through a rack snap anchor when it is
-      // physically close enough to that exact point. The allowance is slightly
-      // larger than the ordinary mouse snap distance so small visual offsets
-      // caused by zoom do not prevent a clean infrastructure junction.
-      const trayAnchorTol=Math.min(Math.max(10,g.scale*0.08),Math.max(16,maxDist));
-      const hasTrayAnchor=!!linkedTray && linkedDist<=trayAnchorTol;
-      const result={type:hasTrayAnchor?'rack-tray':'rack',rack:r,x:c.x,y:c.y,point:c.point};
-      if(c.kind==='edge'){
-        result.connectionKind='edge';
-        result.side=c.side;
-        const q=rackRect(r,g);
-        result.rx=(c.x-q.x)/Math.max(q.w,1);
-        result.ry=(c.y-q.y)/Math.max(q.h,1);
-      }else{
-        result.connectionKind='center';
-        result.rx=.5; result.ry=.5;
-      }
-      if(hasTrayAnchor){
-        result.tray=linkedTray;
-        result.trayX=linkedHit.x;
-        result.trayY=linkedHit.y;
-        result.trayT=linkedHit.t;
-        // Prefer the exact rack anchor whenever the cursor is close to it.
-        // Only fall back to a free tray target when the anchor is not in range.
-        if(d<=bestD+6){best=result;bestD=d;}
-      }else if(d<=bestD){
-        best=result;bestD=d;
-      }
-    });
-  });
-  return best;
-}
-function linkTrayPoints(aTray,aT,bTray,bT){
-  const exists=state.trayLinks.some(l=>
-    (l.aTray===aTray&&Math.abs((l.aT??(l.aEnd==='a'?0:1))-aT)<0.002&&l.bTray===bTray&&Math.abs((l.bT??(l.bEnd==='a'?0:1))-bT)<0.002)||
-    (l.aTray===bTray&&Math.abs((l.aT??(l.aEnd==='a'?0:1))-bT)<0.002&&l.bTray===aTray&&Math.abs((l.bT??(l.bEnd==='a'?0:1))-aT)<0.002));
-  if(!exists)state.trayLinks.push({aTray,aT,bTray,bT});
-}
-function segmentIntersection(a,b,c,d){
-  const r={x:b.x-a.x,y:b.y-a.y}, s={x:d.x-c.x,y:d.y-c.y};
-  const cross=(u,v)=>u.x*v.y-u.y*v.x;
-  const den=cross(r,s);
-  const qmp={x:c.x-a.x,y:c.y-a.y};
-  if(Math.abs(den)<1e-9)return null;
-  const t=cross(qmp,s)/den, u=cross(qmp,r)/den;
-  if(t<-1e-6||t>1+1e-6||u<-1e-6||u>1+1e-6)return null;
-  return {x:a.x+t*r.x,y:a.y+t*r.y,tA:Math.max(0,Math.min(1,t)),tB:Math.max(0,Math.min(1,u))};
-}
-function trayLinkExistsAt(aTray,aT,bTray,bT,tol=0.002){
-  return state.trayLinks.some(l=>{
-    const la=l.aTray===aTray&&l.bTray===bTray&&Math.abs((l.aT??0)-aT)<=tol&&Math.abs((l.bT??0)-bT)<=tol;
-    const lb=l.aTray===bTray&&l.bTray===aTray&&Math.abs((l.aT??0)-bT)<=tol&&Math.abs((l.bT??0)-aT)<=tol;
-    return la||lb;
-  });
-}
-
-// Remove automatically-created crossing junctions as soon as their geometry
-// stops representing a real intersection. This runs during render so a stale
-// junction cannot remain visible until another selection/render event.
-function cleanupAutoCrossingLinks(){
-  if(!Array.isArray(state.trayLinks)||!state.trayLinks.length)return;
-  state.trayLinks=state.trayLinks.filter(l=>{
-    if(!l.autoCrossing)return true;
-    const a=state.trays.find(t=>t.id===l.aTray);
-    const b=state.trays.find(t=>t.id===l.bTray);
-    if(!a||!b)return false;
-    const hit=segmentIntersection(
-      {x:num(a.x1),y:num(a.y1)},{x:num(a.x2),y:num(a.y2)},
-      {x:num(b.x1),y:num(b.y1)},{x:num(b.x2),y:num(b.y2)}
-    );
-    if(!hit)return false;
-    const aT=Number.isFinite(l.aT)?l.aT:(l.aEnd==='a'?0:1);
-    const bT=Number.isFinite(l.bT)?l.bT:(l.bEnd==='a'?0:1);
-    // The saved junction must still be at the current physical intersection.
-    if(Math.abs(hit.tA-aT)>0.002||Math.abs(hit.tB-bT)>0.002)return false;
-    // A crossing is only a real infrastructure junction when at least one
-    // of the two trays is fully connected at both endpoints.
-    const fullyA=trayEndpointConnected(a.id,0)&&trayEndpointConnected(a.id,1);
-    const fullyB=trayEndpointConnected(b.id,0)&&trayEndpointConnected(b.id,1);
-    return fullyA||fullyB;
-  });
-}
-function updateLinksForTray(id){
-  // Existing links use normalized positions, so they follow the calha when it moves.
-  // A simple crossing is NOT a connection while the calha is being dragged.
-}
-function trayEndpointConnected(trayId,end){
-  const t=state.trays.find(x=>x.id===trayId);
-  if(!t)return false;
-  const ex=end===0?num(t.x1):num(t.x2);
-  const ey=end===0?num(t.y1):num(t.y2);
-
-  // 1) Explicit links created by the snap interaction.
-  const viaTray=state.trayLinks.some(l=>{
-    const a=l.aTray===trayId && Math.abs((l.aT??(l.aEnd==='a'?0:1))-end)<0.002;
-    const b=l.bTray===trayId && Math.abs((l.bT??(l.bEnd==='a'?0:1))-end)<0.002;
-    return a||b;
-  });
-  if(viaTray)return true;
-  const viaRack=state.trayRackLinks.some(l=>l.trayId===trayId && l.end===end);
-  if(viaRack)return true;
-
-  // 2) Geometry fallback. A connection is also valid when the endpoint is
-  // physically sitting on a rack connection point or on another tray. This
-  // makes the routing robust even if an older project has the geometry but
-  // is missing the corresponding link record.
-  const g=geometry();
-  const tol=6;
-  for(const r of state.racks){
-    const rc=rackConnectionPoint(r,g,ex,ey);
-    const candidates=rc.points;
-    if(candidates.some(pt=>pt.d<=tol))return true;
-  }
-  for(const other of state.trays){
-    if(other.id===trayId)continue;
-    const q=nearestPointOnSegment(ex,ey,num(other.x1),num(other.y1),num(other.x2),num(other.y2));
-    if(q.d<=tol)return true;
-  }
-  return false;
-}
-function connectCrossingsForTray(trayId){
-  const a=state.trays.find(t=>t.id===trayId); if(!a)return;
-  // This is intentionally evaluated only after mouseup, and only when both
-  // endpoints are already connected. At that point crossings become real
-  // junctions in the infrastructure network.
-  if(!trayEndpointConnected(trayId,0)||!trayEndpointConnected(trayId,1))return;
-  state.trays.forEach(b=>{
-    if(b.id===a.id)return;
-    const hit=segmentIntersection(
-      {x:num(a.x1),y:num(a.y1)},{x:num(a.x2),y:num(a.y2)},
-      {x:num(b.x1),y:num(b.y1)},{x:num(b.x2),y:num(b.y2)}
-    );
-    if(!hit)return;
-    // If the intersection is already one of the explicit links, keep it.
-    if(trayLinkExistsAt(a.id,hit.tA,b.id,hit.tB))return;
-    state.trayLinks.push({aTray:a.id,aT:hit.tA,bTray:b.id,bT:hit.tB,autoCrossing:true});
-  });
-}
 
 function assetRoom(asset){
   if(!asset)return null;
@@ -2175,22 +1714,6 @@ function assetOccupancy(asset){
   return {start,end:start+height-1};
 }
 function isAssetArchived(asset){ return String(asset?.status||'')==='Arquivado'; }
-function dateUrgencyLevel(dateStr,warnDays){
-  if(!dateStr)return 'none';
-  const today=new Date(); today.setHours(0,0,0,0);
-  const d=new Date(dateStr+'T00:00:00');
-  if(isNaN(d.getTime()))return 'none';
-  const daysLeft=Math.round((d-today)/86400000);
-  if(daysLeft<0)return 'expired';
-  if(daysLeft<=warnDays)return 'soon';
-  return 'ok';
-}
-function formatAssetDate(dateStr){
-  if(!dateStr)return '';
-  const d=new Date(dateStr+'T00:00:00');
-  if(isNaN(d.getTime()))return '';
-  return d.toLocaleDateString('pt-BR');
-}
 const ASSET_WARRANTY_WARN_DAYS=60, ASSET_EOL_WARN_DAYS=60;
 function assetWarrantyLevel(a){ return dateUrgencyLevel(a?.warrantyExpiration,ASSET_WARRANTY_WARN_DAYS); }
 function assetEndOfLifeLevel(a){ return dateUrgencyLevel(a?.endOfLife,ASSET_EOL_WARN_DAYS); }
@@ -2358,20 +1881,6 @@ const BAYFACE_TYPE_DEFAULTS={'is-switch':'#4cc9f0','is-storage':'#9b8cff','is-po
 function defaultBayfaceTypeColor(type){return BAYFACE_TYPE_DEFAULTS[bayfaceAssetTypeClass(type)]||'#6fd38c';}
 function bayfaceTypeColor(type){normalizeAssetCatalogs();return state.assetCatalogs.typeColors?.[type]||defaultBayfaceTypeColor(type);}
 function setBayfaceTypeColor(type,color){normalizeAssetCatalogs();state.assetCatalogs.typeColors[type]=color;save();if($('bayfaceModal')?.classList.contains('open')){const rid=$('bayfaceModal').dataset.rackId;if(rid)openBayface(rid);}}
-function catalogNormalize(value){
-  return String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'');
-}
-function catalogSimilarity(a,b){
-  const x=catalogNormalize(a),y=catalogNormalize(b); if(!x||!y)return 0; if(x===y)return 1;
-  const prev=Array.from({length:y.length+1},(_,i)=>i);
-  for(let i=1;i<=x.length;i++){let cur=[i];for(let j=1;j<=y.length;j++)cur[j]=Math.min(cur[j-1]+1,prev[j]+1,prev[j-1]+(x[i-1]===y[j-1]?0:1));prev.splice(0,prev.length,...cur);}
-  return 1-prev[y.length]/Math.max(x.length,y.length);
-}
-function catalogSimilar(value,values){
-  const norm=catalogNormalize(value); if(!norm)return [];
-  return [...new Set((values||[]).map(v=>String(v))).values()].filter(v=>catalogNormalize(v)!==norm&&catalogSimilarity(value,v)>=0.84).sort((a,b)=>catalogSimilarity(value,b)-catalogSimilarity(value,a));
-}
-function catalogKeyLabel(key){return key==='types'?'Tipos de ativo':key==='manufacturers'?'Fabricantes':key==='statuses'?'Status':key==='substatuses'?'Substatus':'Modelos';}
 function renderCableTypesCatalog(){
   normalizeCableCatalogs();
   const el=$('catalogCableTypes'); if(!el)return;
@@ -2578,41 +2087,6 @@ function renderAssetCatalogManufacturerSelect(){
 }
 function renderAssetCatalogTypeSelect(){
   normalizeAssetCatalogs();const el=$('catalogModelType');if(!el)return;const current=el.value||'';el.innerHTML='<option value="">Todos os tipos</option>'+state.assetCatalogs.types.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');el.value=current&&state.assetCatalogs.types.includes(current)?current:'';
-}
-function parsePortTemplate(str){
-  const m=String(str||'').match(/^(.*?)(\d+)(\D*)$/);
-  if(!m)return null;
-  return {prefix:m[1],suffix:m[3],num:parseInt(m[2],10),width:m[2].length};
-}
-function buildPortRange(startLabel,endLabel){
-  const a=parsePortTemplate(startLabel), b=parsePortTemplate(endLabel);
-  if(!a||!b)return null;
-  if(a.prefix!==b.prefix||a.suffix!==b.suffix)return null;
-  if(b.num<a.num)return null;
-  if(b.num-a.num+1>500)return null;
-  const width=Math.max(a.width,b.width);
-  const out=[];
-  for(let n=a.num;n<=b.num;n++) out.push(a.prefix+String(n).padStart(width,'0')+a.suffix);
-  return out;
-}
-function expandPortDefs(portDefs){
-  const ports=[];
-  (portDefs||[]).forEach(def=>{
-    if(def.kind==='range'){
-      const range=buildPortRange(def.startLabel,def.endLabel);
-      if(!range)return;
-      range.forEach(label=>ports.push({id:uid('port'),label,poe:!!def.poe}));
-    }else{
-      ports.push({id:uid('port'),label:def.label,poe:!!def.poe});
-    }
-  });
-  return ports;
-}
-function totalPortDefsCount(portDefs){
-  return (portDefs||[]).reduce((sum,def)=>{
-    if(def.kind==='range'){const r=buildPortRange(def.startLabel,def.endLabel);return sum+(r?r.length:0);}
-    return sum+1;
-  },0);
 }
 let catalogEditorPortDefs=[];
 function renderCatalogPortDefsEditor(){
@@ -3048,7 +2522,7 @@ async function deleteAsset(assetId){
 function locateAsset(assetId){const a=state.assets.find(x=>x.id===assetId);if(!a)return;if(a.roomId&&a.roomId!==state.activeRoomId)switchRoom(a.roomId);if(a.rackId){state.selected={type:'rack',id:a.rackId};state.multiSelected=[a.rackId];state.trayMultiSelected=[];closeAssetsModal();closeBayface();renderAll(false);openBayface(a.rackId);}}
 let assetColumnFilters={};
 const ASSET_COLUMN_ORDER=['check','assetTag','name','type','manufacturer','model','serial','location','rack','u','uHeight','status','substatus','purchaseDate','warranty','eol','actions'];
-const ASSET_COLUMN_WIDTHS_DEFAULT={check:36,assetTag:100,name:170,type:100,manufacturer:120,model:130,serial:130,location:170,rack:80,u:64,uHeight:64,status:100,substatus:100,purchaseDate:110,warranty:120,eol:120,actions:150};
+const ASSET_COLUMN_WIDTHS_DEFAULT={check:36,assetTag:126,name:170,type:100,manufacturer:120,model:130,serial:130,location:170,rack:80,u:64,uHeight:64,status:100,substatus:100,purchaseDate:110,warranty:120,eol:120,actions:150};
 const ASSET_COLUMN_MIN_WIDTHS={check:36,assetTag:70,name:90,type:70,manufacturer:70,model:70,serial:80,location:90,rack:60,u:48,uHeight:48,status:70,substatus:70,purchaseDate:80,warranty:80,eol:80,actions:120};
 let assetColumnWidths={...ASSET_COLUMN_WIDTHS_DEFAULT};
 let assetColumnsAutoFitted=false;
@@ -3057,7 +2531,7 @@ function measureTextWidth(text,font){
   measureTextWidth._ctx.font=font;
   return measureTextWidth._ctx.measureText(String(text||'')).width;
 }
-const ASSET_COLUMN_HEADER_LABELS={assetTag:'Asset Tag',name:'Nome',type:'Tipo',manufacturer:'Fabricante',model:'Modelo',serial:'Serial Number',location:'Localização',rack:'Rack',u:'U',uHeight:'Qtd. U',status:'Status',substatus:'Substatus',purchaseDate:'Data de compra',warranty:'Garantia',eol:'EOL'};
+const ASSET_COLUMN_HEADER_LABELS={assetTag:'Asset Tag',name:'Nome',type:'Tipo',manufacturer:'Fabricante',model:'Modelo',serial:'SN',location:'Localização',rack:'Rack',u:'U',uHeight:'Qtd. U',status:'Status',substatus:'Substatus',purchaseDate:'Compra',warranty:'Garantia',eol:'EOL'};
 function autoFitAssetColumnText(a,col){
   switch(col){
     case 'assetTag': return a.assetTag||'—';
@@ -3415,9 +2889,7 @@ function bayfaceMarkup(rackId){
   assets.forEach(a=>{const o=assetOccupancy(a);for(let u=o.start;u<=o.end;u++)if(u>=1&&u<=units)occupiedUnits.add(u);});
   const usedUnits=occupiedUnits.size;
   const freeUnits=Math.max(0,units-usedUnits);
-  const availableH=Math.max(620,Math.floor(window.innerHeight-140));
-  const targetGridH=Math.max(760,Math.min(1000,availableH));
-  const rowH=Math.max(20,Math.min(26,Math.floor(targetGridH/units)));
+  const rowH=26;
   const gridH=units*rowH;
   let rows='';
   for(let u=units;u>=1;u--){
@@ -3430,8 +2902,9 @@ function bayfaceMarkup(rackId){
     const clampedStart=Math.max(1,Math.min(units,o.start));
     const end=Math.min(units,o.end);
     const span=Math.max(1,end-clampedStart+1);
-    const top=(units-end)*rowH+1;
-    const h=Math.max(1,span*rowH-2);
+    const topRows=units-end;
+    const top=`calc(${topRows} * var(--bayface-row-h) + 1px)`;
+    const h=`calc(${span} * var(--bayface-row-h) - 2px)`;
     const color=bayfaceTypeColor(a.type);
     const name=String(a.name||a.assetTag||a.type||'Equipamento');
     const model=String(a.model||'');
@@ -3441,7 +2914,7 @@ function bayfaceMarkup(rackId){
     const tooltip=[identity,a.assetTag,a.serial].filter(Boolean).join(' · ');
     const heightLabel=span===1?'1U':`${span}U`;
     const compact=span===1;
-    return `<button type="button" class="bayface-asset ${compact?'is-compact':''}" style="top:${top}px;height:${h}px;--type-color:${esc(color)}" data-bay-edit="${esc(a.id)}" title="${esc(tooltip)} · U${clampedStart}${span>1?`–U${end}`:''}">
+    return `<button type="button" class="bayface-asset ${compact?'is-compact':''}" style="top:${top};height:${h};--type-color:${esc(color)}" data-bay-edit="${esc(a.id)}" title="${esc(tooltip)} · U${clampedStart}${span>1?`–U${end}`:''}">
       <span class="bayface-asset-body"><span class="bayface-asset-name-row"><span class="bayface-asset-dot"></span><b>${esc(name)}</b></span>${subtitle?`<small>${esc(subtitle)}</small>`:''}</span>
       <span class="bayface-asset-u">${heightLabel}</span>
     </button>`;
@@ -3451,7 +2924,8 @@ function bayfaceMarkup(rackId){
   return `<div class="bayface-wrap">
     <div class="bayface-head">
       <div class="bayface-title-block">
-        <strong class="bayface-rack-name">${esc(r.name)}</strong>
+        <input type="text" class="bayface-rack-name-input" id="bayfaceRackNameInput" value="${esc(r.name)}" list="bayfaceRackNamesList" autocomplete="off" spellcheck="false" aria-label="Nome do rack">
+        <datalist id="bayfaceRackNamesList">${orderedRackList().map(x=>`<option value="${esc(x.name)}"></option>`).join('')}</datalist>
         <div class="bayface-stats">
           <span class="bayface-stat">${units}U</span>
           <span class="bayface-stat">${assets.length} asset${assets.length===1?'':'s'}</span>
@@ -3462,7 +2936,8 @@ function bayfaceMarkup(rackId){
       </div>
     </div>
     <div class="bayface-stage">
-      <div class="bayface-rack" style="--bayface-row-h:${rowH}px;--bayface-grid-h:${gridH}px">
+      <button type="button" class="bayface-nav prev" id="bayfaceNavPrev" aria-label="Rack anterior" title="Rack anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4l-8 8 8 8"/></svg></button>
+      <div class="bayface-rack" data-units="${units}" style="--bayface-row-h:${rowH}px;--bayface-grid-h:${gridH}px">
         <div class="bayface-topbar"><span class="bayface-brand">${esc(r.name)}</span><span class="bayface-rack-state">FRONT</span></div>
         <div class="bayface-frame">
           <div class="bayface-rail rail-left"></div><div class="bayface-rail rail-right"></div>
@@ -3473,10 +2948,67 @@ function bayfaceMarkup(rackId){
           </div>
         </div>
       </div>
+      <button type="button" class="bayface-nav next" id="bayfaceNavNext" aria-label="Próximo rack" title="Próximo rack"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4l8 8-8 8"/></svg></button>
     </div>
   </div>`;
 }
-function openBayface(rackId){const r=assetRack(rackId);if(!r)return;const m=$('bayfaceModal');if(!m)return;m.style.zIndex='1100';$('bayfaceTitle').textContent=`Bayface — ${r.name}`;$('bayfaceContent').innerHTML=bayfaceMarkup(rackId);m.dataset.rackId=rackId;m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.querySelectorAll('[data-bay-edit]').forEach(b=>b.addEventListener('click',()=>openAssetModal(b.dataset.bayEdit)));m.querySelectorAll('[data-bay-add-u]').forEach(b=>b.addEventListener('click',()=>{if(b.disabled||b.classList.contains('occupied'))return;openBayfaceAssetPicker(rackId,Number(b.dataset.bayAddU));}));}
+function orderedRackList(){const out=[];state.rows.forEach(row=>{racksInRow(row.id).forEach(r=>out.push(r));});return out;}
+function fitBayfaceHeight(m){
+  const card=m.querySelector('.bayface-card')||m;
+  const rack=m.querySelector('.bayface-rack');
+  if(!card||!rack)return;
+  const units=Number(rack.dataset.units)||0;
+  if(!units)return;
+  const cs=getComputedStyle(rack);
+  let rowH=parseFloat(cs.getPropertyValue('--bayface-row-h'))||20;
+  const overflow=card.scrollHeight-card.clientHeight;
+  if(overflow>1){
+    rowH=Math.max(10,rowH-Math.ceil(overflow/units));
+    rack.style.setProperty('--bayface-row-h',rowH+'px');
+    rack.style.setProperty('--bayface-grid-h',(rowH*units)+'px');
+  }
+}
+function openBayface(rackId){
+  const r=assetRack(rackId);if(!r)return;
+  const m=$('bayfaceModal');if(!m)return;
+  m.style.zIndex='1100';
+  $('bayfaceTitle').textContent=`Bayface — ${r.name}`;
+  $('bayfaceContent').innerHTML=bayfaceMarkup(rackId);
+  m.dataset.rackId=rackId;
+  m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');
+  fitBayfaceHeight(m);
+  m.querySelectorAll('[data-bay-edit]').forEach(b=>b.addEventListener('click',()=>openAssetModal(b.dataset.bayEdit)));
+  m.querySelectorAll('[data-bay-add-u]').forEach(b=>b.addEventListener('click',()=>{if(b.disabled||b.classList.contains('occupied'))return;openBayfaceAssetPicker(rackId,Number(b.dataset.bayAddU));}));
+  const nameInput=m.querySelector('#bayfaceRackNameInput');
+  if(nameInput){
+    const commitName=()=>{
+      const v=nameInput.value.trim();
+      if(v && v!==r.name){
+        const target=state.racks.find(x=>x.name===v);
+        if(target){openBayface(target.id);return;}
+        toast('Rack não encontrado');
+      }
+      nameInput.value=r.name;
+    };
+    nameInput.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();nameInput.blur();}
+      else if(e.key==='Escape'){nameInput.value=r.name;nameInput.blur();}
+    });
+    nameInput.addEventListener('blur',commitName);
+  }
+  const list=orderedRackList();
+  const idx=list.findIndex(x=>x.id===rackId);
+  const navPrev=m.querySelector('#bayfaceNavPrev');
+  const navNext=m.querySelector('#bayfaceNavNext');
+  if(navPrev){
+    navPrev.disabled=list.length<=1;
+    navPrev.addEventListener('click',()=>{if(!list.length)return;const i=idx<0?0:(idx-1+list.length)%list.length;openBayface(list[i].id);});
+  }
+  if(navNext){
+    navNext.disabled=list.length<=1;
+    navNext.addEventListener('click',()=>{if(!list.length)return;const i=idx<0?0:(idx+1)%list.length;openBayface(list[i].id);});
+  }
+}
 function renderBayface(rackId){openBayface(rackId);}
 function closeBayface(){closeBayfaceAssetPicker();const m=$('bayfaceModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
 
@@ -3733,321 +3265,6 @@ function renderCableProperties(p,c){
 }
 function updateCableResult(c){const el=$('cableResult');if(!el)return;const validation=cableUnitValidation(c);if(!validation.valid){el.innerHTML='<div class="validation-error">⚠ '+validation.errors.map(esc).join('<br>')+'</div>';return;}const res=calcCable(c);const rounded=res.reachable?Math.ceil(res.total):0;el.innerHTML=`<div class="metric"><span>Vertical origem</span><b>${res.v1.toFixed(2)} m</b></div><div class="metric"><span>Trecho pelas calhas</span><b>${res.tray.toFixed(2)} m</b></div><div class="metric"><span>Vertical destino</span><b>${res.v2.toFixed(2)} m</b></div><div class="metric"><span>Conexões</span><b>${res.connection.toFixed(2)} m</b></div><div class="metric"><span>Base</span><b>${res.base.toFixed(2)} m</b></div><div class="metric"><span>Folga ${c.slack??state.defaultSlack}%</span><b>${res.slack.toFixed(2)} m</b></div><div class="metric"><span>Total</span><b>${res.total.toFixed(2)} m</b></div><div class="metric total-rounded"><span>Total arredondado para cima</span><b>${res.reachable?rounded:'—'} m</b></div>${res.reachable?'':'<div class="unreachable">Não existe rota pelas calhas cadastradas.</div>'}`;}
 
-// ---------- Graph / shortest route ----------
-function rackCableRiseMeters(r,u,tray){
-  const units=Math.max(1,num(r.units,state.rackUnits));
-  const usedU=Math.max(1,Math.min(units,Math.floor(num(u,1))));
-  // The vertical leg belongs exclusively to the rack. The tray has no
-  // height-to-U property; each rack carries its own riseToTray value.
-  const rise = Number.isFinite(Number(r.riseToTray)) ? Number(r.riseToTray) : num(state.lastUToTray,1);
-  return Math.max(0,(units-usedU)*(U_MM/1000)) + Math.max(0,rise);
-}
-function ensureInfrastructureJunctions(){
-  // Rebuild any valid crossing junctions before calculating a cable. This is
-  // intentionally NOT called while a tray is being dragged. A tray only
-  // participates in automatic crossings when both of its endpoints are
-  // already connected to a valid destination (rack or tray).
-  state.trays.forEach(t=>{
-    if(trayEndpointConnected(t.id,0) && trayEndpointConnected(t.id,1)){
-      connectCrossingsForTray(t.id);
-    }
-  });
-}
-function buildRouteGraph(c){
-  // Infrastructure-only graph. Crossings are derived from the current geometry
-  // at calculation time, but ONLY between trays whose two endpoints are already
-  // connected (to racks or to other trays). This keeps dragging non-destructive
-  // while guaranteeing that valid cross-row intersections are recognized.
-  ensureInfrastructureJunctions();
-  const nodes=new Map(),edges=new Map();
-  const addNode=(id,n)=>{if(!nodes.has(id)){nodes.set(id,n);edges.set(id,[]);}};
-  const connect=(a,b,cost)=>{
-    if(!Number.isFinite(cost)||cost<0)return;
-    if(!nodes.has(a)||!nodes.has(b))return;
-    edges.get(a).push({id:b,cost});edges.get(b).push({id:a,cost});
-  };
-  const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack);
-  if(!o||!d)return null;
-  const oid=`rack:${o.id}`,did=`rack:${d.id}`;
-  addNode(oid,{kind:'rack',rack:o,role:'origin'});
-  addNode(did,{kind:'rack',rack:d,role:'dest'});
-  const g=geometry();
-  syncAttachedTrayEndpoints(g);
-
-  // Build a complete, current set of junction/access parameters for each tray.
-  // A junction may come from an explicit endpoint link or from a valid crossing.
-  const complete= t => trayEndpointConnected(t.id,0) && trayEndpointConnected(t.id,1);
-  const trayPoints=new Map();
-  const crossingPairs=[];
-  state.trays.forEach(t=>trayPoints.set(t.id,[]));
-
-  // Explicit tray-to-tray links (including endpoint-to-endpoint snaps).
-  state.trayLinks.forEach((l,i)=>{
-    const a=state.trays.find(t=>t.id===l.aTray), b=state.trays.find(t=>t.id===l.bTray);
-    if(!a||!b)return;
-    const at=num(l.aT,0),bt=num(l.bT,0);
-    trayPoints.get(a.id).push({t:at,kind:'link',linkKey:`${i}:a`});
-    trayPoints.get(b.id).push({t:bt,kind:'link',linkKey:`${i}:b`});
-  });
-
-  // Origin/destination: only an explicit physical rack connection is valid.
-  // The route must start/end at the connection the user created, rather than
-  // silently choosing a rack edge or the rack center.
-  const explicitRackLinksByRack=new Map();
-  state.trayRackLinks.forEach((l,i)=>{
-    const t=state.trays.find(x=>x.id===l.trayId),r=state.racks.find(x=>x.id===l.rackId);
-    if(!t||!r)return;
-    if(r.id!==o.id&&r.id!==d.id)return;
-    const arr=explicitRackLinksByRack.get(r.id)||[];
-    arr.push({t,numEnd:Number(l.end),link:l,tray:t,linkKey:`rack:${i}`});
-    explicitRackLinksByRack.set(r.id,arr);
-    trayPoints.get(t.id).push({t:num(l.end,0),kind:'rack',rack:r,explicit:true,linkKey:`rack:${i}`});
-  });
-
-  // Intermediate racks are NOT connection points for the cable. They are
-  // reference waypoints only and use the physical center of the rack. This
-  // lets a same-row tray crossing a rack be understood geometrically without
-  // requiring a user-created snap on that intermediate rack.
-  const intermediateRacks=state.racks.filter(r=>r.id!==o.id&&r.id!==d.id);
-  intermediateRacks.forEach(r=>{
-    const row=rowForRack(r),q=rackRect(r,g);
-    if(!row||!q)return;
-    const cx=q.x+q.w/2,cy=q.y+q.h/2;
-    state.trays.forEach(t=>{
-      const hit=nearestPointOnSegment(cx,cy,num(t.x1),num(t.y1),num(t.x2),num(t.y2));
-      if(hit.d>Math.max(10,g.scale*0.10))return;
-      // Only same-row trays can use an intermediate rack as a geometric
-      // waypoint. No vertical rise or cable termination is introduced here.
-      const rowCenterYVal=rowCenterY(state.rows.indexOf(row),g);
-      if(Math.abs(cy-rowCenterYVal)>Math.max(12,g.scale*0.12))return;
-      trayPoints.get(t.id).push({t:hit.t,kind:'intermediate-rack',rack:r,center:true});
-    });
-  });
-
-  // If an origin/destination rack has no explicit snap, infer its access
-  // point from a tray that is genuinely usable for that rack's CENTER.
-  // Important: do not choose a nearby vertical tray for a different rack just
-  // because it is geometrically close. Prefer a tray whose axis crosses the
-  // rack center; this keeps 101 -> 202 on rack 202's horizontal tray while
-  // still allowing 101 -> 203 to use the vertical tray centered on 203.
-  [o,d].forEach(r=>{
-    if((explicitRackLinksByRack.get(r.id)||[]).length)return;
-    const row=rowForRack(r),q=rackRect(r,g);
-    if(!row||!q)return;
-    const cx=q.x+q.w/2,cy=q.y+q.h/2;
-    let best=null;
-    state.trays.forEach(t=>{
-      const x1=num(t.x1), y1=num(t.y1), x2=num(t.x2), y2=num(t.y2);
-      const dx=x2-x1, dy=y2-y1;
-      const horizontal=Math.abs(dx)>=Math.abs(dy);
-      const vertical=!horizontal;
-      const tolAxis=Math.max(4,g.scale*0.025);
-      let eligible=false;
-
-      if(horizontal){
-        // A horizontal tray can serve the rack center when the rack center X
-        // falls on the tray segment. Its Y may be above/below the rack because
-        // the real rack-to-tray leg is vertical and is not part of the plan
-        // view.
-        const xmin=Math.min(x1,x2)-tolAxis, xmax=Math.max(x1,x2)+tolAxis;
-        eligible=cx>=xmin && cx<=xmax;
-      }else if(vertical){
-        // A vertical tray can serve the rack center only when its X axis is
-        // aligned with the rack center. This prevents the vertical tray of
-        // rack 203 from being selected as the access for rack 202.
-        const ymin=Math.min(y1,y2)-tolAxis, ymax=Math.max(y1,y2)+tolAxis;
-        eligible=Math.abs((x1+x2)/2-cx)<=tolAxis && cy>=ymin && cy<=ymax;
-      }
-      if(!eligible)return;
-
-      const hit=nearestPointOnSegment(cx,cy,x1,y1,x2,y2);
-      const score=horizontal ? Math.abs(hit.x-cx)+Math.abs(hit.y-(q.y+q.h/2))*0.15 : hit.d;
-      if(!best||score<best.score)best={tray:t,hit,score};
-    });
-    if(best){
-      const t=best.tray,hit=best.hit;
-      trayPoints.get(t.id).push({t:hit.t,kind:'rack',rack:r,center:true,explicit:false,fallback:true,linkKey:`center:${r.id}:${t.id}`});
-    }
-  });
-  // A crossing becomes a real junction when at least ONE of the two trays
-  // is fully connected at both endpoints. The fully connected tray is the
-  // one that authorizes the junction; the other tray does NOT need both
-  // endpoints connected. This matches the infrastructure rule: once the
-  // tray being positioned has both ends connected (to a rack or another
-  // tray), every tray it crosses becomes part of the usable network.
-  for(let i=0;i<state.trays.length;i++){
-    const a=state.trays[i];
-    for(let j=i+1;j<state.trays.length;j++){
-      const b=state.trays[j];
-      if(!complete(a) && !complete(b))continue;
-      const hit=segmentIntersection(
-        {x:num(a.x1),y:num(a.y1)},{x:num(a.x2),y:num(a.y2)},
-        {x:num(b.x1),y:num(b.y1)},{x:num(b.x2),y:num(b.y2)}
-      );
-      if(!hit)continue;
-      const key=`${a.id}:${b.id}`;
-      trayPoints.get(a.id).push({t:hit.tA,kind:'cross',crossKey:key});
-      trayPoints.get(b.id).push({t:hit.tB,kind:'cross',crossKey:key});
-      crossingPairs.push({aTray:a.id,aT:hit.tA,bTray:b.id,bT:hit.tB,key});
-    }
-  }
-
-  // Add tray nodes, de-duplicate coincident parameters, then connect consecutive
-  // points by the actual physical distance along that tray.
-  state.trays.forEach(t=>{
-    const pts=trayPoints.get(t.id)||[];
-    pts.push({t:0,kind:'endpoint'}); pts.push({t:1,kind:'endpoint'});
-    pts.sort((a,b)=>a.t-b.t);
-    const groups=[];
-    for(const pt of pts){
-      const last=groups[groups.length-1];
-      if(!last || Math.abs(last[0].t-pt.t)>0.000001)groups.push([pt]);
-      else last.push(pt);
-    }
-    const ids=[];
-    groups.forEach((group,gi)=>{
-      const tv=group.reduce((sum,p)=>sum+p.t,0)/group.length;
-      const p=trayPointAt(t,tv);
-      const id=`tray:${t.id}:p:${gi}`;
-      const rackPt=group.find(x=>x.kind==='rack'&&x.rack);
-      addNode(id,{kind:'tray',tray:t,t:tv,x:p.x,y:p.y,access:!!rackPt,rack:rackPt?.rack||null});
-      ids.push(id);
-      // Same physical point on the same tray is a zero-cost alias.
-      for(let k=1;k<group.length;k++){
-        const alias=`tray:${t.id}:alias:${gi}:${k}`;
-        addNode(alias,{kind:'alias',tray:t,t:tv,x:p.x,y:p.y});
-        connect(id,alias,0);
-      }
-    });
-    for(let i=1;i<ids.length;i++){
-      const a=nodes.get(ids[i-1]),b=nodes.get(ids[i]);
-      const meters=Math.hypot(b.x-a.x,b.y-a.y)/Math.max(1,g.scale);
-      connect(ids[i-1],ids[i],meters);
-    }
-    // Connect every explicit/virtual rack access to its corresponding tray point.
-    groups.forEach((group,gi)=>{
-      const baseId=ids[gi];
-      group.forEach((pt,k)=>{
-        if(pt.kind!=='rack'||!pt.rack)return;
-        // Only origin/destination racks can terminate a cable. Explicit snaps
-        // use their exact physical connection point; the center fallback is
-        // permitted only when no explicit connection exists for that rack.
-        if(pt.rack.id!==o.id && pt.rack.id!==d.id)return;
-        const isExplicit=!!pt.explicit;
-        const hasExplicit=(explicitRackLinksByRack.get(pt.rack.id)||[]).length>0;
-        if(!isExplicit && hasExplicit)return;
-        const aid=`rack:${pt.rack.id}:access:${t.id}:${gi}:${k}`;
-        addNode(aid,{kind:'tray',tray:t,t:pt.t,x:trayPointAt(t,pt.t).x,y:trayPointAt(t,pt.t).y,access:true,rack:pt.rack,explicit:isExplicit,centerFallback:!isExplicit});
-        connect(baseId,aid,0);
-        const u=pt.rack.id===o.id?num(c.originU,1):num(c.destU,1);
-        connect(pt.rack.id===o.id?oid:did,aid,c.__routeTopologyOnly?0:rackCableRiseMeters(pt.rack,u,t));
-      });
-    });
-  });
-
-  // Valid crossings are zero-length junctions between the two tray graphs.
-  // They are added only after both trays are fully connected.
-  for(const pair of crossingPairs){
-    const aIds=[...nodes.entries()].filter(([id,n])=>n.kind==='tray'&&n.tray?.id===pair.aTray).sort((x,y)=>Math.abs(x[1].t-pair.aT)-Math.abs(y[1].t-pair.aT));
-    const bIds=[...nodes.entries()].filter(([id,n])=>n.kind==='tray'&&n.tray?.id===pair.bTray).sort((x,y)=>Math.abs(x[1].t-pair.bT)-Math.abs(y[1].t-pair.bT));
-    if(aIds[0]&&bIds[0])connect(aIds[0][0],bIds[0][0],0);
-  }
-
-  // Explicit tray-to-tray snaps are zero-length transitions. Connect the
-  // nearest graph nodes at their stored parameters; this covers endpoint snaps.
-  state.trayLinks.forEach((l,i)=>{
-    const a=state.trays.find(t=>t.id===l.aTray),b=state.trays.find(t=>t.id===l.bTray);
-    if(!a||!b)return;
-    const at=num(l.aT,0),bt=num(l.bT,0);
-    const aIds=[...nodes.entries()].filter(([id,n])=>n.kind==='tray'&&n.tray?.id===a.id).sort((x,y)=>Math.abs(x[1].t-at)-Math.abs(y[1].t-at));
-    const bIds=[...nodes.entries()].filter(([id,n])=>n.kind==='tray'&&n.tray?.id===b.id).sort((x,y)=>Math.abs(x[1].t-bt)-Math.abs(y[1].t-bt));
-    if(aIds[0]&&bIds[0])connect(aIds[0][0],bIds[0][0],0);
-  });
-
-  return{nodes,edges,oid,did};
-}
-function shortestPathNodes(c){
-  const g=buildRouteGraph(c);if(!g)return[];
-  const{nodes,edges,oid,did}=g,dist=new Map(),prev=new Map(),used=new Set();
-  for(const id of nodes.keys())dist.set(id,Infinity);
-  dist.set(oid,0);
-  while(used.size<nodes.size){
-    let cur=null,best=Infinity;
-    for(const[id,d]of dist)if(!used.has(id)&&d<best){best=d;cur=id;}
-    if(cur===null)break;
-    used.add(cur);if(cur===did)break;
-    for(const e of edges.get(cur)||[]){const nd=best+e.cost;if(nd<dist.get(e.id)){dist.set(e.id,nd);prev.set(e.id,cur);}}
-  }
-  if(!Number.isFinite(dist.get(did)))return[];
-  const ids=[];let cur=did;
-  while(cur){ids.unshift(cur);if(cur===oid)break;cur=prev.get(cur);}
-  return ids[0]===oid?ids:[];
-}
-function calcAutomaticTrayLength(c){
-  const g=buildRouteGraph(c);if(!g)return{reachable:false,length:0,path:[]};
-  const ids=shortestPathNodes(c);if(!ids.length)return{reachable:false,length:0,path:[]};
-  let length=0;
-  for(let i=1;i<ids.length;i++){
-    const a=g.nodes.get(ids[i-1]),b=g.nodes.get(ids[i]);
-    const e=(g.edges.get(ids[i-1])||[]).find(x=>x.id===ids[i]);
-    if(e)length+=e.cost;
-  }
-  return{reachable:true,length,path:ids};
-}
-function routePointsForAutomatic(c,g){
-  const ids=shortestPathNodes(c);if(!ids.length)return[];
-  const graph=buildRouteGraph(c),pts=[];
-  // The plan-view cable is drawn only along the tray network. The vertical
-  // rack-to-tray portions are physical height and are already represented in
-  // the numerical calculation; drawing them in the top view creates the
-  // unwanted lines through the rack body. Therefore rack nodes are omitted
-  // from the visual polyline and only their tray access points are rendered.
-  ids.forEach(id=>{
-    const n=graph.nodes.get(id);
-    if(!n || n.kind!=='tray')return;
-    pts.push({x:n.x,y:n.y});
-  });
-  return dedupeRoutePoints(pts);
-}
-function dedupeRoutePoints(pts){
-  const out=[];pts.forEach(p=>{if(!out.length||Math.hypot(p.x-out[out.length-1].x,p.y-out[out.length-1].y)>0.5)out.push(p);});return out;
-}
-function routeBetweenRacks(aId,bId,c){
-  const temp={...c,originRack:aId,destRack:bId,via:[],__routeTopologyOnly:true};
-  const res=calcAutomaticTrayLength(temp);
-  if(!res.reachable)return null;
-  const graph=buildRouteGraph(temp);
-  const pts=routePointsForAutomatic(temp,graph);
-  return {reachable:true,length:res.length,path:res.path,points:pts};
-}
-function manualRouteData(c){
-  if(c.originRack===c.destRack)return {reachable:true,length:0,points:[],segments:[]};
-  const ids=[c.originRack,...(c.via||[]),c.destRack];
-  let total=0,points=[],segments=[];
-  for(let i=1;i<ids.length;i++){
-    const seg=routeBetweenRacks(ids[i-1],ids[i],c);
-    if(!seg)return {reachable:false,length:0,points:[],segments,failedFrom:ids[i-1],failedTo:ids[i]};
-    total+=seg.length; segments.push(seg);
-    if(seg.points.length){
-      if(points.length && Math.hypot(points[points.length-1].x-seg.points[0].x,points[points.length-1].y-seg.points[0].y)<0.5) points.push(...seg.points.slice(1));
-      else points.push(...seg.points);
-    }
-  }
-  return {reachable:true,length:total,points:dedupeRoutePoints(points),segments};
-}
-function computeRoute(c,g){
-  if(c.routeMode==='manual') return manualRouteData(c).points;
-  return routePointsForAutomatic(c,g);
-}
-function validateManualRouteCandidate(c,rackId){
-  if(!rackId || rackId===c.originRack || rackId===c.destRack || (c.via||[]).includes(rackId))return {ok:false,message:'Esse rack não pode ser adicionado à rota.'};
-  const seq=[c.originRack,...(c.via||[])];
-  const from=seq[seq.length-1];
-  const seg=routeBetweenRacks(from,rackId,c);
-  if(!seg)return {ok:false,message:`Não existe caminho pelas calhas entre ${rackNameById(from)} e ${rackNameById(rackId)}.`};
-  return {ok:true};
-}
-function rackNameById(id){const r=state.racks.find(x=>x.id===id);return r?.name||id||'?';}
 function bindManualRouteControls(c){
   const pick=$('pickRouteRack'),clear=$('clearManualRoute');
   if(pick)pick.onclick=()=>{if(c.routeMode!=='manual')return;window.__manualRoutePicking=!window.__manualRoutePicking;pick.classList.toggle('active',!!window.__manualRoutePicking);pick.textContent=window.__manualRoutePicking?'Clique em um rack…':'Adicionar rack à rota';renderManualRouteUI(c);};
@@ -4063,74 +3280,6 @@ function renderManualRouteUI(c){
   const md=manualRouteData(c);
   if(status){status.textContent=md.reachable?(c.via?.length?`Rota válida: ${[c.originRack,...c.via,c.destRack].map(rackNameById).join(' → ')}`:'Nenhum rack intermediário selecionado.'):`Rota impossível: ${rackNameById(md.failedFrom)} → ${rackNameById(md.failedTo)}`;status.className='manual-route-status '+(md.reachable?'valid':'invalid');}
   const clear=$('clearManualRoute');if(clear)clear.disabled=!(c.via||[]).length;
-}
-function calcCable(c){
-  const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack);
-  if(!o||!d)return{v1:0,v2:0,tray:0,connection:0,base:0,slack:0,total:0,reachable:false,path:[]};
-  // Cabos entre duas portas/U do MESMO rack não sobem para a calha.
-  // O comprimento é somente o percurso vertical interno entre as U.
-  if(c.originRack===c.destRack){
-    const direct=Math.abs(num(c.originU,1)-num(c.destU,1))*(U_MM/1000);
-    const connection=0.30;
-    const base=direct+connection;
-    const slack=base*(num(c.slack,state.defaultSlack)/100);
-    return{v1:direct,v2:0,tray:0,connection,base,slack,total:base+slack,reachable:true,path:[]};
-  }
-  const manual=c.routeMode==='manual';
-  const md=manual?manualRouteData(c):null;
-  const rr=manual?{reachable:md.reachable,length:md.length,path:[]} : calcAutomaticTrayLength(c),reachable=rr.reachable;
-  const graph=reachable&&!manual?buildRouteGraph(c):null;
-  let v1=0,v2=0,tray=manual?Math.max(0,md.length):0;
-  if(manual){
-    if(md.reachable&&md.segments.length){
-      // Manual mode fixes the sequence of racks, but the infrastructure path
-      // inside each segment is still chosen by the normal tray graph. The
-      // selected racks in `via` are waypoints only: they never add a vertical
-      // rack-to-tray leg. The tray distance is therefore the complete
-      // topology-only distance, while V1/V2 come only from the actual first
-      // and last endpoint connections selected by that same topology route.
-      const ids=[c.originRack,...(c.via||[]),c.destRack];
-
-      const firstTo=ids[1] || c.destRack;
-      const firstTemp={...c,originRack:c.originRack,destRack:firstTo,via:[],__routeTopologyOnly:true};
-      const firstGraph=buildRouteGraph(firstTemp);
-      const firstPath=shortestPathNodes(firstTemp);
-      if(firstGraph&&firstPath.length>1){
-        const firstNode=firstGraph.nodes.get(firstPath[0]);
-        const firstNext=firstGraph.nodes.get(firstPath[1]);
-        const firstEdge=(firstGraph.edges.get(firstPath[0])||[]).find(x=>x.id===firstPath[1]);
-        if(firstNode?.kind==='rack'&&firstNext?.kind==='tray'&&firstEdge){
-          v1=rackCableRiseMeters(o,num(c.originU,1),firstNext.tray);
-        }
-      }
-
-      const lastFrom=ids.length>1 ? ids[ids.length-2] : c.originRack;
-      const lastTemp={...c,originRack:lastFrom,destRack:c.destRack,via:[],__routeTopologyOnly:true};
-      const lastGraph=buildRouteGraph(lastTemp);
-      const lastPath=shortestPathNodes(lastTemp);
-      if(lastGraph&&lastPath.length>1){
-        const lastNode=lastGraph.nodes.get(lastPath[lastPath.length-2]);
-        const lastNext=lastGraph.nodes.get(lastPath[lastPath.length-1]);
-        const lastEdge=(lastGraph.edges.get(lastPath[lastPath.length-2])||[]).find(x=>x.id===lastPath[lastPath.length-1]);
-        if(lastNode?.kind==='tray'&&lastNext?.kind==='rack'&&lastEdge){
-          v2=rackCableRiseMeters(d,num(c.destU,1),lastNode.tray);
-        }
-      }
-    }
-  } else if(reachable&&graph){
-    const ids=rr.path;
-    for(let i=1;i<ids.length;i++){
-      const a=graph.nodes.get(ids[i-1]),b=graph.nodes.get(ids[i]),e=(graph.edges.get(ids[i-1])||[]).find(x=>x.id===ids[i]);
-      if(!e)continue;
-      if(a.kind==='rack'&&b.kind==='tray')v1+=e.cost;
-      else if(a.kind==='tray'&&b.kind==='rack')v2+=e.cost;
-      else tray+=e.cost;
-    }
-  }
-  const connection=reachable?0.60:0;
-  const base=reachable?v1+tray+v2+connection:0;
-  const slack=base*(num(c.slack,state.defaultSlack)/100),total=base+slack;
-  return{v1,v2,tray,connection,base,slack,total,reachable,path:rr.path};
 }
 function refreshVisuals(){normalizeState();render();renderCables();updateAlertsCenterBadge();updateRoomThermalBadge();save();}
 
@@ -4393,7 +3542,6 @@ function cableSummaryRows(){
   return [...groups.entries()].map(([key,qty])=>{const [type,length]=key.split('|');return {type,length:Number(length),qty};})
     .sort((a,b)=>(order.get(a.type)-order.get(b.type))||a.length-b.length);
 }
-function excelColumnLetter(n){let s='';while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;}
 function cablePortAt(rackId,u,portId){if(!portId)return null;return assetAtRackU(rackId,u)?.ports?.find(p=>p.id===portId)||null;}
 function cableEndpointLabel(rackId,u,portId,freeformLabel='',assetNameFallback=''){
   const rack=state.racks.find(r=>r.id===rackId);
@@ -4521,7 +3669,8 @@ function renderCables(){
       const originLabel=cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName);
       const destLabel=cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName);
       const checked=cableMultiSelected.includes(c.id);
-      return `<div class="cable-item ${state.selected?.type==='cable'&&state.selected.id===c.id?'selected':''} ${invalid?'invalid':''} ${checked?'is-checked':''}" style="border-left-color:${cableTypeColor(c.type)}" data-cable="${c.id}">
+      const isSelected=state.selected?.type==='cable'&&state.selected.id===c.id;
+      return `<div class="cable-item ${isSelected?'selected':''} ${invalid?'invalid':''} ${checked?'is-checked':''}" style="${isSelected?'':`border-left-color:${cableTypeColor(c.type)}`}" data-cable="${c.id}">
         <label class="cable-item-check" onclick="event.stopPropagation()"><input type="checkbox" data-cable-check="${c.id}" ${checked?'checked':''}></label>
         <div class="cable-item-body">
           <div class="cable-name-row"><span class="cable-name">${invalid?'⚠ ':''}${esc(c.name)}</span><span class="cable-type-tag" style="color:${cableTypeColor(c.type)}">${esc(c.type||'')}</span></div>
@@ -4636,6 +3785,36 @@ async function deleteSelectedRacks(){
   state.multiSelected=[];state.selected=null;normalizeState();renderAll();toast(`${ids.length} racks excluídos`);
 }
 
+function setupPropSectionResize(){
+  const handle=$('propSectionResize');
+  const propSection=handle?.previousElementSibling;
+  const right=handle?.closest('.sidebar.right');
+  if(!handle||!propSection||!right)return;
+  let startY=0,startH=0,dragging=false;
+  const onMove=e=>{
+    if(!dragging)return;
+    const dy=e.clientY-startY;
+    const maxAllowed=Math.max(120,right.clientHeight-140);
+    const h=Math.max(120,Math.min(maxAllowed,startH+dy));
+    propSection.style.maxHeight=h+'px';
+  };
+  const onUp=()=>{
+    dragging=false;
+    handle.classList.remove('is-dragging');
+    document.removeEventListener('pointermove',onMove);
+    document.removeEventListener('pointerup',onUp);
+  };
+  handle.addEventListener('pointerdown',e=>{
+    if(e.button!==0)return;
+    dragging=true;
+    startY=e.clientY;
+    startH=propSection.getBoundingClientRect().height;
+    handle.classList.add('is-dragging');
+    document.addEventListener('pointermove',onMove);
+    document.addEventListener('pointerup',onUp);
+    e.preventDefault();
+  });
+}
 function setupPan(){
   const wrap=$('canvasWrap'), stage=$('canvasStage');
   if(!wrap||!stage)return;
@@ -5289,13 +4468,6 @@ function getCol(row,aliases){
   if(keys.length===1){const k=keys[0]; const v=String(m[k]??'').trim(); if(v) return v;}
   return '';
 }
-function parseImportDate(value){
-  const s=String(value||'').trim(); if(!s)return '';
-  let m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/); if(m)return s;
-  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if(m){const dd=m[1].padStart(2,'0'),mm=m[2].padStart(2,'0');return `${m[3]}-${mm}-${dd}`;}
-  return '';
-}
 function assetImportCatalogOptions(kind, selected=''){
   normalizeAssetCatalogs();
   if(kind==='type') return '<option value="">Selecione</option>'+state.assetCatalogs.types.map(v=>`<option value="${esc(v)}" ${catalogNormalize(v)===catalogNormalize(selected)?'selected':''}>${esc(v)}</option>`).join('');
@@ -5763,7 +4935,6 @@ async function importCatalogSingleWorkbook(file,kind){
   }catch(e){console.error('Catalog import error:',e);toast('Não foi possível ler a planilha: '+(e?.message||e));}
 }
 
-function parseImportNumber(v,fallback=0){const n=Number(String(v).replace(',','.'));return Number.isFinite(n)?n:fallback;}
 async function processAssetsWorkbook(file){
   try{
     const wb=await readWorkbookFile(file);
@@ -6115,7 +5286,6 @@ function bind(){
   $('assetsBulkCancel')?.addEventListener('click',closeBulkAssetsModal);
   $('assetsBulkManual')?.addEventListener('click',()=>{$('assetsBulkChooser')?.classList.add('hidden');$('assetsBulkEditor')?.classList.remove('hidden');$('assetsBulkModal')?.querySelector('.bulk-assets-card')?.classList.add('wide');});
   $('assetsBulkImport')?.addEventListener('click',()=>{closeBulkAssetsModal();openAssetsImportModal();});
-  $('assetsBulkTemplate')?.addEventListener('click',makeAssetsTemplate);
   $('assetsBulkBack')?.addEventListener('click',()=>{$('assetsBulkEditor')?.classList.add('hidden');$('assetsBulkChooser')?.classList.remove('hidden');$('assetsBulkModal')?.querySelector('.bulk-assets-card')?.classList.remove('wide');});
   $('assetsBulkAddRow')?.addEventListener('click',addBulkRow);
   $('assetsBulkSave')?.addEventListener('click',saveBulkAssets);
@@ -6227,7 +5397,7 @@ function bind(){
   setupSidebarToggle();
   setupStructureLockControl();
 
-  load();renderAll(false);initHistory(cloudProjectId);setupPan();
+  load();renderAll(false);initHistory(cloudProjectId);setupPan();setupPropSectionResize();
   // A barra lateral já foi inicializada por setupSidebarToggle().
   $('btnQuickSearch')?.addEventListener('click',openQuickSearch);
   $('quickSearchClose')?.addEventListener('click',closeQuickSearch); $('summaryClose')?.addEventListener('click',closeProjectSummary);
