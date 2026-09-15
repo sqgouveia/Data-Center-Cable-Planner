@@ -623,9 +623,9 @@ body.guest-mode #btnSave{pointer-events:none;opacity:.45;cursor:not-allowed}
 .col-resize-handle{position:absolute;top:0;right:-9px;width:14px;height:100%;cursor:col-resize;z-index:3}
 .col-resize-handle::after{content:"";position:absolute;left:50%;top:24%;bottom:24%;width:2px;background:var(--muted);opacity:.3;transform:translateX(-50%) scaleX(.5);transition:background .12s,transform .12s,opacity .12s}
 .col-resize-handle:hover::after,.col-resize-handle.is-resizing::after{background:var(--blue);transform:translateX(-50%) scaleX(1);opacity:1}
-.col-head-check{justify-content:center}
+.col-head-check{justify-content:center;padding-right:0}
 .col-head-check input{width:14px;height:14px;margin:0;cursor:pointer;accent-color:var(--blue)}
-.col-sort-label{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;font-weight:inherit;display:flex;align-items:center;gap:3px;cursor:pointer;min-width:0}
+.col-sort-label{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;font-weight:inherit;display:flex;align-items:center;gap:3px;cursor:pointer;min-width:0;white-space:nowrap}
 .col-sort-label:hover{color:var(--text)}
 .col-sort-arrow{width:9px;height:11px;flex:none;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .col-sort-arrow path{opacity:0;transition:opacity .12s}

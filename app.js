@@ -2518,7 +2518,7 @@ async function deleteAsset(assetId){
 function locateAsset(assetId){const a=state.assets.find(x=>x.id===assetId);if(!a)return;if(a.roomId&&a.roomId!==state.activeRoomId)switchRoom(a.roomId);if(a.rackId){state.selected={type:'rack',id:a.rackId};state.multiSelected=[a.rackId];state.trayMultiSelected=[];closeAssetsModal();closeBayface();renderAll(false);openBayface(a.rackId);}}
 let assetColumnFilters={};
 const ASSET_COLUMN_ORDER=['check','assetTag','name','type','manufacturer','model','serial','location','rack','u','uHeight','status','substatus','purchaseDate','warranty','eol','actions'];
-const ASSET_COLUMN_WIDTHS_DEFAULT={check:36,assetTag:100,name:170,type:100,manufacturer:120,model:130,serial:130,location:170,rack:80,u:64,uHeight:64,status:100,substatus:100,purchaseDate:110,warranty:120,eol:120,actions:150};
+const ASSET_COLUMN_WIDTHS_DEFAULT={check:36,assetTag:126,name:170,type:100,manufacturer:120,model:130,serial:130,location:170,rack:80,u:64,uHeight:64,status:100,substatus:100,purchaseDate:110,warranty:120,eol:120,actions:150};
 const ASSET_COLUMN_MIN_WIDTHS={check:36,assetTag:70,name:90,type:70,manufacturer:70,model:70,serial:80,location:90,rack:60,u:48,uHeight:48,status:70,substatus:70,purchaseDate:80,warranty:80,eol:80,actions:120};
 let assetColumnWidths={...ASSET_COLUMN_WIDTHS_DEFAULT};
 let assetColumnsAutoFitted=false;
@@ -2527,7 +2527,7 @@ function measureTextWidth(text,font){
   measureTextWidth._ctx.font=font;
   return measureTextWidth._ctx.measureText(String(text||'')).width;
 }
-const ASSET_COLUMN_HEADER_LABELS={assetTag:'Asset Tag',name:'Nome',type:'Tipo',manufacturer:'Fabricante',model:'Modelo',serial:'Serial Number',location:'Localização',rack:'Rack',u:'U',uHeight:'Qtd. U',status:'Status',substatus:'Substatus',purchaseDate:'Data de compra',warranty:'Garantia',eol:'EOL'};
+const ASSET_COLUMN_HEADER_LABELS={assetTag:'Asset Tag',name:'Nome',type:'Tipo',manufacturer:'Fabricante',model:'Modelo',serial:'SN',location:'Localização',rack:'Rack',u:'U',uHeight:'Qtd. U',status:'Status',substatus:'Substatus',purchaseDate:'Compra',warranty:'Garantia',eol:'EOL'};
 function autoFitAssetColumnText(a,col){
   switch(col){
     case 'assetTag': return a.assetTag||'—';
