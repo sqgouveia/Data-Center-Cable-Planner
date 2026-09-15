@@ -2889,9 +2889,8 @@ function bayfaceMarkup(rackId){
   assets.forEach(a=>{const o=assetOccupancy(a);for(let u=o.start;u<=o.end;u++)if(u>=1&&u<=units)occupiedUnits.add(u);});
   const usedUnits=occupiedUnits.size;
   const freeUnits=Math.max(0,units-usedUnits);
-  const availableH=Math.max(620,Math.floor(window.innerHeight-140));
-  const targetGridH=Math.max(760,Math.min(1000,availableH));
-  const rowH=Math.max(20,Math.min(26,Math.floor(targetGridH/units)));
+  const availableH=Math.max(260,Math.floor(window.innerHeight*0.78-160));
+  const rowH=Math.max(10,Math.min(24,Math.floor(availableH/units)));
   const gridH=units*rowH;
   let rows='';
   for(let u=units;u>=1;u--){
@@ -2925,7 +2924,8 @@ function bayfaceMarkup(rackId){
   return `<div class="bayface-wrap">
     <div class="bayface-head">
       <div class="bayface-title-block">
-        <strong class="bayface-rack-name">${esc(r.name)}</strong>
+        <input type="text" class="bayface-rack-name-input" id="bayfaceRackNameInput" value="${esc(r.name)}" list="bayfaceRackNamesList" autocomplete="off" spellcheck="false" aria-label="Nome do rack">
+        <datalist id="bayfaceRackNamesList">${orderedRackList().map(x=>`<option value="${esc(x.name)}"></option>`).join('')}</datalist>
         <div class="bayface-stats">
           <span class="bayface-stat">${units}U</span>
           <span class="bayface-stat">${assets.length} asset${assets.length===1?'':'s'}</span>
@@ -2936,7 +2936,8 @@ function bayfaceMarkup(rackId){
       </div>
     </div>
     <div class="bayface-stage">
-      <div class="bayface-rack" style="--bayface-row-h:${rowH}px;--bayface-grid-h:${gridH}px">
+      <button type="button" class="bayface-nav prev" id="bayfaceNavPrev" aria-label="Rack anterior" title="Rack anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4l-8 8 8 8"/></svg></button>
+      <div class="bayface-rack" data-units="${units}" style="--bayface-row-h:${rowH}px;--bayface-grid-h:${gridH}px">
         <div class="bayface-topbar"><span class="bayface-brand">${esc(r.name)}</span><span class="bayface-rack-state">FRONT</span></div>
         <div class="bayface-frame">
           <div class="bayface-rail rail-left"></div><div class="bayface-rail rail-right"></div>
@@ -2947,10 +2948,67 @@ function bayfaceMarkup(rackId){
           </div>
         </div>
       </div>
+      <button type="button" class="bayface-nav next" id="bayfaceNavNext" aria-label="Próximo rack" title="Próximo rack"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4l8 8-8 8"/></svg></button>
     </div>
   </div>`;
 }
-function openBayface(rackId){const r=assetRack(rackId);if(!r)return;const m=$('bayfaceModal');if(!m)return;m.style.zIndex='1100';$('bayfaceTitle').textContent=`Bayface — ${r.name}`;$('bayfaceContent').innerHTML=bayfaceMarkup(rackId);m.dataset.rackId=rackId;m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.querySelectorAll('[data-bay-edit]').forEach(b=>b.addEventListener('click',()=>openAssetModal(b.dataset.bayEdit)));m.querySelectorAll('[data-bay-add-u]').forEach(b=>b.addEventListener('click',()=>{if(b.disabled||b.classList.contains('occupied'))return;openBayfaceAssetPicker(rackId,Number(b.dataset.bayAddU));}));}
+function orderedRackList(){const out=[];state.rows.forEach(row=>{racksInRow(row.id).forEach(r=>out.push(r));});return out;}
+function fitBayfaceHeight(m){
+  const card=m.querySelector('.bayface-card')||m;
+  const rack=m.querySelector('.bayface-rack');
+  if(!card||!rack)return;
+  const units=Number(rack.dataset.units)||0;
+  if(!units)return;
+  const cs=getComputedStyle(rack);
+  let rowH=parseFloat(cs.getPropertyValue('--bayface-row-h'))||20;
+  const overflow=card.scrollHeight-card.clientHeight;
+  if(overflow>1){
+    rowH=Math.max(10,rowH-Math.ceil(overflow/units));
+    rack.style.setProperty('--bayface-row-h',rowH+'px');
+    rack.style.setProperty('--bayface-grid-h',(rowH*units)+'px');
+  }
+}
+function openBayface(rackId){
+  const r=assetRack(rackId);if(!r)return;
+  const m=$('bayfaceModal');if(!m)return;
+  m.style.zIndex='1100';
+  $('bayfaceTitle').textContent=`Bayface — ${r.name}`;
+  $('bayfaceContent').innerHTML=bayfaceMarkup(rackId);
+  m.dataset.rackId=rackId;
+  m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');
+  fitBayfaceHeight(m);
+  m.querySelectorAll('[data-bay-edit]').forEach(b=>b.addEventListener('click',()=>openAssetModal(b.dataset.bayEdit)));
+  m.querySelectorAll('[data-bay-add-u]').forEach(b=>b.addEventListener('click',()=>{if(b.disabled||b.classList.contains('occupied'))return;openBayfaceAssetPicker(rackId,Number(b.dataset.bayAddU));}));
+  const nameInput=m.querySelector('#bayfaceRackNameInput');
+  if(nameInput){
+    const commitName=()=>{
+      const v=nameInput.value.trim();
+      if(v && v!==r.name){
+        const target=state.racks.find(x=>x.name===v);
+        if(target){openBayface(target.id);return;}
+        toast('Rack não encontrado');
+      }
+      nameInput.value=r.name;
+    };
+    nameInput.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();nameInput.blur();}
+      else if(e.key==='Escape'){nameInput.value=r.name;nameInput.blur();}
+    });
+    nameInput.addEventListener('blur',commitName);
+  }
+  const list=orderedRackList();
+  const idx=list.findIndex(x=>x.id===rackId);
+  const navPrev=m.querySelector('#bayfaceNavPrev');
+  const navNext=m.querySelector('#bayfaceNavNext');
+  if(navPrev){
+    navPrev.disabled=list.length<=1;
+    navPrev.addEventListener('click',()=>{if(!list.length)return;const i=idx<0?0:(idx-1+list.length)%list.length;openBayface(list[i].id);});
+  }
+  if(navNext){
+    navNext.disabled=list.length<=1;
+    navNext.addEventListener('click',()=>{if(!list.length)return;const i=idx<0?0:(idx+1)%list.length;openBayface(list[i].id);});
+  }
+}
 function renderBayface(rackId){openBayface(rackId);}
 function closeBayface(){closeBayfaceAssetPicker();const m=$('bayfaceModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
 
