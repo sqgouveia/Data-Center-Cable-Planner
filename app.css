@@ -181,7 +181,7 @@ input:disabled,select:disabled{opacity:.45;color:var(--muted);cursor:not-allowed
 #canvasWrap::-webkit-scrollbar-thumb:hover,.sidebar::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,var(--blue),var(--border));border:2px solid transparent;background-clip:padding-box}
 #canvasWrap::-webkit-scrollbar-corner{background:transparent}
 .btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important;border-color:var(--border)}
-#canvasStage{display:block;position:absolute;flex:none;left:0;top:0;will-change:transform}
+#canvasStage{display:block;position:absolute;flex:none;left:0;top:0}
 #canvasWrap::-webkit-scrollbar{width:12px;height:12px}
 #canvasWrap::-webkit-scrollbar-track{background:var(--panel2);border-left:1px solid var(--border)}
 #canvasWrap::-webkit-scrollbar-thumb{background:var(--border);border:3px solid var(--panel2);border-radius:999px}
