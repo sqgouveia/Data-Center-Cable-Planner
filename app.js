@@ -3727,6 +3727,36 @@ async function deleteSelectedRacks(){
   state.multiSelected=[];state.selected=null;normalizeState();renderAll();toast(`${ids.length} racks excluídos`);
 }
 
+function setupPropSectionResize(){
+  const handle=$('propSectionResize');
+  const propSection=handle?.previousElementSibling;
+  const right=handle?.closest('.sidebar.right');
+  if(!handle||!propSection||!right)return;
+  let startY=0,startH=0,dragging=false;
+  const onMove=e=>{
+    if(!dragging)return;
+    const dy=e.clientY-startY;
+    const maxAllowed=Math.max(120,right.clientHeight-140);
+    const h=Math.max(120,Math.min(maxAllowed,startH+dy));
+    propSection.style.maxHeight=h+'px';
+  };
+  const onUp=()=>{
+    dragging=false;
+    handle.classList.remove('is-dragging');
+    document.removeEventListener('pointermove',onMove);
+    document.removeEventListener('pointerup',onUp);
+  };
+  handle.addEventListener('pointerdown',e=>{
+    if(e.button!==0)return;
+    dragging=true;
+    startY=e.clientY;
+    startH=propSection.getBoundingClientRect().height;
+    handle.classList.add('is-dragging');
+    document.addEventListener('pointermove',onMove);
+    document.addEventListener('pointerup',onUp);
+    e.preventDefault();
+  });
+}
 function setupPan(){
   const wrap=$('canvasWrap'), stage=$('canvasStage');
   if(!wrap||!stage)return;
@@ -5310,7 +5340,7 @@ function bind(){
   setupSidebarToggle();
   setupStructureLockControl();
 
-  load();renderAll(false);initHistory(cloudProjectId);setupPan();
+  load();renderAll(false);initHistory(cloudProjectId);setupPan();setupPropSectionResize();
   // A barra lateral já foi inicializada por setupSidebarToggle().
   $('btnQuickSearch')?.addEventListener('click',openQuickSearch);
   $('quickSearchClose')?.addEventListener('click',closeQuickSearch); $('summaryClose')?.addEventListener('click',closeProjectSummary);

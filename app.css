@@ -38,6 +38,7 @@ body{margin:0;background:var(--bg);color:var(--text);font:13px Inter,Segoe UI,Ar
 .brand span{color:var(--muted);font-size:var(--fs-micro);opacity:.82}
 .actions,.toolbar-actions{display:flex;gap:8px}
 .btn{border:1px solid var(--border);background:var(--panel2);color:var(--text);border-radius:var(--r-sm);padding:9px 12px;cursor:pointer;font-weight:650;font-size:11px;transition:background .15s ease,border-color .15s ease,box-shadow .15s ease,transform .1s ease,color .15s ease;letter-spacing:.005em}
+.btn .ic{width:12px;height:12px;vertical-align:-2px;margin-right:1px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .btn:hover{border-color:var(--blue);transform:translateY(-1px);box-shadow:0 0 0 1px var(--blue) inset}
 .btn.primary{background:var(--blue);border-color:var(--blue);color:var(--bg);box-shadow:none}
 .btn.primary:hover{background:color-mix(in srgb,var(--blue) 88%,black);border-color:color-mix(in srgb,var(--blue) 88%,black);box-shadow:none;transform:none}
@@ -50,6 +51,9 @@ body{margin:0;background:var(--bg);color:var(--text);font:13px Inter,Segoe UI,Ar
 .sidebar.right{overflow:hidden;display:flex;flex-direction:column}
 .sidebar.right>section:first-child{flex:none;overflow-y:auto;max-height:45vh}
 .sidebar.right>.cables-section{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.prop-section-resize{flex:none;height:9px;margin:0 -14px;padding:0 14px;cursor:row-resize;position:relative;touch-action:none}
+.prop-section-resize::before{content:"";position:absolute;left:14px;right:14px;top:4px;height:1px;background:var(--border)}
+.prop-section-resize:hover::before,.prop-section-resize.is-dragging::before{background:var(--blue);height:2px;top:3.5px}
 .sidebar.right>.cables-section #cablesList{flex:1;min-height:0;overflow-y:auto}
 .left{border-right:1px solid var(--border);transition:transform .2s ease}
 .app.sidebar-collapsed .sidebar.left{transform:translateX(-100%);width:295px;min-width:0;overflow:hidden;transition:transform .2s ease;z-index:140;visibility:hidden;pointer-events:none;background:transparent;border-right-color:transparent !important;background-color:var(--bg) !important;background-image:linear-gradient(var(--grid) 1px, transparent 1px),
