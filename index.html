@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stratum</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css?v=89">
+</head>
+<body>
+<div id="authScreen" class="auth-screen" aria-hidden="false">
+  <div class="auth-card">
+    <button id="authTheme" class="auth-theme-btn" type="button" title="Alternar tema" aria-label="Alternar tema">☾</button>
+    <div class="auth-brand"><div class="brandmark"><img src="logo.png" alt="Stratum"></div><div><h1>Stratum</h1><span>Planejamento e gestão de data center</span></div></div>
+    <div id="authLoginView" class="auth-view">
+      <h2>Entrar</h2><p class="auth-subtitle">Acesse seu Stratum.</p>
+      <form id="loginForm" class="auth-form">
+        <label>E-mail<input id="loginEmail" type="email" autocomplete="email" required placeholder="voce@empresa.com"></label>
+        <label>Senha<span class="field-password"><input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Sua senha"><button type="button" class="password-toggle" data-toggle-password="loginPassword" aria-label="Mostrar senha" aria-pressed="false"><svg class="ic-eye" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></span></label>
+        <div id="loginError" class="auth-message error"></div>
+        <button class="btn primary full" type="submit" id="btnLogin">Entrar</button>
+      </form>
+      <div class="auth-links"><button type="button" class="linkbtn" id="showSignup">Criar uma conta</button><button type="button" class="linkbtn" id="showForgot">Esqueci minha senha</button></div>
+      <div class="auth-guest-divider"><span>ou</span></div>
+      <button type="button" class="btn ghost full" id="btnGuestMode">Entrar como convidado (sem nuvem)</button>
+    </div>
+    <div id="authSignupView" class="auth-view hidden">
+      <h2>Criar conta</h2><p class="auth-subtitle">Crie seu acesso ao Stratum.</p>
+      <form id="signupForm" class="auth-form">
+        <label>E-mail<input id="signupEmail" type="email" autocomplete="email" required placeholder="voce@empresa.com"></label>
+        <label>Senha<span class="field-password"><input id="signupPassword" type="password" autocomplete="new-password" minlength="6" required placeholder="Mínimo de 6 caracteres"><button type="button" class="password-toggle" data-toggle-password="signupPassword" aria-label="Mostrar senha" aria-pressed="false"><svg class="ic-eye" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></span></label>
+        <label>Confirmar senha<span class="field-password"><input id="signupPassword2" type="password" autocomplete="new-password" minlength="6" required placeholder="Repita sua senha"><button type="button" class="password-toggle" data-toggle-password="signupPassword2" aria-label="Mostrar senha" aria-pressed="false"><svg class="ic-eye" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></span></label>
+        <div id="signupMessage" class="auth-message"></div>
+        <button class="btn primary full" type="submit" id="btnSignup">Criar conta</button>
+      </form>
+      <div class="auth-links"><button type="button" class="linkbtn" id="showLoginFromSignup">Já tenho uma conta</button></div>
+    </div>
+    <div id="authForgotView" class="auth-view hidden">
+      <h2>Recuperar senha</h2><p class="auth-subtitle">Enviaremos um link para redefinir sua senha.</p>
+      <form id="forgotForm" class="auth-form">
+        <label>E-mail<input id="forgotEmail" type="email" autocomplete="email" required placeholder="voce@empresa.com"></label>
+        <div id="forgotMessage" class="auth-message"></div>
+        <button class="btn primary full" type="submit" id="btnForgot">Enviar link</button>
+      </form>
+      <div class="auth-links"><button type="button" class="linkbtn" id="showLoginFromForgot">Voltar para entrar</button></div>
+    </div>
+    <div id="authResetView" class="auth-view hidden">
+      <h2>Nova senha</h2><p class="auth-subtitle">Defina uma nova senha para sua conta.</p>
+      <form id="resetForm" class="auth-form">
+        <label>Nova senha<span class="field-password"><input id="resetPassword" type="password" autocomplete="new-password" minlength="6" required><button type="button" class="password-toggle" data-toggle-password="resetPassword" aria-label="Mostrar senha" aria-pressed="false"><svg class="ic-eye" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></span></label>
+        <label>Confirmar senha<span class="field-password"><input id="resetPassword2" type="password" autocomplete="new-password" minlength="6" required><button type="button" class="password-toggle" data-toggle-password="resetPassword2" aria-label="Mostrar senha" aria-pressed="false"><svg class="ic-eye" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></span></label>
+        <div id="resetMessage" class="auth-message"></div>
+        <button class="btn primary full" type="submit" id="btnResetPassword">Salvar nova senha</button>
+      </form>
+    </div>
+    <div id="authLoading" class="auth-loading hidden">Verificando sessão...</div>
+  </div>
+</div>
+<div id="dashboardScreen" class="dashboard-screen hidden" aria-hidden="true">
+  <div class="dashboard-shell">
+    <div class="dashboard-head">
+      <div class="dashboard-brand"><div class="brandmark"><img src="logo.png" alt="Stratum"></div><div><h1>Stratum</h1><span>Seus projetos</span></div></div>
+      <div class="dashboard-user"><span id="dashboardUserEmail"></span><button id="dashboardTheme" class="btn ghost" title="Alternar tema">☾ Tema</button><button id="dashboardLogout" class="btn ghost">↪ Sair</button></div>
+    </div>
+    <div class="dashboard-toolbar"><div><h2>Meus projetos</h2><p>Abra, duplique, renomeie ou exclua seus projetos.</p></div><button id="dashboardNewProject" class="btn primary">＋ Novo projeto</button></div>
+    <div id="projectsGrid" class="projects-grid"></div>
+    <div id="projectsEmpty" class="dashboard-empty hidden"><div class="empty-icon">＋</div><h3>Nenhum projeto ainda</h3><p>Crie seu primeiro projeto para começar.</p><button id="dashboardNewProjectEmpty" class="btn primary">＋ Criar projeto</button></div>
+  </div>
+</div>
+<header class="topbar" id="mainTopbar">
+  <div class="brand"><div class="brandmark"><img src="logo.png" alt="Stratum"></div><div><h1>Stratum</h1><span>Planejamento e gestão de data center</span></div></div>
+  <div class="actions">
+<div class="history-group" aria-label="Histórico"><button id="btnUndo" class="btn ghost" title="Desfazer (Ctrl+Z)" aria-label="Desfazer" disabled><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H13"/></svg></button><button id="btnRedo" class="btn ghost" title="Refazer (Ctrl+Y)" aria-label="Refazer" disabled><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 1 0 0 11H11"/></svg></button></div>
+    <button id="btnTheme" class="btn ghost ui-icon-label" title="Alternar tema"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.5 8.5 0 1 0 20.5 15.2Z"/></svg><span>Tema</span></button>
+    <button id="btnProjects" class="btn ghost ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Projetos</span></button>
+    <div class="room-control" title="Localização e sala">
+      <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V7l8-4 8 4v13"/><path d="M9 20v-5h6v5"/></svg>
+      <select id="locationSelect" aria-hidden="true" tabindex="-1" class="visually-hidden-select"></select>
+      <button type="button" id="locationSelectBtn" class="dc-select-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Selecionar localização"><span class="dc-select-label">—</span><svg class="ic-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+      <span class="room-control-separator">/</span>
+      <select id="roomSelect" aria-hidden="true" tabindex="-1" class="visually-hidden-select"></select>
+      <button type="button" id="roomSelectBtn" class="dc-select-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Selecionar sala"><span class="dc-select-label">—</span><svg class="ic-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+      <button id="btnLocations" class="btn ghost topbar-location-btn" type="button" title="Gerenciar localizações"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.2 7-12A7 7 0 1 0 5 9c0 6.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg><span>Localizações</span></button>
+    </div>
+    <div class="autosave-control" title="Salvamento automático na nuvem"><span id="autosaveLabel">Autosave</span><label class="switch-toggle"><input id="autosaveToggle" type="checkbox" aria-label="Desativar salvamento automático"><span class="switch-slider"></span></label></div>
+    <span id="cloudStatus" class="cloud-status topbar-cloud-status" data-status="saved">✓ Salvo na nuvem</span>
+    <button id="btnSave" class="btn ghost ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></svg><span>Salvar na nuvem</span></button>
+    <button id="btnImportProject" class="btn ghost ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg><span>Importar projeto</span></button>
+    <button id="btnExport" class="btn ghost ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V9M7 12l5-5 5 5M5 4h14"/></svg><span>Exportar projeto</span></button>
+    <button id="btnPdfReport" class="btn ghost ui-icon-label" type="button" title="Gerar relatório em PDF"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"/><path d="M9 13h6M9 17h4"/></svg><span>Relatório PDF</span></button>
+    <span id="authUserEmail" class="auth-user-email"></span>
+    <button id="btnHelp" class="btn ghost" type="button" title="Ajuda">?</button>
+    <button id="btnLogout" class="btn ghost ui-icon-label" title="Sair da conta"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5v14h5M14 8l4 4-4 4M9 12h9"/></svg><span>Sair</span></button>
+    <input id="projectInput" type="file" accept=".json,application/json" hidden>
+  </div>
+</header>
+<div class="app">
+  <aside class="sidebar left">
+    <section>
+      <div class="section-head"><h2>Ambiente</h2><button id="btnReset" class="iconbtn" title="Novo projeto" aria-label="Novo projeto">＋</button></div>
+      <label>Nome do projeto<input id="projectName" value="Data Center"></label>
+      <div class="grid2">
+        <label>Fileiras<input id="rowCount" type="number" min="0" max="30" value="2"></label>
+        <label>Racks/fila<input id="defaultRacks" type="number" min="0" max="100" value="5"></label>
+      </div>
+      <label>Altura do rack (U)<input id="rackUnits" type="number" min="1" max="60" value="48"></label>
+      <div class="grid2"><label>Largura (m)<input id="rackWidth" type="number" min="0.1" step="0.01" value="0.60"></label><label>Profundidade (m)<input id="rackDepth" type="number" min="0.1" step="0.01" value="1.20"></label></div>
+      <label>Distância padrão entre racks (m)<input id="rackGap" type="number" min="0" step="0.01" value="0"></label>
+      <label>Capacidade elétrica padrão (W) <small class="field-help-inline">(opcional)</small><input id="rackPowerCapacity" type="number" min="0" step="1" placeholder="Sem limite definido"></label>
+      <label>Capacidade de carga do piso padrão (kg) <small class="field-help-inline">(opcional)</small><input id="rackWeightCapacity" type="number" min="0" step="1" placeholder="Sem limite definido"></label>
+      <label>Distância padrão entre fileiras (m)<input id="defaultRowGap" type="number" min="0" step="0.01" value="1.20"></label>
+      <label>Altura da última U até a calha (m)<input id="lastUToTray" type="number" min="0" step="0.01" value="1.00"></label>
+      <label>Folga padrão (%)<input id="defaultSlack" type="number" min="0" step="1" value="10"></label>
+      <button id="btnBuildRows" class="btn primary full">✓ Aplicar estrutura</button>
+    </section>
+    <section><div class="section-head"><h2>Fileiras</h2><button id="btnAddRow" class="btn primary small" type="button">＋ Adicionar fileira</button></div><div id="rowsPanel"></div></section>
+  </aside>
+  <button id="sidebarToggle" class="sidebar-toggle" type="button" title="Recolher barra lateral" aria-label="Recolher barra lateral"><span id="sidebarToggleIcon">‹</span></button>
+  <main class="workspace">
+    <div class="toolbar">
+      <div class="toolbar-title"><div class="planner-project-info"><div class="planner-project-main"><strong id="plannerProjectName">Data Center</strong><span class="planner-room-separator">/</span><strong id="plannerLocationName" class="planner-location-name">DC AZ1</strong><span class="planner-room-separator">/</span><strong id="plannerRoomName" class="planner-room-name">Sala 1</strong></div><div id="plannerProjectSummary" class="planner-project-summary"><span>0 fileiras</span><span>0 racks</span><span>0 calhas</span><span>0 cabos</span></div></div><span id="roomThermalBadge" class="room-thermal-badge hidden" title="Carga térmica estimada desta sala (soma da potência dos assets vs. capacidade de refrigeração cadastrada)"><b id="roomThermalBadgeText">—</b></span></div>
+      <div class="toolbar-actions">
+                <button id="btnAddTray" class="btn"><span class="ui-plus">+</span> Calha</button><button id="btnAddCable" class="btn"><span class="ui-plus">+</span> Cabo</button><button id="btnAssets" class="btn ghost ui-icon-label" type="button" title="Abrir inventário de assets"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>Assets</span></button><button id="btnCatalogs" class="btn ghost ui-icon-label" type="button" title="Gerenciar cadastros do sistema"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 2 1.5 1.5L14 6l-8 8-4 1 1-4 8-8Z"/><path d="M13 5.5 16 2l4.5 4.5L17 10"/></svg><span>Cadastros</span></button><button id="btnAlertsCenter" class="btn lifecycle-alert-btn hidden" type="button" title="Central de alertas — ciclo de vida e capacidade"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span id="alertsCenterCount">0</span></button>
+        <button id="btnImport" class="btn ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg><span>Importar cabos</span></button>
+        <button id="btnTemplate" class="btn ghost ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"/><path d="M9 11h6M9 15h6M9 7h4"/></svg><span>Template Cabos</span></button>
+        <button id="btnExportCables" class="btn ui-icon-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V9M7 12l5-5 5 5M5 4h14"/></svg><span>Exportar cabos</span></button>
+        <input id="excelInput" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+      </div>
+    </div>
+    <div id="canvasWrap">
+      <div id="canvasStage"><svg id="layout" xmlns="http://www.w3.org/2000/svg"></svg></div>
+      <div id="canvasEmptyHint" class="canvas-empty-hint hidden">
+        <button type="button" id="canvasEmptyHintClose" class="iconbtn" aria-label="Fechar dica">×</button>
+        <b>Comece por aqui</b>
+        <p>Defina fileiras e racks/fila no painel "Ambiente" à esquerda, depois clique em "Aplicar estrutura".</p>
+        <button type="button" id="canvasEmptyHintHelp" class="btn ghost small">? Ver guia completo</button>
+      </div>
+      <button id="btnQuickSearch" class="canvas-tool-toggle search-toggle" type="button" title="Buscar (Ctrl+K)" aria-label="Buscar (Ctrl+K)">⌕</button>
+      <button id="minimapToggle" class="minimap-toggle" type="button" title="Mostrar mini mapa" aria-label="Mostrar mini mapa">⌗</button>
+      <button id="structureLock" class="structure-lock" type="button" title="Bloquear estrutura" aria-label="Bloquear estrutura"><span id="structureLockIcon">🔓</span></button>
+      <div id="canvasZoomBar" class="canvas-zoom-bar" aria-label="Controle de zoom">
+        <button id="zoomOut" class="zoom-btn" type="button" title="Diminuir zoom" aria-label="Diminuir zoom">−</button>
+        <input id="zoomRange" class="zoom-range" type="range" min="55" max="250" value="100" step="1" aria-label="Zoom">
+        <button id="zoomIn" class="zoom-btn" type="button" title="Aumentar zoom" aria-label="Aumentar zoom">+</button>
+        <button id="zoomReset" class="zoom-value" type="button" title="Restaurar zoom para 100%" aria-label="Restaurar zoom para 100%">100%</button>
+        <button id="zoomFit" class="zoom-fit" type="button" title="Ajustar planta à tela" aria-label="Ajustar planta à tela">⤢</button>
+      </div>
+
+    </div>
+  </main>
+  <aside class="sidebar right">
+    <section><div class="section-head-sticky"><div class="section-head"><h2>Propriedades</h2></div><div id="propTitleSticky" class="prop-title-sticky"></div></div><div id="properties"><div class="empty">Selecione um rack, calha ou cabo.</div></div></section>
+    <section class="cables-section"><div class="section-head"><h2>Cabos</h2><span id="cableCount" class="badge">0</span></div>
+      <div class="cables-search"><label class="cables-select-all-check" title="Selecionar todos os cabos visíveis"><input type="checkbox" id="cablesSelectAll"></label><span>⌕</span><input id="cablesSearch" type="search" placeholder="Buscar por nome, tipo, rack, U, porta, asset..." autocomplete="off"></div>
+      <div id="cablesBulkBar" class="cables-bulk-bar hidden"><span><b id="cablesBulkCount">0</b> selecionado(s)</span><button type="button" id="cablesBulkDelete" class="btn ghost small danger-icon">× Excluir selecionados</button><button type="button" id="cablesBulkClear" class="btn ghost small">Cancelar seleção</button></div>
+      <div id="cablesList"></div>
+    </section>
+  </aside>
+</div>
+<div id="quickSearchModal" class="modal-backdrop hidden" aria-hidden="true"><div class="quick-search-card" role="dialog" aria-modal="true" aria-labelledby="quickSearchTitle"><div class="quick-search-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div><div><h3 id="quickSearchTitle">Buscar no projeto</h3><span>Rack, calha ou cabo</span></div><button id="quickSearchClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div><div class="quick-search-input-wrap"><span>⌕</span><input id="quickSearchInput" type="search" autocomplete="off" placeholder="Digite um nome ou número..." /></div><div id="quickSearchResults" class="quick-search-results"><div class="empty">Digite para pesquisar.</div></div><div class="quick-search-footer"><span><kbd>↑</kbd><kbd>↓</kbd> navegar</span><span><kbd>Enter</kbd> abrir</span><span><kbd>Esc</kbd> fechar</span></div></div></div><div id="projectSummaryModal" class="modal-backdrop hidden" aria-hidden="true"><div class="summary-card" role="dialog" aria-modal="true" aria-labelledby="projectSummaryTitle"><div class="summary-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/><path d="M9 15h6M9 11h6M9 7h2"/><path d="M16 3h5v5"/><path d="M14 10 21 3"/></svg></div><div><h3 id="projectSummaryTitle">Resumo do projeto</h3><span id="summaryProjectName">Data Center</span></div><button id="summaryClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div><div id="projectSummaryGrid" class="summary-grid"></div></div></div><div id="minimap" class="minimap hidden" aria-label="Mini mapa da planta"><div class="minimap-head"><span>Mini mapa</span><button id="minimapClose" class="iconbtn" type="button" title="Fechar mini mapa" aria-label="Fechar mini mapa">×</button></div><svg id="minimapSvg" xmlns="http://www.w3.org/2000/svg"></svg></div><div id="toast"></div>
+
+<div id="assetsModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card assets-card" role="dialog" aria-modal="true" aria-labelledby="assetsTitle">
+    <div class="modal-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div><div><h3 id="assetsTitle">Inventário de assets</h3><span>Inventário do projeto</span></div><button id="assetsClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div>
+    <div class="assets-toolbar"><div class="assets-search"><span>⌕</span><input id="assetsSearch" type="search" placeholder="Buscar por nome, modelo, asset tag ou rack..." autocomplete="off"></div><div class="assets-toolbar-actions"><button id="assetsExport" class="btn ghost small" type="button">↓ Exportar assets</button><button id="assetsBulk" class="btn ghost small" type="button">＋ Cadastro em massa</button><button id="assetsNew" class="btn primary small" type="button">＋ Novo asset</button></div></div>
+    <div class="assets-summary"><span class="assets-stat"><b id="assetsCount">0</b>encontrados</span><span class="assets-stat ok"><b id="assetsActiveCount">0</b>ativos</span><span class="assets-stat off"><b id="assetsArchivedCount">0</b>arquivados</span><span id="assetsWarrantyExpiredStat" class="assets-stat danger hidden"><b id="assetsWarrantyExpiredCount">0</b>com garantia vencida</span></div>
+    <div id="assetsAttentionBanner" class="assets-attention-banner hidden">⚠ Mostrando apenas assets com garantia ou fim de vida vencendo em breve/vencidos.<button type="button" id="assetsAttentionClear" class="assets-attention-clear">Ver todos</button></div>
+    <div id="assetsBulkBar" class="assets-bulk-bar hidden"><span><b id="assetsSelectedCount">0</b> selecionado(s)</span><div class="assets-bulk-bar-actions"><select id="assetsBulkStatus"><option value="">Alterar status...</option></select><select id="assetsBulkSubstatus"><option value="">Alterar substatus...</option></select><select id="assetsBulkLocation"><option value="">Alterar localização...</option></select><button id="assetsBulkDelete" class="btn ghost small danger-icon" type="button">× Excluir selecionados</button><button id="assetsBulkClear" class="btn ghost small" type="button">Cancelar seleção</button></div></div>
+    <div class="assets-table-wrap"><div class="assets-table-head" id="assetsTableHead">
+      <span class="col-head col-head-check"><input type="checkbox" id="assetsSelectAll" title="Selecionar todos"></span>
+      <span class="col-head"><button type="button" class="col-sort-label" data-sort-col="assetTag">Asset Tag<svg class="col-sort-arrow" viewBox="0 0 24 24"><path class="col-sort-up" d="M7 10l5-5 5 5"/><path class="col-sort-down" d="M7 14l5 5 5-5"/></svg></button><button type="button" class="col-filter-btn" data-filter-col="assetTag" title="Filtrar"><svg class="col-filter-caret" viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7z"/></svg></button><span class="col-resize-handle" data-resize-col="assetTag"></span></span>
+      <span class="col-head"><button type="button" class="col-sort-label" data-sort-col="name">Nome<svg class="col-sort-arrow" viewBox="0 0 24 24"><path class="col-sort-up" d="M7 10l5-5 5 5"/><path class="col-sort-down" d="M7 14l5 5 5-5"/></svg></button><button type="button" class="col-filter-btn" data-filter-col="name" title="Filtrar"><svg class="col-filter-caret" viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7z"/></svg></button><span class="col-resize-handle" data-resize-col="name"></span></span>
+      <span class="col-head"><button type="button" class="col-sort-label" data-sort-col="type">Tipo<svg class="col-sort-arrow" viewBox="0 0 24 24"><path class="col-sort-up" d="M7 10l5-5 5 5"/><path class="col-sort-down" d="M7 14l5 5 5-5"/></svg></button><button type="button" class="col-filter-btn" data-filter-col="type" title="Filtrar"><svg class="col-filter-caret" viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7z"/></svg></button><span class="col-resize-handle" data-resize-col="type"></span></span>
+      <span class="col-head"><button type="button" class="col-sort-label" data-sort-col="manufacturer">Fabricante<svg class="col-sort-arrow" viewBox="0 0 24 24"><path class="col-sort-up" d="M7 10l5-5 5 5"/><path class="col-sort-down" d="M7 14l5 5 5-5"/></svg></button><button type="button" class="col-filter-btn" data-filter-col="manufacturer" title="Filtrar"><svg class="col-filter-caret" viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7z"/></svg></button><span class="col-resize-handle" data-resize-col="manufacturer"></span></span>
+      <span class="col-head"><button type="button" class="col-sort-label" data-sort-col="model">Modelo<svg class="col-sort-arrow" viewBox="0 0 24 24"><path class="col-sort-up" d="M7 10l5-5 5 5"/><path class="col-sort-down" d="M7 14l5 5 5-5"/></svg></button><button type="button" class="col-filter-btn" data-filter-col="model" title="Filtrar"><svg class="col-filter-caret" viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7z"/></svg></button><span class="col-resize-handle" data-resize-col="model"></span></span>
+      <span class="col-head"><button type="button" class="col-sort-label" data-sort-col="serial">Serial Number<svg class="col-sort-arrow" viewBox="0 0 24 24"><path class="col-sort-up" d="M7 10l5-5 5 5"/><path class="col-sort-down" d="M7 14l5 5 5-5"/></svg></button><button type="button" class="col-filter-btn" data-filter-col="serial" title="Filtrar"><svg class="col-filter-caret" viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7z"/></svg></button><span class="col-resize-handle" data-resize-col="serial"></span></span>
+      <span class="col-head"><button type="button" class="col-sort-label" data-sort-col="location">Localização<svg class="col-sort-arrow" viewBox="0 0 24 24"><path class="col-sort-up" d="M7 10l5-5 5 5"/><path class="col-sort-down" d="M7 14l5 5 5-5"/></svg></button><button type="button" class="col-filter-btn" data-filter-col="location" title="Filtrar"><svg class="col-filter-caret" viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7z"/></svg></button><span class="col-resize-handle" data-resize-col="location"></span></span>
+      <span class="col-head"><button type="button" class="col-sort-label" data-sort-col="rack">Rack<svg class="col-sort-arrow" viewBox="0 0 24 24"><path class="col-sort-up" d="M7 10l5-5 5 5"/><path class="col-sort-down" d="M7 14l5 5 5-5"/></svg></button><button type="button" class="col-filter-btn" data-filter-col="rack" title="Filtrar"><svg class="col-filter-caret" viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7z"/></svg></button><span class="col-resize-handle" data-resize-col="rack"></span></span>
+      <span class="col-head"><button type="button" class="col-sort-label" data-sort-col="u">U<svg class="col-sort-arrow" viewBox="0 0 24 24"><path class="col-sort-up" d="M7 10l5-5 5 5"/><path class="col-sort-down" d="M7 14l5 5 5-5"/></svg></button><button type="button" class="col-filter-btn" data-filter-col="u" title="Filtrar"><svg class="col-filter-caret" viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7z"/></svg></button><span class="col-resize-handle" data-resize-col="u"></span></span>
+      <span class="col-head"><button type="button" class="col-sort-label" data-sort-col="uHeight">Qtd. U<svg class="col-sort-arrow" viewBox="0 0 24 24"><path class="col-sort-up" d="M7 10l5-5 5 5"/><path class="col-sort-down" d="M7 14l5 5 5-5"/></svg></button><button type="button" class="col-filter-btn" data-filter-col="uHeight" title="Filtrar"><svg class="col-filter-caret" viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7z"/></svg></button><span class="col-resize-handle" data-resize-col="uHeight"></span></span>
+      <span class="col-head"><button type="button" class="col-sort-label" data-sort-col="status">Status<svg class="col-sort-arrow" viewBox="0 0 24 24"><path class="col-sort-up" d="M7 10l5-5 5 5"/><path class="col-sort-down" d="M7 14l5 5 5-5"/></svg></button><button type="button" class="col-filter-btn" data-filter-col="status" title="Filtrar"><svg class="col-filter-caret" viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7z"/></svg></button><span class="col-resize-handle" data-resize-col="status"></span></span>
+      <span class="col-head"><button type="button" class="col-sort-label" data-sort-col="substatus">Substatus<svg class="col-sort-arrow" viewBox="0 0 24 24"><path class="col-sort-up" d="M7 10l5-5 5 5"/><path class="col-sort-down" d="M7 14l5 5 5-5"/></svg></button><button type="button" class="col-filter-btn" data-filter-col="substatus" title="Filtrar"><svg class="col-filter-caret" viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7z"/></svg></button><span class="col-resize-handle" data-resize-col="substatus"></span></span>
+      <span class="col-head"><button type="button" class="col-sort-label" data-sort-col="purchaseDate">Data de compra<svg class="col-sort-arrow" viewBox="0 0 24 24"><path class="col-sort-up" d="M7 10l5-5 5 5"/><path class="col-sort-down" d="M7 14l5 5 5-5"/></svg></button><button type="button" class="col-filter-btn" data-filter-col="purchaseDate" title="Filtrar"><svg class="col-filter-caret" viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7z"/></svg></button><span class="col-resize-handle" data-resize-col="purchaseDate"></span></span>
+      <span class="col-head"><button type="button" class="col-sort-label" data-sort-col="warranty">Garantia<svg class="col-sort-arrow" viewBox="0 0 24 24"><path class="col-sort-up" d="M7 10l5-5 5 5"/><path class="col-sort-down" d="M7 14l5 5 5-5"/></svg></button><button type="button" class="col-filter-btn" data-filter-col="warranty" title="Filtrar"><svg class="col-filter-caret" viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7z"/></svg></button><span class="col-resize-handle" data-resize-col="warranty"></span></span>
+      <span class="col-head"><button type="button" class="col-sort-label" data-sort-col="eol">EOL<svg class="col-sort-arrow" viewBox="0 0 24 24"><path class="col-sort-up" d="M7 10l5-5 5 5"/><path class="col-sort-down" d="M7 14l5 5 5-5"/></svg></button><button type="button" class="col-filter-btn" data-filter-col="eol" title="Filtrar"><svg class="col-filter-caret" viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7z"/></svg></button><span class="col-resize-handle" data-resize-col="eol"></span></span>
+      <span class="col-head">Ações</span>
+    </div><div id="assetsList" class="assets-list"></div></div>
+  </div>
+</div>
+<div id="assetHistoryModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card asset-history-card" role="dialog" aria-modal="true" aria-labelledby="assetHistoryTitle">
+    <div class="modal-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div><div><h3 id="assetHistoryTitle">Histórico do asset</h3><span id="assetHistorySubtitle">Alterações registradas na nuvem.</span></div><div class="modal-head-actions"><button id="assetHistoryExport" class="btn ghost small" type="button" title="Exportar histórico deste asset">↓ Exportar histórico</button><button id="assetHistoryClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div></div>
+    <div id="assetHistoryList" class="asset-history-list"><div class="empty">Selecione um asset para ver o histórico.</div></div>
+  </div>
+</div>
+<div id="assetCatalogModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card asset-catalog-card" role="dialog" aria-modal="true" aria-labelledby="assetCatalogTitle">
+    <div class="modal-head catalog-modal-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 2 1.5 1.5L14 6l-8 8-4 1 1-4 8-8Z"/><path d="M13 5.5 16 2l4.5 4.5L17 10"/></svg></div><div><h3 id="assetCatalogTitle">Cadastros</h3><span>Tipos de ativo, fabricantes, modelos, status, substatus, tipos de cabo e localizações usados no sistema.</span></div><div class="catalog-head-actions"><button id="assetCatalogClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div></div>
+    <div class="catalog-grid">
+      <section class="catalog-section">
+        <div class="catalog-section-head"><div class="catalog-section-title"><span class="catalog-section-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></span><div><h4>Tipos de ativo</h4><small>Classificação dos equipamentos</small></div></div><div class="catalog-section-actions"><button type="button" class="btn ghost small" data-catalog-template="types">↓ Modelo</button><button type="button" class="btn ghost small" data-catalog-import="types">↑ Importar</button><button type="button" class="btn primary small catalog-add-btn" data-catalog-add="types">＋ Adicionar</button></div></div>
+        <div class="catalog-search"><span>⌕</span><input id="catalogTypeSearch" type="search" placeholder="Buscar tipo..." autocomplete="off"></div>
+        <div id="catalogTypes" class="catalog-list"></div>
+      </section>
+      <section class="catalog-section">
+        <div class="catalog-section-head"><div class="catalog-section-title"><span class="catalog-section-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h10l4 4-4 4H4z"/><circle cx="8" cy="12" r="1.5"/></svg></span><div><h4>Tipos de cabo</h4><small>Nome e cor de cada tipo</small></div></div><div class="catalog-section-actions"><button type="button" class="btn ghost small" data-catalog-template="cableTypes">↓ Modelo</button><button type="button" class="btn ghost small" data-catalog-import="cableTypes">↑ Importar</button><button type="button" class="btn primary small catalog-add-btn" id="catalogCableTypeAdd">＋ Adicionar</button></div></div>
+        <div id="catalogCableTypes" class="catalog-list"></div>
+      </section>
+      <section class="catalog-section">
+        <div class="catalog-section-head"><div class="catalog-section-title"><span class="catalog-section-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V9l6-4 6 4v12"/><path d="M9 21v-6h4v6"/><path d="M9 12h.01M13 12h.01M9 9h.01M13 9h.01"/></svg></span><div><h4>Fabricantes</h4><small>Marcas disponíveis</small></div></div><div class="catalog-section-actions"><button type="button" class="btn ghost small" data-catalog-template="manufacturers">↓ Modelo</button><button type="button" class="btn ghost small" data-catalog-import="manufacturers">↑ Importar</button><button type="button" class="btn primary small catalog-add-btn" data-catalog-add="manufacturers">＋ Adicionar</button></div></div>
+        <div class="catalog-search"><span>⌕</span><input id="catalogManufacturerSearch" type="search" placeholder="Buscar fabricante..." autocomplete="off"></div>
+        <div id="catalogManufacturers" class="catalog-list"></div>
+      </section>
+      <section class="catalog-section catalog-model-section">
+        <div class="catalog-section-head"><div class="catalog-section-title"><span class="catalog-section-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></span><div><h4>Modelos</h4><small>Cada modelo pertence a um tipo e fabricante</small></div></div><div class="catalog-section-actions"><button type="button" class="btn ghost small" data-catalog-template="models">↓ Modelo</button><button type="button" class="btn ghost small" data-catalog-import="models">↑ Importar</button><button type="button" class="btn primary small catalog-add-btn" id="catalogModelAdd">＋ Adicionar</button></div></div>
+        <div class="catalog-filter-row"><label>Tipo<select id="catalogModelType"><option value="">Todos os tipos</option></select></label><label>Fabricante<select id="catalogModelManufacturer"><option value="">Todos os fabricantes</option></select></label></div>
+        <div class="catalog-search"><span>⌕</span><input id="catalogModelSearch" type="search" placeholder="Buscar modelo..." autocomplete="off"></div>
+        <div id="catalogModels" class="catalog-list"></div>
+      </section>
+      <section class="catalog-section catalog-status-section">
+        <div class="catalog-section-head"><div class="catalog-section-title"><span class="catalog-section-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><div><h4>Status</h4><small>Situação dos equipamentos</small></div></div><div class="catalog-section-actions"><button type="button" class="btn ghost small" data-catalog-template="statuses">↓ Modelo</button><button type="button" class="btn ghost small" data-catalog-import="statuses">↑ Importar</button><button type="button" class="btn primary small catalog-add-btn" data-catalog-add="statuses">＋ Adicionar</button></div></div>
+        <div class="catalog-search"><span>⌕</span><input id="catalogStatusSearch" type="search" placeholder="Buscar status..." autocomplete="off"></div>
+        <div id="catalogStatuses" class="catalog-list"></div>
+      </section>
+      <section class="catalog-section catalog-status-section">
+        <div class="catalog-section-head"><div class="catalog-section-title"><span class="catalog-section-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="m4 6 1 1 2-2"/><path d="m4 12 1 1 2-2"/><path d="m4 18 1 1 2-2"/></svg></span><div><h4>Substatus</h4><small>Detalhamento da situação</small></div></div><div class="catalog-section-actions"><button type="button" class="btn ghost small" data-catalog-template="substatuses">↓ Modelo</button><button type="button" class="btn ghost small" data-catalog-import="substatuses">↑ Importar</button><button type="button" class="btn primary small catalog-add-btn" data-catalog-add="substatuses">＋ Adicionar</button></div></div>
+        <div class="catalog-search"><span>⌕</span><input id="catalogSubstatusSearch" type="search" placeholder="Buscar substatus..." autocomplete="off"></div>
+        <div id="catalogSubstatuses" class="catalog-list"></div>
+      </section>
+      <section class="catalog-section catalog-locations-section" style="grid-column:span 6">
+        <div class="catalog-section-head"><div class="catalog-section-title"><span class="catalog-section-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.2 7-12A7 7 0 1 0 5 9c0 6.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg></span><div><h4>Localizações</h4><small>Data centers, salas e estoques</small></div></div><button type="button" class="btn primary small" id="catalogLocationAdd">＋ Data Center</button></div>
+        <div class="catalog-search"><span>⌕</span><input id="catalogLocationSearch" type="search" placeholder="Buscar localização, sala ou estoque..." autocomplete="off"></div><div id="catalogLocations" class="catalog-list"></div>
+      </section>
+    </div>
+    <div class="catalog-note"><span>i</span><p>Um modelo só pode ser usado com o tipo e fabricante aos quais foi cadastrado. Isso mantém o inventário consistente.</p></div>
+  </div>
+</div>
+<input id="catalogImportFile" type="file" accept=".xlsx,.xls,.csv" hidden>
+<input id="assetsImportFile" type="file" accept=".xlsx,.xls,.csv" hidden>
+<div id="assetsImportModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card assets-import-card" role="dialog" aria-modal="true" aria-labelledby="assetsImportTitle">
+    <div class="modal-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg></div><div><h3 id="assetsImportTitle">Importar Assets</h3><span>Importe equipamentos por Excel ou CSV com validação antes de salvar.</span></div><button id="assetsImportClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div>
+    <div id="assetsImportDrop" class="assets-import-drop"><div class="assets-import-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg></div><b>Arraste seu arquivo aqui</b><span>ou</span><button id="assetsImportChoose" class="btn primary small" type="button">Selecionar arquivo</button><small>XLSX, XLS ou CSV</small></div>
+    <div class="assets-import-template-help"><span>Não possui uma planilha?</span><button id="assetsImportTemplate" class="btn ghost small" type="button">↓ Baixar modelo Excel</button></div>
+    <div id="assetsImportFileInfo" class="assets-import-file hidden"></div>
+    <div id="assetsImportMapping" class="assets-import-mapping hidden"></div>
+    <div class="form-actions"><button id="assetsImportCancel" class="btn ghost" type="button">Cancelar</button><button id="assetsImportContinue" class="btn primary" type="button" disabled>Continuar</button></div>
+  </div>
+</div>
+
+<div id="importPreviewModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card import-preview-card" role="dialog" aria-modal="true" aria-labelledby="importPreviewTitle">
+    <div class="modal-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div><h3 id="importPreviewTitle">Pré-visualização da importação</h3><span id="importPreviewSubtitle">Confira os dados antes de importar.</span></div><button id="importPreviewClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div>
+    <div id="importPreviewSummary" class="import-preview-summary"></div>
+    <div id="importPreviewErrors" class="import-preview-errors hidden"></div>
+    <div id="importPreviewTable" class="import-preview-table"></div>
+    <div class="form-actions"><button id="importPreviewCancel" class="btn ghost" type="button">Cancelar</button><button id="importPreviewConfirm" class="btn primary" type="button" disabled>Importar</button></div>
+  </div>
+</div>
+<div id="catalogEditorModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card catalog-editor-card" role="dialog" aria-modal="true" aria-labelledby="catalogEditorTitle">
+    <div class="modal-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div><div><h3 id="catalogEditorTitle">Novo cadastro</h3><span id="catalogEditorSubtitle">Cadastre um valor para o inventário.</span></div><button id="catalogEditorClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div>
+    <input id="catalogEditorKind" type="hidden"><input id="catalogEditorId" type="hidden">
+    <label>Nome<input id="catalogEditorName" type="text" placeholder="Digite o nome" autocomplete="off"></label>
+    <div id="catalogEditorTypeWrap" class="hidden"><label>Tipo<select id="catalogEditorType"></select></label></div>
+    <div id="catalogEditorManufacturerWrap" class="hidden"><label>Fabricante<select id="catalogEditorManufacturer"></select></label></div>
+    <div id="catalogEditorPowerWrap" class="hidden"><label>Potência nominal (W) <small class="field-help-inline">(opcional)</small><input id="catalogEditorPowerW" type="number" min="0" step="1" placeholder="Ex.: 350"></label></div>
+    <div id="catalogEditorWeightWrap" class="hidden"><label>Peso (kg) <small class="field-help-inline">(opcional)</small><input id="catalogEditorWeightKg" type="number" min="0" step="0.1" placeholder="Ex.: 22.5"></label></div>
+    <div id="catalogEditorPortsWrap" class="hidden">
+      <div class="port-defs-section">
+        <div class="port-defs-head"><span>Portas deste modelo</span><b id="catalogPortDefsTotal">0</b></div>
+        <div id="catalogPortDefsList" class="port-defs-list"></div>
+        <div class="port-def-form">
+          <div class="port-def-form-title">Adicionar conjunto de portas</div>
+          <div class="grid2"><label>Primeira porta<input id="portRangeStart" placeholder="Ex.: G0/0/1"></label><label>Última porta<input id="portRangeEnd" placeholder="Ex.: G0/0/24"></label></div>
+          <label class="port-poe-check"><input type="checkbox" id="portRangePoe"><span>Portas PoE</span></label>
+          <button type="button" id="portRangeAdd" class="btn ghost small full">＋ Adicionar conjunto</button>
+        </div>
+        <div class="port-def-form">
+          <div class="port-def-form-title">Adicionar porta avulsa <small>(console, serial, etc.)</small></div>
+          <label>Nome da porta<input id="portSingleName" placeholder="Ex.: Console"></label>
+          <label class="port-poe-check"><input type="checkbox" id="portSinglePoe"><span>Porta PoE</span></label>
+          <button type="button" id="portSingleAdd" class="btn ghost small full">＋ Adicionar porta avulsa</button>
+        </div>
+      </div>
+    </div>
+    <div class="catalog-editor-help">Modelos são vinculados ao tipo e ao fabricante selecionados.</div>
+    <div class="form-actions"><button id="catalogEditorCancel" class="btn ghost" type="button">Cancelar</button><button id="catalogEditorSave" class="btn primary" type="button">✓ Salvar</button></div>
+  </div>
+</div>
+<div id="assetsBulkModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card bulk-assets-card" role="dialog" aria-modal="true" aria-labelledby="assetsBulkTitle">
+    <div class="modal-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg></div><div><h3 id="assetsBulkTitle">Cadastro em massa de assets</h3><span>Cadastre vários equipamentos de uma só vez.</span></div><button id="assetsBulkClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div>
+    <div id="assetsBulkChooser" class="bulk-assets-chooser">
+      <div class="bulk-chooser-title">Como deseja cadastrar os assets?</div>
+      <div class="bulk-chooser-grid">
+        <button id="assetsBulkManual" class="bulk-chooser-card" type="button"><span class="bulk-chooser-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><strong>Digitar vários</strong><small>Preencha os equipamentos diretamente na tabela.</small></button>
+        <button id="assetsBulkImport" class="bulk-chooser-card" type="button"><span class="bulk-chooser-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg></span><strong>Importar Excel / CSV</strong><small>Use uma planilha existente e valide antes de salvar.</small></button>
+      </div>
+      <button id="assetsBulkTemplate" class="bulk-chooser-template" type="button">↓ Baixar modelo Excel</button>
+    </div>
+    <div id="assetsBulkEditor" class="hidden">
+    <div class="bulk-assets-help"><span>ⓘ</span><span><b>As U são controladas pelo sistema.</b> Ao escolher o rack, aparecem somente as U livres. A quantidade de U também é considerada para evitar sobreposição.</span></div>
+    <div class="bulk-assets-toolbar"><button id="assetsBulkAddRow" class="btn ghost small" type="button">＋ Adicionar linha</button><span id="assetsBulkSummary" class="muted"></span></div>
+    <div class="bulk-assets-table-wrap"><table class="bulk-assets-table"><colgroup><col data-col="name"><col data-col="type"><col data-col="manufacturer"><col data-col="model"><col data-col="tag"><col data-col="serial"><col data-col="location"><col data-col="rack"><col data-col="u"><col data-col="height"><col data-col="status"><col data-col="substatus"><col data-col="power"><col data-col="weight"><col data-col="purchase"><col data-col="warranty"><col data-col="eol"><col data-col="actions"></colgroup><thead><tr><th data-col="name">Nome *</th><th data-col="type">Tipo</th><th data-col="manufacturer">Fabricante</th><th data-col="model">Modelo</th><th data-col="tag">Asset Tag</th><th data-col="serial">Serial Number *</th><th data-col="location">Localização</th><th data-col="rack">Rack</th><th data-col="u">U Inicial</th><th data-col="height">Qtd. U</th><th data-col="status">Status</th><th data-col="substatus">Substatus</th><th data-col="power" title="Deixe vazio para usar o valor do modelo">Potência (W)</th><th data-col="weight" title="Deixe vazio para usar o valor do modelo">Peso (kg)</th><th data-col="purchase">Data de compra</th><th data-col="warranty">Vencimento da garantia</th><th data-col="eol">Fim de vida (EOL)</th><th data-col="actions"></th></tr></thead><tbody id="assetsBulkBody"></tbody></table></div>
+    <div class="form-actions"><button id="assetsBulkBack" class="btn ghost" type="button">← Voltar</button><button id="assetsBulkCancel" class="btn ghost" type="button">Cancelar</button><button id="assetsBulkSave" class="btn primary" type="button">✓ Validar e cadastrar</button></div>
+    </div>
+  </div>
+</div>
+<div id="assetEditModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card asset-edit-card" role="dialog" aria-modal="true" aria-labelledby="assetEditTitle">
+    <div class="modal-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div><div><h3 id="assetEditTitle">Novo asset</h3><span>Cadastro do equipamento</span></div><div class="modal-head-actions"><button id="assetEditHistory" class="btn ghost small hidden" type="button" title="Ver histórico deste asset">↺ Histórico</button><button id="assetEditCancelTop" class="iconbtn" type="button" aria-label="Fechar">×</button></div></div>
+    <form id="assetEditForm">
+      <input id="assetEditId" type="hidden">
+      <label>Nome<input id="assetName" required placeholder="Ex.: Switch Core 01"></label>
+      <div class="grid2"><label>Tipo<select id="assetType"></select></label><label>Status<select id="assetStatus"></select></label></div>
+      <div class="grid2"><label>Substatus<select id="assetSubstatus"></select></label><label>Fabricante<select id="assetManufacturer"></select></label></div>
+      <div class="grid2"><label>Modelo<select id="assetModel"></select></label><label>Asset Tag<input id="assetTag" placeholder="Ex.: SW-001"></label></div>
+      <div class="grid2"><label>Serial Number<input id="assetSerial" required placeholder="Obrigatório"></label><label>Localização<select id="assetLocation"></select></label></div>
+      <div class="grid2"><label>Rack<select id="assetRack"></select></label><label>U inicial<input id="assetUStart" type="number" min="1" max="60"></label></div><div class="grid2"><label>Quantidade de U<input id="assetUHeight" type="number" min="1" max="60"></label><label>Potência (W) <small class="field-help-inline">(opcional)</small><input id="assetPowerW" type="number" min="0" step="1" placeholder="Preenchida do modelo"></label></div>
+      <label>Peso (kg) <small class="field-help-inline">(opcional)</small><input id="assetWeightKg" type="number" min="0" step="0.1" placeholder="Preenchido do modelo"></label>
+      <div class="asset-ports-section">
+        <div class="asset-ports-head"><span>Portas <b id="assetPortsCount">0</b><small id="assetPortsUsedCount" class="asset-ports-used-count"></small></span><div><button type="button" id="assetPortsExport" class="btn ghost small" title="Exportar lista de portas">↓ Exportar</button><button type="button" id="assetPortsAdd" class="btn ghost small">＋ Adicionar porta</button></div></div>
+        <div id="assetPortsList" class="asset-ports-list"></div>
+        <div class="field-help">Preenchidas automaticamente a partir do modelo (Catálogo → Modelos). Podem ser escolhidas ao criar um cabo conectado a este asset.</div>
+      </div>
+      <div class="asset-lifecycle-section">
+        <div class="asset-ports-head"><span>Ciclo de vida <small class="field-help-inline">(opcional)</small></span><span id="assetLifecycleBadge" class="asset-lifecycle-badge"></span></div>
+        <div class="grid3">
+          <label>Data de compra<input id="assetPurchaseDate" type="date"></label>
+          <label>Vencimento da garantia<input id="assetWarrantyExpiration" type="date"></label>
+          <label>Fim de vida (EOL)<input id="assetEndOfLife" type="date"></label>
+        </div>
+      </div>
+      <div class="help">O sistema impede sobreposição de equipamentos no mesmo rack e valida o limite de U do rack.</div>
+      <div class="form-actions"><button id="assetEditCancel" class="btn ghost" type="button">Cancelar</button><button class="btn primary" type="submit">✓ Salvar asset</button></div>
+    </form>
+  </div>
+</div>
+<div id="bayfaceModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card bayface-card" role="dialog" aria-modal="true" aria-labelledby="bayfaceTitle">
+    <div class="modal-head"><div><h3 id="bayfaceTitle">Bayface</h3><span>Inventário físico do rack</span></div><button id="bayfaceClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div>
+    <div id="bayfaceContent"></div>
+  </div>
+</div>
+<div id="bayfaceAssetPickerModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card bayface-picker-card" role="dialog" aria-modal="true" aria-labelledby="bayfaceAssetPickerTitle">
+    <div class="modal-head">
+      <div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V7l8-4 8 4v13"/><path d="M9 20v-5h6v5"/></svg></div>
+      <div><h3 id="bayfaceAssetPickerTitle">Adicionar asset ao rack</h3><span id="bayfaceAssetPickerSubtitle">Selecione um asset já cadastrado e disponível.</span></div>
+      <button id="bayfaceAssetPickerClose" class="iconbtn" type="button" aria-label="Fechar">×</button>
+    </div>
+    <div class="bayface-picker-toolbar">
+      <div class="bayface-picker-search"><span>⌕</span><input id="bayfaceAssetPickerSearch" type="search" autocomplete="off" placeholder="Buscar por nome, tag, modelo, fabricante ou serial..."></div>
+      <span id="bayfaceAssetPickerCount" class="bayface-picker-count">0 assets</span>
+    </div>
+    <div class="bayface-picker-table-wrap">
+      <div class="bayface-picker-table-head">
+        <span>Asset Tag</span><span>Nome</span><span>Tipo</span><span>Fabricante</span><span>Modelo</span><span>Serial Number</span><span>Localização</span><span>Status</span><span>Substatus</span><span>Qtd. U</span><span></span>
+      </div>
+      <div id="bayfaceAssetPickerList" class="bayface-picker-list"></div>
+    </div>
+  </div>
+</div>
+<div id="renameRowModal" class="modal-backdrop" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="renameRowTitle">
+    <div class="modal-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div><div><h3 id="renameRowTitle">Renomear racks</h3><span>Renomeie todos os racks da fileira de uma só vez.</span></div><button id="renameCancelTop" class="iconbtn" title="Fechar" aria-label="Fechar">×</button></div>
+    <input id="renameRowId" type="hidden">
+    <div class="grid2">
+      <label>Prefixo<input id="renamePrefix" value="10" placeholder="Ex.: 10 ou A"></label>
+      <label>Número inicial<input id="renameStart" type="number" min="0" step="1" value="1"></label>
+    </div>
+    <label>Zeros à esquerda<input id="renamePad" type="number" min="0" max="6" step="1" value="0"></label>
+    <div class="help">Exemplo: 0 zeros → A1, A2, A3. 1 zero → A01, A02, A03. 2 zeros → A001, A002, A003.</div>
+    <div class="rename-preview-title">Pré-visualização</div>
+    <div id="renamePreview" class="rename-preview"></div>
+    <div id="renameRowError" class="field-error rename-error"></div>
+    <div class="form-actions"><button id="renameCancel" class="btn ghost">Cancelar</button><button id="renameApply" class="btn primary">✓ Aplicar renomeação</button></div>
+  </div>
+</div>
+<div id="uiConfirmModal" class="modal-backdrop" aria-hidden="true">
+  <div class="modal-card ui-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="uiConfirmTitle">
+    <div class="ui-confirm-head">
+      <div id="uiConfirmIcon" class="ui-confirm-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></div>
+      <div class="ui-confirm-head-text"><h3 id="uiConfirmTitle">Confirmar ação</h3><span id="uiConfirmSubtitle" class="hidden"></span></div>
+    </div>
+    <p id="uiConfirmBody" class="ui-confirm-body"></p>
+    <div id="uiConfirmPromptWrap" class="hidden">
+      <label for="uiConfirmPromptInput" class="ui-confirm-prompt-label" id="uiConfirmPromptLabel">Valor</label>
+      <input id="uiConfirmPromptInput" type="text" autocomplete="off">
+      <span id="uiConfirmPromptError" class="field-error"></span>
+    </div>
+    <div class="form-actions">
+      <button id="uiConfirmCancel" class="btn ghost" type="button">Cancelar</button>
+      <button id="uiConfirmOk" class="btn primary" type="button">Confirmar</button>
+    </div>
+  </div>
+</div>
+<div id="roomEditorModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="roomEditorTitle">
+    <div class="modal-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div><div><h3 id="roomEditorTitle">Editar sala</h3><span>Nome e capacidade de refrigeração desta sala.</span></div><button id="roomEditorClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div>
+    <form id="roomEditorForm">
+      <input type="hidden" id="roomEditorId">
+      <label>Nome da sala<input id="roomEditorName" required></label>
+      <label>Capacidade de refrigeração (W) <small class="field-help-inline">(opcional)</small><input id="roomEditorCooling" type="number" min="0" step="1" placeholder="Sem limite definido"></label>
+      <div id="roomEditorThermalReadout" class="rack-power-readout"></div>
+      <div class="field-help">A carga térmica é estimada a partir da potência elétrica cadastrada em cada asset desta sala — todo watt consumido vira calor a ser retirado.</div>
+      <div class="form-actions"><button id="roomEditorCancel" class="btn ghost" type="button">Cancelar</button><button class="btn primary" type="submit">✓ Salvar sala</button></div>
+    </form>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<div id="helpModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card help-card" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="modal-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.4"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div><h3 id="helpTitle">Ajuda</h3><span>Guia rápido do sistema</span></div><button id="helpClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div>
+    <div class="help-body">
+      <nav class="help-nav">
+        <button type="button" class="help-nav-item active" data-help-section="start">Primeiros passos</button>
+        <button type="button" class="help-nav-item" data-help-section="concepts">Conceitos</button>
+        <button type="button" class="help-nav-item" data-help-section="shortcuts">Atalhos de teclado</button>
+        <button type="button" class="help-nav-item" data-help-section="reference">Onde encontrar</button>
+      </nav>
+      <div class="help-content">
+        <section data-help-panel="start">
+          <h4>Do zero ao primeiro cabo</h4>
+          <ol class="help-steps">
+            <li><b>Crie uma sala.</b> Em "Localizações", cadastre um data center e uma sala dentro dele.</li>
+            <li><b>Defina a estrutura.</b> No painel "Ambiente" (barra lateral), informe quantas fileiras e racks por fileira, e clique em "Aplicar estrutura". O sistema desenha e centraliza tudo automaticamente.</li>
+            <li><b>Adicione calhas.</b> Botão "+ Calha" no topo, e arraste os pontos pra desenhar o caminho físico do cabeamento.</li>
+            <li><b>Cadastre os assets.</b> Botão "Assets" → "+ Novo asset". Escolha o rack e a posição (U). Modelo, portas e potência podem vir pré-preenchidos se você cadastrar o modelo primeiro em "Cadastros".</li>
+            <li><b>Crie os cabos.</b> Botão "+ Cabo", escolha origem e destino (rack, U e porta). O sistema calcula o comprimento pelo caminho das calhas automaticamente.</li>
+          </ol>
+        </section>
+        <section data-help-panel="concepts" class="hidden">
+          <h4>Termos usados no sistema</h4>
+          <dl class="help-glossary">
+            <dt>Localização / Sala</dt><dd>Onde o projeto existe fisicamente. Uma localização (data center) pode ter várias salas; cada sala tem sua própria estrutura de racks e capacidade de refrigeração.</dd>
+            <dt>Fileira</dt><dd>Uma linha de racks dentro da sala.</dd>
+            <dt>Rack</dt><dd>Armário onde os equipamentos (assets) são instalados, medido em U. Tem capacidade elétrica e de carga do piso opcionais.</dd>
+            <dt>Calha</dt><dd>O caminho físico por onde os cabos são roteados entre racks.</dd>
+            <dt>Cabo</dt><dd>Conexão entre dois pontos (rack + U + porta, opcional). O comprimento é calculado pelo trajeto real nas calhas.</dd>
+            <dt>Asset</dt><dd>Qualquer equipamento instalado — switch, servidor, storage, etc. Pode ter portas, PoE, potência, peso e datas de garantia/fim de vida (EOL).</dd>
+            <dt>Bayface</dt><dd>Visão do rack de frente, U por U, mostrando onde cada asset está instalado.</dd>
+          </dl>
+        </section>
+        <section data-help-panel="shortcuts" class="hidden">
+          <h4>Atalhos</h4>
+          <table class="help-shortcuts-table">
+            <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>Busca rápida (rack, calha ou cabo)</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Desfazer</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> ou <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Refazer</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Fecha a janela aberta no momento</td></tr>
+            <tr><td>Roda do mouse</td><td>Zoom no canvas (centrado no cursor)</td></tr>
+            <tr><td>Arrastar</td><td>Move o canvas livremente</td></tr>
+            <tr><td><kbd>Shift</kbd> + arrastar</td><td>Seleciona vários racks numa área</td></tr>
+          </table>
+        </section>
+        <section data-help-panel="reference" class="hidden">
+          <h4>Referência rápida</h4>
+          <dl class="help-glossary">
+            <dt>Assets</dt><dd>Botão "Assets" na topbar — inventário completo, com filtro/ordenação por coluna e edição em massa.</dd>
+            <dt>Cadastros</dt><dd>Dentro de "Assets" → "Cadastros" — tipos, fabricantes e modelos (com portas, potência e peso padrão de cada modelo).</dd>
+            <dt>Bayface</dt><dd>Clique num rack no canvas e use "Ver Bayface" no painel de propriedades.</dd>
+            <dt>Alertas da topbar</dt><dd>Os ícones de aviso avisam sobre garantia/EOL vencendo e capacidade (energia, peso, refrigeração) perto do limite.</dd>
+            <dt>Exportar/Importar projeto</dt><dd>Salva ou restaura o projeto inteiro como um arquivo — funciona mesmo sem estar logado (modo convidado).</dd>
+            <dt>Mini mapa</dt><dd>Botão ⌗ no canto do canvas — visão geral da planta inteira e navegação rápida.</dd>
+          </dl>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="pdfReportOptionsModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card pdf-report-card" role="dialog" aria-modal="true" aria-labelledby="pdfReportOptionsTitle">
+    <div class="modal-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"/><path d="M9 13h6M9 17h4"/></svg></div><div><h3 id="pdfReportOptionsTitle">Gerar relatório PDF</h3><span>Escolha o que deve entrar no relatório.</span></div><button id="pdfReportOptionsClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div>
+    <form id="pdfReportOptionsForm">
+      <div class="pdf-report-options-list">
+        <label class="pdf-report-option"><input type="checkbox" id="pdfOptSummary" checked><span>Resumo geral</span></label>
+        <label class="pdf-report-option"><input type="checkbox" id="pdfOptStatus" checked><span>Assets por status</span></label>
+        <label class="pdf-report-option"><input type="checkbox" id="pdfOptLifecycle" checked><span>Alertas de ciclo de vida</span></label>
+        <label class="pdf-report-option"><input type="checkbox" id="pdfOptCables" checked><span>Resumo de cabos</span></label>
+      </div>
+      <div class="pdf-report-rack-picker">
+        <div class="pdf-report-rack-picker-head"><b>Racks incluídos (tabela e Bayface)</b><div><button type="button" class="btn ghost small" id="pdfRacksSelectAll">Marcar todos</button><button type="button" class="btn ghost small" id="pdfRacksSelectNone">Desmarcar todos</button></div></div>
+        <div id="pdfRacksList" class="pdf-report-racks-list"></div>
+      </div>
+      <div class="form-actions"><button id="pdfReportOptionsCancel" class="btn ghost" type="button">Cancelar</button><button class="btn primary" type="submit">✓ Gerar PDF</button></div>
+    </form>
+  </div>
+</div>
+<div id="cableTypeReviewModal" class="modal-backdrop hidden" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="cableTypeReviewTitle">
+    <div class="modal-head"><div class="modal-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h10l4 4-4 4H4z"/><circle cx="8" cy="12" r="1.5"/></svg></div><div><h3 id="cableTypeReviewTitle">Tipos de cabo não cadastrados</h3><span>A planilha usa tipos que ainda não existem no catálogo. Escolha quais cadastrar.</span></div><button id="cableTypeReviewClose" class="iconbtn" type="button" aria-label="Fechar">×</button></div>
+    <div class="cable-type-review-note">Mesmo os tipos não marcados serão usados nos cabos importados — só não ficam salvos no catálogo pra uso futuro.</div>
+    <div id="cableTypeReviewList" class="cable-type-review-list"></div>
+    <div class="form-actions"><button id="cableTypeReviewCancel" class="btn ghost" type="button">Cancelar importação</button><button id="cableTypeReviewConfirm" class="btn primary" type="button">✓ Continuar importação</button></div>
+  </div>
+</div>
+<script src="app.js?v=89"></script>
+
+</body>
+</html>

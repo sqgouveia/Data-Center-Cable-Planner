@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-15T00:00:00Z",
+  "title": "Design System: Stratum",
+  "extensions": {
+    "colorMeta": {
+      "signal-blue": { "role": "primary", "displayName": "Azul Sinal", "canonical": "#4a86f5", "tonalRamp": ["#0F1B31","#1E3662","#2C5093","#3B6BC4","#4A86F5","#86AEF8","#C2D6FC","#EAF1FE"] },
+      "signal-blue-ink": { "role": "primary-text", "displayName": "Azul Sinal (texto)", "canonical": "#6f9bff", "tonalRamp": [] },
+      "violet-relay": { "role": "secondary", "displayName": "Relé Violeta", "canonical": "#7c5cf0", "tonalRamp": [] },
+      "route-cyan": { "role": "accent", "displayName": "Ciano de Rota", "canonical": "#58c2ff", "tonalRamp": [] },
+      "status-green": { "role": "success", "displayName": "Verde de Status", "canonical": "#22c98f", "tonalRamp": ["#07281D","#0E5039","#147956","#1BA172","#22C98F","#6BDBB4","#B5EDD9","#E6F9F1"] },
+      "cable-orange": { "role": "warning", "displayName": "Âmbar de Calha", "canonical": "#f2a33d", "tonalRamp": ["#30210C","#614118","#916225","#C28231","#F2A33D","#F6C17D","#FAE0BE","#FDF3E6"] },
+      "alert-red": { "role": "danger", "displayName": "Vermelho de Alerta", "canonical": "#ef4f66", "tonalRamp": ["#301014","#602029","#8F2F3D","#BF3F52","#EF4F66","#F48998","#F9C3CB","#FDE7EA"] },
+      "alert-red-ink": { "role": "danger-text", "displayName": "Vermelho de Alerta (texto)", "canonical": "#ff6b80", "tonalRamp": [] },
+      "ink-black": { "role": "neutral", "displayName": "Preto-Tinta", "canonical": "#090c13", "tonalRamp": ["#090c13","#10141f","#161c2b","#242c42","#525f78","#8996ae","#c4cbd9","#eef1f8"] },
+      "panel": { "role": "neutral", "displayName": "Painel", "canonical": "#10141f", "tonalRamp": [] },
+      "panel-raised": { "role": "neutral", "displayName": "Painel Elevado", "canonical": "#161c2b", "tonalRamp": [] },
+      "hairline": { "role": "neutral", "displayName": "Linha Capilar", "canonical": "#242c42", "tonalRamp": [] },
+      "paper": { "role": "neutral", "displayName": "Papel", "canonical": "#eef1f8", "tonalRamp": [] },
+      "graphite": { "role": "neutral", "displayName": "Grafite", "canonical": "#8996ae", "tonalRamp": [] },
+      "grid-line": { "role": "neutral", "displayName": "Linha de Grade", "canonical": "#1a2338", "tonalRamp": [] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display (Titillium Web)", "purpose": "Títulos reais apenas: marca, cabeçalho de modal, telas de auth/dashboard, nome de projeto." },
+      "body": { "displayName": "Body (Inter)", "purpose": "Corpo denso da ferramenta — botões, inputs, texto corrido. Métrica calibrada com dezenas de truncamentos fixos; não trocar sem revisar todos." },
+      "label": { "displayName": "Label (Inter, 11px)", "purpose": "Piso de legibilidade do sistema — rótulos, badges, cabeçalhos de tabela." },
+      "mono": { "displayName": "Data (IBM Plex Mono)", "purpose": "Qualquer número que seja identificador: porta, watt, ID, IP." }
+    },
+    "shadows": [
+      { "name": "elevation-default", "value": "0 8px 20px rgba(2,5,12,.4)", "purpose": "Cards de projeto e botões circulares flutuantes do canvas." },
+      { "name": "elevation-modal", "value": "0 16px 40px rgba(2,5,12,.45)", "purpose": "Modal-card — conteúdo que interrompe a tarefa." },
+      { "name": "elevation-auth", "value": "0 20px 50px rgba(2,5,12,.45)", "purpose": "Auth-card — superfície mais isolada da aplicação." },
+      { "name": "elevation-menu", "value": "0 10px 26px rgba(2,5,12,.4)", "purpose": "Menu de contexto de projeto." },
+      { "name": "focus-ring", "value": "0 0 0 1px var(--blue) inset", "purpose": "Substitui borda como sinal de hover/foco em superfícies sem borda em repouso." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "ease", "purpose": "Transições padrão de hover/estado (background, border-color, box-shadow, transform)." },
+      { "name": "duration-fast", "value": "0.12s", "purpose": "Micro-interações — toggle, hover de ícone." },
+      { "name": "duration-standard", "value": "0.15s–0.16s", "purpose": "Hover de botão, card, transição de painel." }
+    ],
+    "breakpoints": [
+      { "name": "xl", "value": "1250px" },
+      { "name": "lg", "value": "1100px" },
+      { "name": "md", "value": "1000px" },
+      { "name": "sm", "value": "900px" },
+      { "name": "xs", "value": "800px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação principal de uma tela ou formulário.",
+      "html": "<button class=\"ds-btn-primary\">Aplicar estrutura</button>",
+      "css": ".ds-btn-primary { background: linear-gradient(155deg, var(--blue, #4a86f5), color-mix(in srgb, var(--blue, #4a86f5) 62%, var(--blue2, #7c5cf0))); color: #fff; border: none; border-radius: 6px; padding: 9px 12px; font-weight: 650; font-size: 13px; cursor: pointer; box-shadow: 0 6px 16px rgba(2,5,12,.35); transition: box-shadow .15s ease; } .ds-btn-primary:hover { box-shadow: 0 8px 20px rgba(2,5,12,.4); } .ds-btn-primary:focus-visible { outline: 2px solid color-mix(in srgb, var(--blue, #4a86f5) 70%, transparent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Botão padrão da topbar/toolbar — ação secundária.",
+      "html": "<button class=\"ds-btn-ghost\">Projetos</button>",
+      "css": ".ds-btn-ghost { background: color-mix(in srgb, var(--panel2, #161c2b) 55%, transparent); color: var(--text, #eef1f8); border: 1px solid var(--border, #242c42); border-radius: 6px; padding: 9px 12px; font-weight: 650; font-size: 13px; cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .1s; } .ds-btn-ghost:hover { border-color: var(--blue, #4a86f5); transform: translateY(-1px); box-shadow: 0 0 0 1px var(--blue, #4a86f5) inset; } .ds-btn-ghost:focus-visible { outline: 2px solid color-mix(in srgb, var(--blue, #4a86f5) 70%, transparent); outline-offset: 2px; }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Ação destrutiva — excluir projeto, remover asset.",
+      "html": "<button class=\"ds-btn-danger\">Excluir</button>",
+      "css": ".ds-btn-danger { background: linear-gradient(155deg, var(--red, #ef4f66), color-mix(in srgb, var(--red, #ef4f66) 70%, #7a1220)); color: #fff; border: none; border-radius: 6px; padding: 9px 12px; font-weight: 650; font-size: 13px; cursor: pointer; box-shadow: 0 6px 16px rgba(2,5,12,.35); transition: box-shadow .15s ease; } .ds-btn-danger:hover { box-shadow: 0 8px 20px rgba(2,5,12,.4); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": null,
+      "description": "Campo de texto/número padrão dos formulários.",
+      "html": "<label class=\"ds-field\">Nome do projeto<input class=\"ds-input\" value=\"Data Center\"></label>",
+      "css": ".ds-field { display: block; color: var(--muted, #8996ae); font-size: 11px; font-weight: 600; margin-bottom: 9px; } .ds-input { width: 100%; margin-top: 5px; border: 1px solid var(--border, #242c42); border-radius: 6px; background: var(--panel2, #161c2b); color: var(--text, #eef1f8); padding: 8px 9px; font-size: 12px; outline: none; transition: border-color .15s, box-shadow .15s; } .ds-input:focus { border-color: var(--blue, #4a86f5); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue, #4a86f5) 16%, transparent); }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": null,
+      "description": "Badge de estado — garantia vencida, capacidade alta, ativo.",
+      "html": "<span class=\"ds-chip ds-chip-danger\">Garantia vencida</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; font-size: 11px; font-weight: 750; padding: 3px 8px; border-radius: 999px; } .ds-chip-danger { color: var(--red-ink, #ff6b80); border: 1px solid color-mix(in srgb, var(--red, #ef4f66) 45%, var(--border, #242c42)); background: color-mix(in srgb, var(--red, #ef4f66) 12%, transparent); }"
+    },
+    {
+      "name": "Project Card",
+      "kind": "card",
+      "refersTo": "project-card",
+      "description": "Card de projeto no dashboard — sem borda em repouso, só sombra.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-accent\"></div><h3 class=\"ds-card-title\">Data Center AZ1</h3><span class=\"ds-card-date\">Atualizado há 2 dias</span></div>",
+      "css": ".ds-card { position: relative; overflow: hidden; border: 1px solid transparent; border-radius: 16px; background: linear-gradient(180deg, color-mix(in srgb, var(--panel, #10141f) 100%, #fff 2%), var(--panel, #10141f)); padding: 18px; box-shadow: 0 8px 20px rgba(2,5,12,.4); transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; } .ds-card:hover { border-color: var(--blue, #4a86f5); transform: translateY(-3px); box-shadow: 0 20px 44px rgba(2,5,12,.22); } .ds-card-accent { position: absolute; inset: 0 0 auto 0; height: 2px; background: linear-gradient(90deg, var(--blue, #4a86f5), var(--blue2, #7c5cf0)); opacity: 0; transition: opacity .16s ease; } .ds-card:hover .ds-card-accent { opacity: 1; } .ds-card-title { font-family: 'Titillium Web', Inter, sans-serif; font-size: 15px; font-weight: 700; margin: 0 0 5px; letter-spacing: -.005em; color: var(--text, #eef1f8); } .ds-card-date { font-size: 11px; color: var(--muted, #8996ae); }"
+    },
+    {
+      "name": "Modal",
+      "kind": "custom",
+      "refersTo": "modal-card",
+      "description": "Superfície de interrupção de tarefa — sombra apenas, sem borda.",
+      "html": "<div class=\"ds-modal\"><div class=\"ds-modal-icon\">⚙</div><div><h3 class=\"ds-modal-title\">Confirmar ação</h3><span class=\"ds-modal-sub\">Esta ação não pode ser desfeita.</span></div></div>",
+      "css": ".ds-modal { display: flex; gap: 12px; width: min(420px, 100%); background: linear-gradient(180deg, color-mix(in srgb, var(--panel, #10141f) 100%, #fff 2%), var(--panel, #10141f)); border-radius: 16px; box-shadow: 0 16px 40px rgba(2,5,12,.45), inset 0 1px 0 rgba(255,255,255,.04); padding: 16px; } .ds-modal-icon { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 10px; background: linear-gradient(155deg, color-mix(in srgb, var(--blue, #4a86f5) 20%, transparent), color-mix(in srgb, var(--blue, #4a86f5) 8%, transparent)); color: var(--blue-ink, #6f9bff); } .ds-modal-title { margin: 0 0 4px; font-family: 'Titillium Web', Inter, sans-serif; font-size: 15px; font-weight: 700; color: var(--text, #eef1f8); } .ds-modal-sub { font-size: 11px; color: var(--muted, #8996ae); }"
+    },
+    {
+      "name": "Bayface U-Slot",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Componente-assinatura: célula de 1U dentro da visão frontal do rack. Escala tipográfica própria (9px), abaixo do piso do resto do sistema, porque a proporção física de 1U exige.",
+      "html": "<div class=\"ds-uslot\"><span class=\"ds-uslot-num\">24</span><b class=\"ds-uslot-name\">Switch Core 01</b></div>",
+      "css": ".ds-uslot { display: grid; grid-template-columns: 20px 1fr; align-items: center; gap: 6px; height: 18px; padding: 0 6px; background: color-mix(in srgb, var(--panel2, #161c2b) 92%, var(--blue, #4a86f5) 4%); border-radius: 3px; } .ds-uslot-num { font-size: 9px; color: var(--muted, #8996ae); font-family: 'IBM Plex Mono', monospace; text-align: center; } .ds-uslot-name { font-size: 9px; font-weight: 800; color: var(--text, #eef1f8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Patch Bay",
+    "overview": "Stratum é a central de conexões do próprio data center que ele documenta: uma superfície escura, densa e precisa, onde cada jack, LED e trilha de sinal tem um papel funcional, nunca decorativo. A referência não é um dashboard SaaS genérico — é o painel de um rack de patch, uma sala de operação de rede: superfícies foscas, acentos de sinal (azul, âmbar, verde) usados com parcimônia, e uma grade de blueprint sutil como lembrete de que isto é, no fundo, uma planta técnica. O tom é preciso e técnico, discreto e sem frescura. A interface nunca tenta ser calorosa ou 'amigável' — ela tenta ser correta, legível a distância e previsível em cada estado.",
+    "keyCharacteristics": [
+      "Fundo quase preto (dark-first) com acentos de sinal usados como exceção, não regra",
+      "Tipografia de display (Titillium Web) reservada só para títulos reais — o corpo denso usa Inter",
+      "Dados numéricos e de identificação sempre em monoespaçada (IBM Plex Mono)",
+      "Superfícies flutuam sobre sombra, nunca sobre contorno",
+      "Cor sempre carrega significado de estado — nunca é só decoração"
+    ],
+    "rules": [
+      { "name": "The Rare Signal Rule", "body": "Azul Sinal aparece em no máximo um lugar de destaque por tela — botão primário da ação atual, ou o item selecionado.", "section": "colors" },
+      { "name": "The Status Color Rule", "body": "Verde, âmbar e vermelho nunca são estéticos — cada um corresponde a um estado real e mensurável.", "section": "colors" },
+      { "name": "The 11px Floor Rule", "body": "Nenhum texto funcional fica abaixo de 11px, exceto a grade por-U do Bayface, que tem restrição física real de altura de linha.", "section": "typography" },
+      { "name": "The Floating Panel Rule", "body": "Toda superfície que paira sobre o conteúdo usa sombra para se definir, nunca borda. Interação usa anel inset, não border-color.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do usar sombra pura para elevar superfícies flutuantes (The Floating Panel Rule).",
+      "Do manter texto funcional em 11px ou mais, exceto na grade por-U do Bayface.",
+      "Do reservar Azul Sinal para uma única ação/seleção de destaque por tela.",
+      "Do usar IBM Plex Mono sempre que o conteúdo for um número identificador.",
+      "Do tingir o texto de estado com a variante -ink quando ele sentar sobre um fundo já tingido da mesma cor."
+    ],
+    "donts": [
+      "Don't combinar borda de 1px com sombra larga e difusa no mesmo elemento.",
+      "Don't usar box-shadow colorido (glow) em botões ou ícones.",
+      "Don't introduzir verde/âmbar/vermelho decorativamente.",
+      "Don't replicar o visual genérico de dashboard SaaS.",
+      "Don't adicionar um novo glifo Unicode/emoji como ícone — ícones novos são SVG desenhado."
+    ]
+  }
+}
