@@ -694,7 +694,10 @@ body.guest-mode #btnSave{pointer-events:none;opacity:.45;cursor:not-allowed}
 .assets-bulk-bar b{font-family:"IBM Plex Mono","SFMono-Regular",Menlo,Consolas,monospace;color:var(--blue)}
 .assets-bulk-bar-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .assets-bulk-bar-actions select{background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:var(--r-sm);padding:6px 8px;font-size:var(--fs-micro);height:30px;max-width:150px}
-.asset-edit-card{width:min(600px,100%)}
+.asset-edit-card{width:min(860px,calc(100vw - 40px))}
+#assetEditForm{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;align-items:start}
+#assetEditForm>label,#assetEditForm>.asset-ports-section,#assetEditForm>.asset-lifecycle-section,#assetEditForm>.help,#assetEditForm>.form-actions{grid-column:1/-1}
+@media(max-width:640px){#assetEditForm{grid-template-columns:1fr}}
 #assetEditModal{z-index:1250!important}
 #roomEditorModal{z-index:1250!important}
 #assetHistoryModal{z-index:1260!important}
