@@ -66,7 +66,11 @@ Exports:
 - `assetsOnFace(assets, rackId, face)` — a única resposta para "o que está nesta
   face". Filtra por rack, por face e exclui arquivados.
 - `assetAtRackU(assets, rackId, u, face)` — substitui app.js:1832, agora com
-  face.
+  face. Devolve o asset daquela face, ou `null`. Usado pelo bayface.
+- `assetsAtRackU(assets, rackId, u)` — a união das duas faces, de 0 a 2 assets.
+  Usado pelo código de cabos, que conecta a uma porta e não a uma face.
+- `assetOwningPort(assets, portId)` — o asset dono de uma porta, ou `null`.
+  Permite rotular uma ponta de cabo sem saber a face de antemão.
 - `assetConflicts(assets, asset, ignoreId)` — substitui app.js:1827. Só acusa
   conflito quando `x.face === asset.face`.
 - `occupiedUnits(assets, rackId, face)` — conjunto de U ocupadas em uma face.
@@ -164,7 +168,43 @@ Capacidade elétrica, peso e capacidade térmica continuam somando o rack inteir
 as duas faces. Um rack tem um disjuntor e um piso só — dividir esses limites por
 face seria errado. Apenas a ocupação de U é por face.
 
-Cabos e portas não ganham noção de face nesta mudança.
+O cabo não ganha campo de face — ver a seção seguinte.
+
+## Cabos
+
+Esta seção corrige uma afirmação errada da primeira versão desta spec, que dizia
+que cabos ficariam fora do escopo.
+
+`assetAtRackU(rackId, u)` tem sete call sites, cinco deles no código de cabos, e
+todos assumem que `(rack, U)` identifica um único asset. Com ocupação por face
+isso deixa de valer: um switch na frente e um PDU atrás da mesma U tornam o
+retorno ambíguo, e um cabo ligado à porta do PDU passaria a resolver para o
+switch.
+
+A solução não adiciona face ao cabo. O alvo real de uma ponta de cabo sempre foi
+o **ID da porta**, que já é único no projeto inteiro — a face é uma propriedade
+do asset dono da porta, e pode ser derivada. Portanto:
+
+- `assetsAtRackU(assets, rackId, u)` devolve uma lista de 0 a 2 assets (um por
+  face), substituindo o antigo retorno único.
+- `assetOwningPort(assets, portId)` devolve o asset dono de uma porta. É o que
+  permite rotular uma ponta de cabo sem saber a face de antemão.
+- O seletor de porta de uma U passa a listar as portas dos assets das duas
+  faces, identificadas pelo nome do asset.
+
+Call sites e o que muda em cada um:
+
+| Local | Hoje | Depois |
+|---|---|---|
+| `cablePortAt` (app.js:3554) | procura a porta no único asset da U | procura entre as portas de todos os assets da U |
+| `cableEndpointLabel` (app.js:3555) | nome do asset vem do único asset da U | nome vem de `assetOwningPort(portId)`; sem porta escolhida e havendo um único asset na U, usa esse asset; havendo dois, usa `—` |
+| `updateCableAssetNameField` (app.js:3193) | trava o campo de nome quando há asset na U | trava quando há exatamente um asset na U; havendo dois, o nome passa a seguir a porta escolhida |
+| `renderCableProperties` (app.js:3218-3219) | resolve asset de origem e destino | mesma regra do item anterior, para as duas pontas |
+| `processCableImportRows` (app.js:3511-3512) | casa o rótulo da porta da planilha contra as portas do asset da U | casa contra as portas dos assets das duas faces |
+
+Cabos existentes não precisam de migração: eles já guardam `portId`, e os assets
+migrados ficam todos em `front`, então toda resolução continua devolvendo o
+mesmo resultado de antes.
 
 ## Testes
 
@@ -184,6 +224,10 @@ Casos a cobrir:
   conflita.
 - Asset arquivado não ocupa nem conflita.
 - `assetAtRackU` devolve o asset da face pedida e ignora o da face oposta.
+- `assetsAtRackU` devolve os dois assets quando há um em cada face, e um só
+  quando a face oposta está vazia.
+- `assetOwningPort` acha o dono da porta estando ele na frente ou na traseira,
+  e devolve `null` para porta inexistente.
 - `occupiedUnits` conta apenas a face pedida.
 - Asset sem `rackId` nunca conflita.
 
@@ -195,7 +239,7 @@ Comando: `node --test "js/test/*.test.mjs"`.
 |---|---|
 | `js/occupancy.js` | novo — ocupação e conflito por face |
 | `js/test/occupancy.test.mjs` | novo — testes do módulo |
-| `app.js` | importa o módulo; `bayfaceFace`; migração em `normalizeAssets`; face no save, no lote e na importação |
+| `app.js` | importa o módulo; `bayfaceFace`; migração em `normalizeAssets`; face no save, no lote e na importação; resolução de ponta de cabo pelas duas faces |
 | `index.html` | select de face na modal; coluna `Face` no lote |
 | `app.css` | estilo da camada fantasma; botão do alternador FRONT/REAR |
 
@@ -206,8 +250,9 @@ Comando: `node --test "js/test/*.test.mjs"`.
    comportamento atual (todos os assets em `front`).
 3. Migração em `normalizeAssets` e campo na modal.
 4. Bayface: alternador, camada fantasma e contadores por face.
-5. Cadastro em lote.
-6. Importação XLSX.
+5. Cabos: portas das duas faces nos cinco call sites.
+6. Cadastro em lote.
+7. Importação XLSX.
 
 Cada etapa deixa o app funcionando; a 2 é onde a rede de testes protege a
 troca de fundação.
