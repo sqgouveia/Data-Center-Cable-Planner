@@ -4503,6 +4503,11 @@ function getCol(row,aliases){
   if(keys.length===1){const k=keys[0]; const v=String(m[k]??'').trim(); if(v) return v;}
   return '';
 }
+function parseImportFace(raw){
+  const v=catalogNormalize(String(raw||''));
+  if(v==='traseira'||v==='tras'||v==='rear'||v==='back')return 'rear';
+  return 'front';
+}
 function assetImportCatalogOptions(kind, selected=''){
   normalizeAssetCatalogs();
   if(kind==='type') return '<option value="">Selecione</option>'+state.assetCatalogs.types.map(v=>`<option value="${esc(v)}" ${catalogNormalize(v)===catalogNormalize(selected)?'selected':''}>${esc(v)}</option>`).join('');
@@ -4543,10 +4548,10 @@ function assetImportUOptions(item){
   const rack=room?.data?.racks?.find(r=>catalogNormalize(r.name)===catalogNormalize(item.data?.Rack));
   if(!rack)return '<option value="">—</option>';
   const rackId=rack.id, height=Math.max(1,Math.floor(parseImportNumber(item.data?.['Quantidade U'],1)));
-  const used=new Set();
-  (state.assets||[]).filter(a=>a.rackId===rackId&&!isAssetArchived(a)).forEach(a=>{const o=assetOccupancy(a);for(let u=o.start;u<=o.end;u++)used.add(u);});
+  const face=parseImportFace(item.data?.Face);
+  const used=occupiedUnits(state.assets,rackId,face);
   const rows=pendingImport?.rows||[];
-  rows.forEach(other=>{if(other===item||!other.valid)return;const rr=(state.rooms||[]).find(r=>catalogNormalize(r.name)===catalogNormalize(other.data?.Sala));const rk=rr?.data?.racks?.find(r=>catalogNormalize(r.name)===catalogNormalize(other.data?.Rack));if(rk?.id===rackId){const st=Math.floor(parseImportNumber(other.data?.['U Inicial'],0)),h=Math.max(1,Math.floor(parseImportNumber(other.data?.['Quantidade U'],1)));if(st)for(let u=st;u<st+h;u++)used.add(u);}});
+  rows.forEach(other=>{if(other===item||!other.valid)return;if(parseImportFace(other.data?.Face)!==face)return;const rr=(state.rooms||[]).find(r=>catalogNormalize(r.name)===catalogNormalize(other.data?.Sala));const rk=rr?.data?.racks?.find(r=>catalogNormalize(r.name)===catalogNormalize(other.data?.Rack));if(rk?.id===rackId){const st=Math.floor(parseImportNumber(other.data?.['U Inicial'],0)),h=Math.max(1,Math.floor(parseImportNumber(other.data?.['Quantidade U'],1)));if(st)for(let u=st;u<st+h;u++)used.add(u);}});
   const units=Math.max(1,Math.floor(num(rack.units,state.rackUnits))); const current=Math.floor(parseImportNumber(item.data?.['U Inicial'],0));
   let html='<option value="">Selecione</option>';
   for(let st=1;st<=units-height+1;st++){
@@ -4561,9 +4566,10 @@ function validateAssetImportRows(rows){
   const existingByName=new Map((state.assets||[]).filter(a=>a.name).map(a=>[catalogNormalize(a.name),a]));
   const occupiedByRack=new Map();
   (state.assets||[]).filter(a=>a.rackId&&!isAssetArchived(a)).forEach(a=>{
-    const set=occupiedByRack.get(a.rackId)||new Set(), o=assetOccupancy(a);
+    const key=`${a.rackId}|${a.face||'front'}`;
+    const set=occupiedByRack.get(key)||new Set(), o=assetOccupancy(a);
     for(let u=o.start;u<=o.end;u++) set.add(u);
-    occupiedByRack.set(a.rackId,set);
+    occupiedByRack.set(key,set);
   });
 
   // Index the complete import first so duplicate checks are independent of row order
@@ -4629,8 +4635,9 @@ function validateAssetImportRows(rows){
       const units=Math.max(1,Math.floor(num(rack.units,state.rackUnits)));
       if(uStart>=1 && uStart+uHeight-1>units) problems.push(`Posição U${uStart}–U${uStart+uHeight-1} ultrapassa o limite do rack (${units}U).`);
 
-      const existing=occupiedByRack.get(rack.id)||new Set();
-      const planned=plannedByRack.get(rack.id)||new Map();
+      const faceKey=`${rack.id}|${parseImportFace(d.Face)}`;
+      const existing=occupiedByRack.get(faceKey)||new Set();
+      const planned=plannedByRack.get(faceKey)||new Map();
       if(uStart>=1 && uStart+uHeight-1<=units){
         const conflictsExisting=[]; const conflictsImport=[];
         for(let u=uStart;u<uStart+uHeight;u++){
@@ -4647,7 +4654,7 @@ function validateAssetImportRows(rows){
       // when the current row has other unrelated validation errors.
       if(uStart>=1 && uStart+uHeight-1<=units){
         for(let u=uStart;u<uStart+uHeight;u++) if(!planned.has(u)) planned.set(u, item.line??idx+2);
-        plannedByRack.set(rack.id,planned);
+        plannedByRack.set(faceKey,planned);
       }
     }
 
@@ -4987,8 +4994,9 @@ async function processAssetsWorkbook(file){
     const existingByName=new Map((state.assets||[]).filter(a=>a.name).map(a=>[catalogNormalize(a.name),a]));
     const occupiedByRack=new Map();
     (state.assets||[]).filter(a=>a.rackId&&!isAssetArchived(a)).forEach(a=>{
-      const set=occupiedByRack.get(a.rackId)||new Set(),o=assetOccupancy(a);
-      for(let u=o.start;u<=o.end;u++)set.add(u); occupiedByRack.set(a.rackId,set);
+      const key=`${a.rackId}|${a.face||'front'}`;
+      const set=occupiedByRack.get(key)||new Set(),o=assetOccupancy(a);
+      for(let u=o.start;u<=o.end;u++)set.add(u); occupiedByRack.set(key,set);
     });
     const plannedByRack=new Map();
     const keyFor=(rackId,start,height)=>`${rackId||''}|${start}|${height}`;
@@ -5031,12 +5039,13 @@ async function processAssetsWorkbook(file){
       if(valid&&rack){
         const units=Math.max(1,Math.floor(num(rack.units,state.rackUnits)));
         if(uStart+uHeight-1>units){valid=false;message=`Posição U${uStart}–U${uStart+uHeight-1} ultrapassa o limite do rack (${units}U).`;}
-        const used=new Set(occupiedByRack.get(rack.id)||[]);
-        const planned=plannedByRack.get(rack.id)||new Set();
+        const faceKey=`${rack.id}|${parseImportFace(d.Face)}`;
+        const used=new Set(occupiedByRack.get(faceKey)||[]);
+        const planned=plannedByRack.get(faceKey)||new Set();
         for(let u=uStart;u<uStart+uHeight;u++){
           if(used.has(u)||planned.has(u)){valid=false;message=`U${u} já está ocupada ou foi reservada por outra linha desta importação.`;break;}
         }
-        if(valid){for(let u=uStart;u<uStart+uHeight;u++)planned.add(u);plannedByRack.set(rack.id,planned);}
+        if(valid){for(let u=uStart;u<uStart+uHeight;u++)planned.add(u);plannedByRack.set(faceKey,planned);}
       }
       const serialKey=catalogNormalize(d['Serial Number']);
       const nameKey=catalogNormalize(d.Nome);
@@ -5045,7 +5054,8 @@ async function processAssetsWorkbook(file){
       if(valid&&existingSerial){valid=false;message=`Serial Number já cadastrado no asset "${existingSerial.name||'sem nome'}".`;}
       else if(valid&&existingName){warning=`Nome igual ao asset existente "${existingName.name}".`;}
       if(valid&&model&&d.Rack&&rack&&uStart){
-        const exactLocation=(state.assets||[]).find(a=>!isAssetArchived(a)&&a.rackId===rack.id&&uStart<=assetOccupancy(a).end&&assetOccupancy(a).start<=uStart+uHeight-1);
+        const rowFace=parseImportFace(d.Face);
+        const exactLocation=(state.assets||[]).find(a=>!isAssetArchived(a)&&a.rackId===rack.id&&(a.face||'front')===rowFace&&uStart<=assetOccupancy(a).end&&assetOccupancy(a).start<=uStart+uHeight-1);
         if(exactLocation){valid=false;message=`Conflito de U: a posição informada sobrepõe o asset "${exactLocation.name||'sem nome'}".`;}
       }
       if(valid&&model){
@@ -5072,7 +5082,7 @@ async function processAssetsWorkbook(file){
       validateAssetImportRows(preview);
       const ready=preview.filter(r=>r.valid);
       ready.forEach(item=>{
-        const d=item.data; const resolved=resolveAssetImportLocation(d['Localização']||d.Sala); const room=resolved.room; const stock=resolved.stock; const rack=room&&d.Rack?room.data?.racks?.find(r=>catalogNormalize(r.name)===catalogNormalize(d.Rack)):null; const loc=resolved.loc; const asset=autoFillAssetFromModel({id:uid('asset'),name:d.Nome,type:d.Tipo,manufacturer:d.Fabricante,model:d.Modelo,assetTag:d['Asset Tag'],serial:d['Serial Number'],status:d.Status||'Instalado',substatus:d.Substatus||'',locationType:stock?'stock':'room',locationName:d['Localização']||d.Sala||'',locationId:loc?.id||null,stockId:stock?.id||null,roomId:room?.id||null,rackId:rack?.id||null,uStart:Math.max(1,Math.floor(parseImportNumber(d['U Inicial'],1))),uHeight:Math.max(1,Math.floor(parseImportNumber(d['Quantidade U'],1))),ports:[],powerW:Math.max(0,Math.floor(parseImportNumber(d['Potência (W)'],0))),weightKg:Math.max(0,parseImportNumber(d['Peso (kg)'],0)),purchaseDate:parseImportDate(d['Data de compra']),warrantyExpiration:parseImportDate(d['Vencimento da garantia']),endOfLife:parseImportDate(d['Fim de vida (EOL)'])}); state.assets.push(asset); recordAssetAudit({action:'CREATE',asset,after:asset,changes:[]});
+        const d=item.data; const resolved=resolveAssetImportLocation(d['Localização']||d.Sala); const room=resolved.room; const stock=resolved.stock; const rack=room&&d.Rack?room.data?.racks?.find(r=>catalogNormalize(r.name)===catalogNormalize(d.Rack)):null; const loc=resolved.loc; const asset=autoFillAssetFromModel({id:uid('asset'),name:d.Nome,type:d.Tipo,manufacturer:d.Fabricante,model:d.Modelo,assetTag:d['Asset Tag'],serial:d['Serial Number'],status:d.Status||'Instalado',substatus:d.Substatus||'',locationType:stock?'stock':'room',locationName:d['Localização']||d.Sala||'',locationId:loc?.id||null,stockId:stock?.id||null,roomId:room?.id||null,rackId:rack?.id||null,face:rack?parseImportFace(d.Face):null,uStart:Math.max(1,Math.floor(parseImportNumber(d['U Inicial'],1))),uHeight:Math.max(1,Math.floor(parseImportNumber(d['Quantidade U'],1))),ports:[],powerW:Math.max(0,Math.floor(parseImportNumber(d['Potência (W)'],0))),weightKg:Math.max(0,parseImportNumber(d['Peso (kg)'],0)),purchaseDate:parseImportDate(d['Data de compra']),warrantyExpiration:parseImportDate(d['Vencimento da garantia']),endOfLife:parseImportDate(d['Fim de vida (EOL)'])}); state.assets.push(asset); recordAssetAudit({action:'CREATE',asset,after:asset,changes:[]});
       });
       const imported=ready.length;save();closeImportPreview();renderAll(false);renderAssetsList($('assetsSearch')?.value||'');toast(`${imported} asset(s) importado(s)`);
     });
