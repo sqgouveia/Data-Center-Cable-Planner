@@ -133,6 +133,8 @@ input:disabled,select:disabled{opacity:.45;color:var(--muted);cursor:not-allowed
 .asset-ports-head div{display:flex;gap:6px}
 .asset-ports-used-count{font-weight:500;color:var(--muted);font-size:var(--fs-micro)}
 .asset-ports-list{max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:5px}
+#assetPortsToggle .chevron{transition:transform .15s ease}
+#assetPortsToggle[aria-expanded="true"] .chevron{transform:rotate(180deg)}
 .asset-port-row{display:grid;grid-template-columns:20px 1fr auto auto;align-items:center;gap:6px;border-radius:4px;padding:3px 5px;border:1px solid transparent}
 .asset-port-row.is-free{background:color-mix(in srgb,var(--green) 8%,transparent);border-color:color-mix(in srgb,var(--green) 25%,var(--border))}
 .asset-port-row.is-used{background:color-mix(in srgb,var(--red) 9%,transparent);border-color:color-mix(in srgb,var(--red) 30%,var(--border))}

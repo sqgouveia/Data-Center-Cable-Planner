@@ -2323,6 +2323,14 @@ function allProjectCables(){
 function findPortConnection(portId){
   return allProjectCables().find(c=>c.originPortId===portId||c.destPortId===portId)||null;
 }
+function setAssetPortsCollapsed(collapsed){
+  const list=$('assetPortsList'); if(!list)return;
+  list.classList.toggle('hidden',collapsed);
+  const btn=$('assetPortsToggle');
+  if(btn)btn.setAttribute('aria-expanded',collapsed?'false':'true');
+  const label=$('assetPortsToggleLabel');
+  if(label)label.textContent=collapsed?'Mostrar':'Ocultar';
+}
 function renderAssetPortsEditor(){
   const list=$('assetPortsList'); if(!list)return;
   $('assetPortsCount').textContent=assetEditPorts.length;
@@ -2417,6 +2425,7 @@ function openAssetModal(assetId=null, rackId=null, uStart=null){
   $('assetStatus').value=asset?.status||'Instalado'; $('assetSubstatus').value=asset?.substatus||'';
   assetEditPorts=asset?.ports?cloneData(asset.ports):[];
   if(!assetEditPorts.length)autoFillPortsFromModelIfEmpty();
+  setAssetPortsCollapsed(true);
   renderAssetPortsEditor();
   autoFillPortsFromModelIfEmpty();
   if($('assetPowerW')){$('assetPowerW').value=asset?.powerW||'';if(!$('assetPowerW').value)autoFillPowerFromModelIfEmpty();}
@@ -5330,7 +5339,8 @@ function bind(){
   $('roomEditorForm')?.addEventListener('submit',e=>{e.preventDefault();saveRoomEditor();});
   $('roomEditorClose')?.addEventListener('click',closeRoomEditor);
   $('roomEditorCancel')?.addEventListener('click',closeRoomEditor);
-  $('assetPortsAdd')?.addEventListener('click',()=>{assetEditPorts.push({id:uid('port'),label:`Porta ${assetEditPorts.length+1}`,poe:false});renderAssetPortsEditor();const inputs=document.querySelectorAll('#assetPortsList .asset-port-name');const last=inputs[inputs.length-1];if(last){last.focus();last.select();}});
+  $('assetPortsToggle')?.addEventListener('click',()=>{setAssetPortsCollapsed(!$('assetPortsList')?.classList.contains('hidden'));});
+  $('assetPortsAdd')?.addEventListener('click',()=>{assetEditPorts.push({id:uid('port'),label:`Porta ${assetEditPorts.length+1}`,poe:false});setAssetPortsCollapsed(false);renderAssetPortsEditor();const inputs=document.querySelectorAll('#assetPortsList .asset-port-name');const last=inputs[inputs.length-1];if(last){last.focus();last.select();}});
   $('assetWarrantyExpiration')?.addEventListener('input',updateAssetLifecycleBadge);
   $('assetEndOfLife')?.addEventListener('input',updateAssetLifecycleBadge);
   $('assetPortsExport')?.addEventListener('click',exportAssetPortsXLSX);
