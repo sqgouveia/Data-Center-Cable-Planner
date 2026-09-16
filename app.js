@@ -19,6 +19,10 @@ import {
   buildRouteGraph, calcAutomaticTrayLength, routePointsForAutomatic, routeBetweenRacks,
   manualRouteData, computeRoute, validateManualRouteCandidate, rackNameById, calcCable
 } from './js/routing.js';
+import {
+  isAssetArchived, assetOccupancy, assetsOnFace, assetAtRackU,
+  assetsAtRackU, assetOwningPort, assetConflicts, occupiedUnits
+} from './js/occupancy.js';
 
 // --- Supabase authentication -------------------------------------------------
 const SUPABASE_URL = 'https://qfkygzzzavtvfupsohxu.supabase.co';
@@ -1709,11 +1713,6 @@ function assetRackRoom(asset){
   if(asset?.rackId){const r=findRackGlobal(asset.rackId);if(r)return state.rooms.find(x=>x.data?.racks?.some(y=>y.id===r.id))||null;}
   return null;
 }
-function assetOccupancy(asset){
-  const start=Math.floor(num(asset.uStart,1)), height=Math.max(1,Math.floor(num(asset.uHeight,1)));
-  return {start,end:start+height-1};
-}
-function isAssetArchived(asset){ return String(asset?.status||'')==='Arquivado'; }
 const ASSET_WARRANTY_WARN_DAYS=60, ASSET_EOL_WARN_DAYS=60;
 function assetWarrantyLevel(a){ return dateUrgencyLevel(a?.warrantyExpiration,ASSET_WARRANTY_WARN_DAYS); }
 function assetEndOfLifeLevel(a){ return dateUrgencyLevel(a?.endOfLife,ASSET_EOL_WARN_DAYS); }
@@ -1823,15 +1822,6 @@ function openAssetsModalWithAttentionFilter(){
   assetAttentionOnly=true;
   assetColumnsAutoFitted=false;
   renderAssetsList();
-}
-function assetConflicts(asset, ignoreId=null){
-  if(!asset.rackId)return false;
-  const a=assetOccupancy(asset);
-  return state.assets.some(x=>x.id!==ignoreId && x.rackId===asset.rackId && (()=>{const b=assetOccupancy(x);return a.start<=b.end&&b.start<=a.end;})());
-}
-function assetAtRackU(rackId,u){
-  if(!rackId)return null;
-  return state.assets.find(a=>a.rackId===rackId && !isAssetArchived(a) && (()=>{const o=assetOccupancy(a);return u>=o.start&&u<=o.end;})())||null;
 }
 function cablePortConflict(cable,side,portId){
   if(!portId)return null;
@@ -2479,7 +2469,7 @@ async function saveAssetForm(){
   const warrantyExpiration=$('assetWarrantyExpiration')?.value||'';
   const endOfLife=$('assetEndOfLife')?.value||'';
   const locVal=$('assetLocation').value||''; const stockParts=locVal.startsWith('stock:')?locVal.split(':'):null; const finalLocationId=stockParts?.[1]||roomObj?.locationId||state.locations?.[0]?.id||null; const finalStockId=stockParts?.[2]||null; const asset={id:id||uid('asset'),name,type:$('assetType').value||'Equipamento',manufacturer:$('assetManufacturer').value.trim(),model:$('assetModel').value.trim(),assetTag:$('assetTag').value.trim(),serial,locationType,locationName:locationType==='stock'?'Estoque':(roomObj?.name||''),locationId:finalLocationId,stockId:finalStockId,roomId:locationRoomId,rackId,uStart,uHeight,status:$('assetStatus').value||'Instalado',substatus:$('assetSubstatus').value||'',ports:cloneData(assetEditPorts),powerW,weightKg,purchaseDate,warrantyExpiration,endOfLife};
-  if(assetConflicts(asset,id||null)){toast('Não é possível: existe outro equipamento ocupando uma ou mais U.');return;}
+  if(assetConflicts(state.assets,asset,id||null)){toast('Não é possível: existe outro equipamento ocupando uma ou mais U.');return;}
   if(rack && powerW>0 && num(rack.powerCapacityW,0)>0){
     const othersPowerW=state.assets.filter(a=>a.rackId===rack.id && a.id!==asset.id).reduce((sum,a)=>sum+Math.max(0,num(a.powerW,0)),0);
     const totalPowerW=othersPowerW+powerW;
@@ -3189,7 +3179,7 @@ function updateCableAssetNameField(c,side){
   const u=Math.floor(num(side==='origin'?c.originU:c.destU,0));
   const rack=state.racks.find(r=>r.id===rackId);
   const uInvalid=!rack||u<1||u>Math.max(1,Math.floor(num(rack.units,state.rackUnits)));
-  const asset=uInvalid?null:assetAtRackU(rackId,u);
+  const asset=uInvalid?null:assetAtRackU(state.assets,rackId,u,'front');
   const field=$(side==='origin'?'cbOAssetName':'cbDAssetName'); if(!field)return;
   const hint=field.closest('label')?.querySelector('.field-help-inline');
   if(asset){
@@ -3214,8 +3204,8 @@ function renderCableProperties(p,c){
   const ouMax=o?Math.floor(num(o.units,state.rackUnits)):1, duMax=d?Math.floor(num(d.units,state.rackUnits)):1;
   const ouInvalid=!o||Math.floor(num(c.originU,0))<1||Math.floor(num(c.originU,0))>ouMax;
   const duInvalid=!d||Math.floor(num(c.destU,0))<1||Math.floor(num(c.destU,0))>duMax;
-  const originAsset=!ouInvalid?assetAtRackU(c.originRack,Math.floor(num(c.originU,0))):null;
-  const destAsset=!duInvalid?assetAtRackU(c.destRack,Math.floor(num(c.destU,0))):null;
+  const originAsset=!ouInvalid?assetAtRackU(state.assets,c.originRack,Math.floor(num(c.originU,0)),'front'):null;
+  const destAsset=!duInvalid?assetAtRackU(state.assets,c.destRack,Math.floor(num(c.destU,0)),'front'):null;
   // Enquanto a U tiver um asset instalado, o nome vem sempre desse asset — o
   // campo fica travado (evita alguém digitar um nome diferente do que está
   // de fato ali). Sem asset na U, o campo é texto livre, pra cobrir listas de
@@ -3507,8 +3497,8 @@ function processCableImportRows(selectedNewTypes=[]){
     const type=matched||typeRaw||defaultCableType();
     const originU=Math.floor(num(val(row,'U Origem',origin.units),origin.units));
     const destU=Math.floor(num(val(row,'U Destino',dest.units),dest.units));
-    const originAsset=assetAtRackU(origin.id,originU);
-    const destAsset=assetAtRackU(dest.id,destU);
+    const originAsset=assetAtRackU(state.assets,origin.id,originU,'front');
+    const destAsset=assetAtRackU(state.assets,dest.id,destU,'front');
     let originPortId=null, destPortId=null, originPortLabelFree='', destPortLabelFree='';
     const originPortLabel=String(val(row,'Porta Origem','')).trim();
     const destPortLabel=String(val(row,'Porta Destino','')).trim();
@@ -3550,10 +3540,10 @@ function cableSummaryRows(){
   return [...groups.entries()].map(([key,qty])=>{const [type,length]=key.split('|');return {type,length:Number(length),qty};})
     .sort((a,b)=>(order.get(a.type)-order.get(b.type))||a.length-b.length);
 }
-function cablePortAt(rackId,u,portId){if(!portId)return null;return assetAtRackU(rackId,u)?.ports?.find(p=>p.id===portId)||null;}
+function cablePortAt(rackId,u,portId){if(!portId)return null;return assetAtRackU(state.assets,rackId,u,'front')?.ports?.find(p=>p.id===portId)||null;}
 function cableEndpointLabel(rackId,u,portId,freeformLabel='',assetNameFallback=''){
   const rack=state.racks.find(r=>r.id===rackId);
-  const asset=assetAtRackU(rackId,u);
+  const asset=assetAtRackU(state.assets,rackId,u,'front');
   const port=cablePortAt(rackId,u,portId);
   return [rack?.name||'—',`${u}U`,asset?.name||assetNameFallback||'—',port?.label||freeformLabel||'—'].join(' - ');
 }
