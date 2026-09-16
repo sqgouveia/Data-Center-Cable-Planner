@@ -2255,7 +2255,7 @@ function assetSubstatusValues(){normalizeAssetCatalogs();return state.assetCatal
 function normalizeAssets(){
   state.assets=Array.isArray(state.assets)?state.assets:[];
   state.assets=state.assets.filter(a=>a&&a.id).map(a=>({
-    id:a.id,name:String(a.name||'Equipamento'),type:String(a.type||'Equipamento'),manufacturer:String(a.manufacturer||''),model:String(a.model||''),assetTag:String(a.assetTag||''),serial:String(a.serial||''),locationType:a.locationType||(a.roomId?'room':'stock'),locationName:String(a.locationName||((a.roomId&&state.rooms?.find(r=>r.id===a.roomId)?.name)||(!a.roomId?'Estoque':''))),roomId:a.roomId||null,rackId:a.rackId||null,uStart:Math.max(1,Math.floor(num(a.uStart,1))),uHeight:Math.max(1,Math.floor(num(a.uHeight,1))),status:String(a.status||'Instalado'),substatus:String(a.substatus||''),locationId:a.locationId||null,stockId:a.stockId||null,ports:Array.isArray(a.ports)?a.ports.filter(p=>p&&p.id).map(p=>({id:String(p.id),label:String(p.label||'Porta'),poe:!!p.poe})):[],powerW:Math.max(0,Math.floor(num(a.powerW,0))),weightKg:Math.max(0,num(a.weightKg,0)),purchaseDate:/^\d{4}-\d{2}-\d{2}$/.test(a.purchaseDate)?a.purchaseDate:'',warrantyExpiration:/^\d{4}-\d{2}-\d{2}$/.test(a.warrantyExpiration)?a.warrantyExpiration:'',endOfLife:/^\d{4}-\d{2}-\d{2}$/.test(a.endOfLife)?a.endOfLife:''
+    id:a.id,name:String(a.name||'Equipamento'),type:String(a.type||'Equipamento'),manufacturer:String(a.manufacturer||''),model:String(a.model||''),assetTag:String(a.assetTag||''),serial:String(a.serial||''),locationType:a.locationType||(a.roomId?'room':'stock'),locationName:String(a.locationName||((a.roomId&&state.rooms?.find(r=>r.id===a.roomId)?.name)||(!a.roomId?'Estoque':''))),roomId:a.roomId||null,rackId:a.rackId||null,face:a.rackId?(a.face==='rear'?'rear':'front'):null,uStart:Math.max(1,Math.floor(num(a.uStart,1))),uHeight:Math.max(1,Math.floor(num(a.uHeight,1))),status:String(a.status||'Instalado'),substatus:String(a.substatus||''),locationId:a.locationId||null,stockId:a.stockId||null,ports:Array.isArray(a.ports)?a.ports.filter(p=>p&&p.id).map(p=>({id:String(p.id),label:String(p.label||'Porta'),poe:!!p.poe})):[],powerW:Math.max(0,Math.floor(num(a.powerW,0))),weightKg:Math.max(0,num(a.weightKg,0)),purchaseDate:/^\d{4}-\d{2}-\d{2}$/.test(a.purchaseDate)?a.purchaseDate:'',warrantyExpiration:/^\d{4}-\d{2}-\d{2}$/.test(a.warrantyExpiration)?a.warrantyExpiration:'',endOfLife:/^\d{4}-\d{2}-\d{2}$/.test(a.endOfLife)?a.endOfLife:''
   }));
 }
 function updateAssetUFieldsState(){
@@ -2279,6 +2279,12 @@ function updateAssetUFieldsState(){
   }
   const heightEl=$('assetUHeight');
   if(heightEl && !heightEl.value) heightEl.value='1';
+  const faceEl=$('assetFace');
+  if(faceEl){
+    faceEl.disabled=!hasRack;
+    faceEl.closest('label')?.classList.toggle('muted-field',!hasRack);
+    if(!hasRack)faceEl.value='';
+  }
 }
 function refreshAssetRackOptions(selected=''){
   const loc=$('assetLocation')?.value||''; const sel=$('assetRack'); if(!sel)return;
@@ -2413,6 +2419,7 @@ function openAssetModal(assetId=null, rackId=null, uStart=null){
   $('assetUHeight').value=asset?.uHeight||1;
   if($('assetRack').value){ $('assetUStart').value=asset?.uStart||uStart||1; }
   $('assetStatus').value=asset?.status||'Instalado'; $('assetSubstatus').value=asset?.substatus||'';
+  if($('assetFace'))$('assetFace').value=asset?.face||'';
   assetEditPorts=asset?.ports?cloneData(asset.ports):[];
   if(!assetEditPorts.length)autoFillPortsFromModelIfEmpty();
   setAssetPortsCollapsed(true);
@@ -2456,6 +2463,8 @@ async function saveAssetForm(){
   if(!name && !serial){toast('Nome e Serial Number são obrigatórios.');$('assetName')?.focus();return;}
   if(!name){toast('Nome é obrigatório.');$('assetName')?.focus();return;}
   if(!serial){toast('Serial Number é obrigatório.');$('assetSerial')?.focus();return;}
+  const face=rackId?($('assetFace')?.value||''):'';
+  if(rackId && !face){toast('Face é obrigatória quando o asset está em um rack.');$('assetFace')?.focus();return;}
   const rack=rackId?assetRack(rackId):null;
   const units=Math.max(1,Math.floor(num(rack?.units,state.rackUnits)));
   const uStart=Math.max(1,Math.min(units,Math.floor(num($('assetUStart').value,1))));
@@ -2468,7 +2477,7 @@ async function saveAssetForm(){
   const purchaseDate=$('assetPurchaseDate')?.value||'';
   const warrantyExpiration=$('assetWarrantyExpiration')?.value||'';
   const endOfLife=$('assetEndOfLife')?.value||'';
-  const locVal=$('assetLocation').value||''; const stockParts=locVal.startsWith('stock:')?locVal.split(':'):null; const finalLocationId=stockParts?.[1]||roomObj?.locationId||state.locations?.[0]?.id||null; const finalStockId=stockParts?.[2]||null; const asset={id:id||uid('asset'),name,type:$('assetType').value||'Equipamento',manufacturer:$('assetManufacturer').value.trim(),model:$('assetModel').value.trim(),assetTag:$('assetTag').value.trim(),serial,locationType,locationName:locationType==='stock'?'Estoque':(roomObj?.name||''),locationId:finalLocationId,stockId:finalStockId,roomId:locationRoomId,rackId,uStart,uHeight,status:$('assetStatus').value||'Instalado',substatus:$('assetSubstatus').value||'',ports:cloneData(assetEditPorts),powerW,weightKg,purchaseDate,warrantyExpiration,endOfLife};
+  const locVal=$('assetLocation').value||''; const stockParts=locVal.startsWith('stock:')?locVal.split(':'):null; const finalLocationId=stockParts?.[1]||roomObj?.locationId||state.locations?.[0]?.id||null; const finalStockId=stockParts?.[2]||null; const asset={id:id||uid('asset'),name,type:$('assetType').value||'Equipamento',manufacturer:$('assetManufacturer').value.trim(),model:$('assetModel').value.trim(),assetTag:$('assetTag').value.trim(),serial,locationType,locationName:locationType==='stock'?'Estoque':(roomObj?.name||''),locationId:finalLocationId,stockId:finalStockId,roomId:locationRoomId,rackId,face:rackId?face:null,uStart,uHeight,status:$('assetStatus').value||'Instalado',substatus:$('assetSubstatus').value||'',ports:cloneData(assetEditPorts),powerW,weightKg,purchaseDate,warrantyExpiration,endOfLife};
   if(assetConflicts(state.assets,asset,id||null)){toast('Não é possível: existe outro equipamento ocupando uma ou mais U.');return;}
   if(rack && powerW>0 && num(rack.powerCapacityW,0)>0){
     const othersPowerW=state.assets.filter(a=>a.rackId===rack.id && a.id!==asset.id).reduce((sum,a)=>sum+Math.max(0,num(a.powerW,0)),0);
