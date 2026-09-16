@@ -25,7 +25,7 @@ function coversU(asset, u) {
 
 export function assetsOnFace(assets, rackId, face) {
   if (!rackId) return [];
-  return (assets || []).filter(a => a && a.rackId === rackId && !isAssetArchived(a) && a.face === face);
+  return (assets || []).filter(a => a && a.rackId === rackId && !isAssetArchived(a) && (a.face || 'front') === face);
 }
 
 export function assetAtRackU(assets, rackId, u, face) {
@@ -45,9 +45,10 @@ export function assetOwningPort(assets, portId) {
 export function assetConflicts(assets, asset, ignoreId = null) {
   if (!asset?.rackId) return false;
   const a = assetOccupancy(asset);
+  const assetFace = asset.face || 'front';
   return (assets || []).some(x => {
     if (!x || x.id === ignoreId || x.rackId !== asset.rackId) return false;
-    if (x.face !== asset.face || isAssetArchived(x)) return false;
+    if ((x.face || 'front') !== assetFace || isAssetArchived(x)) return false;
     const b = assetOccupancy(x);
     return a.start <= b.end && b.start <= a.end;
   });
