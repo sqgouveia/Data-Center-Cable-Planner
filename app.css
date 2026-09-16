@@ -749,7 +749,7 @@ body.guest-mode #btnSave{pointer-events:none;opacity:.45;cursor:not-allowed}
 .bayface-rows{position:absolute;inset:0;width:100%}
 .bayface-u{height:var(--bayface-row-h);display:grid;grid-template-columns:18px 1fr 18px;align-items:center;box-sizing:border-box;position:relative;background:linear-gradient(180deg,color-mix(in srgb,var(--text) 2%,transparent),transparent);border-bottom:1px solid var(--bayface-line);cursor:pointer;padding:0;color:inherit;width:100%;min-width:0}
 .bayface-u.major{border-bottom-color:color-mix(in srgb,var(--text) 20%,var(--panel2))}
-.bayface-u:hover:not(.occupied){background:color-mix(in srgb,var(--blue) 14%,transparent)}
+.bayface-u:hover:not(.occupied){background:color-mix(in srgb,var(--blue) 32%,transparent)}
 .bayface-u-num{font-size:var(--fs-bf-micro);font-weight:800;color:color-mix(in srgb,var(--text) 72%,var(--muted));text-align:center;z-index:10;line-height:1}
 .bayface-u-num.right{grid-column:3}
 .bayface-u-num.left{grid-column:1}
@@ -997,6 +997,7 @@ html,body{background:var(--bg);color:var(--text)}
 :root.light .bayface-grid::after,:root[data-theme="light"] .bayface-grid::after{background:linear-gradient(-90deg,#e7edf3 0,#e7edf3 62%,transparent)}
 :root.light .bayface-u,:root[data-theme="light"] .bayface-u{background:linear-gradient(180deg,rgba(30,55,80,.018),transparent)}
 :root.light .bayface-u-slot,:root[data-theme="light"] .bayface-u-slot{background:repeating-linear-gradient(90deg,rgba(70,90,110,.035) 0 6px,transparent 6px 10px);border-top-color:color-mix(in srgb,var(--text) 7%,var(--border));border-bottom-color:color-mix(in srgb,var(--text) 7%,var(--border))}
+:root.light .bayface-u:hover:not(.occupied),:root[data-theme="light"] .bayface-u:hover:not(.occupied){background:color-mix(in srgb,var(--blue) 22%,transparent)}
 :root.light .bayface-rail,:root[data-theme="light"] .bayface-rail{border-color:#aebdcb;background:repeating-linear-gradient(180deg,#d7e0e9 0 5px,#eef2f6 5px 9px)}
 :root.light .bayface-rail::after,:root[data-theme="light"] .bayface-rail::after{border-left-color:rgba(70,90,110,.16);border-right-color:rgba(255,255,255,.8)}
 :root.light .bayface-asset,:root[data-theme="light"] .bayface-asset{background:linear-gradient(180deg,#f2f6fa,#dfe7ef);border-color:color-mix(in srgb,var(--blue) 42%,#b8c7d5);color:var(--text);box-shadow:0 2px 5px rgba(29,55,84,.13),inset 0 1px 0 rgba(255,255,255,.85)}
