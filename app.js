@@ -2813,6 +2813,7 @@ function renderAssetsList(filter=''){
 }
 function openAssetsModal(){const m=$('assetsModal');if(!m)return;closeAssetModal();closeAssetCatalogModal();m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');$('assetsSearch').value='';assetColumnFilters={};assetSortColumn=null;assetSortDir='asc';assetSelectedIds=new Set();assetColumnWidths={...ASSET_COLUMN_WIDTHS_DEFAULT};assetAttentionOnly=false;assetColumnsAutoFitted=false;renderAssetsList();}
 function closeAssetsModal(){const m=$('assetsModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
+let bayfaceFace='front';
 function bayfacePickerAssets(rackId,uStart){
   normalizeAssets(); normalizeAssetCatalogs();
   const assets=state.assets.filter(a=>{
@@ -2892,20 +2893,21 @@ function bayfaceMarkup(rackId){
   normalizeAssets(); normalizeAssetCatalogs();
   const r=assetRack(rackId);if(!r)return '<div class="empty">Rack não encontrado.</div>';
   const units=Math.max(1,Math.floor(num(r.units,state.rackUnits)));
-  const assets=state.assets.filter(a=>a.rackId===rackId && !isAssetArchived(a)).sort((a,b)=>a.uStart-b.uStart||a.name.localeCompare(b.name));
-  const occupiedUnits=new Set();
-  assets.forEach(a=>{const o=assetOccupancy(a);for(let u=o.start;u<=o.end;u++)if(u>=1&&u<=units)occupiedUnits.add(u);});
-  const usedUnits=occupiedUnits.size;
+  const sortAssets=list=>list.slice().sort((a,b)=>a.uStart-b.uStart||a.name.localeCompare(b.name));
+  const assets=sortAssets(assetsOnFace(state.assets,rackId,bayfaceFace));
+  const ghostAssets=sortAssets(assetsOnFace(state.assets,rackId,bayfaceFace==='front'?'rear':'front'));
+  const occupied=occupiedUnits(state.assets,rackId,bayfaceFace);
+  const usedUnits=[...occupied].filter(u=>u>=1&&u<=units).length;
   const freeUnits=Math.max(0,units-usedUnits);
   const rowH=26;
   const gridH=units*rowH;
   let rows='';
   for(let u=units;u>=1;u--){
-    const occupied=occupiedUnits.has(u);
+    const isOccupied=occupied.has(u);
     const major=u%5===0?' major':'';
-    rows+=`<button type="button" class="bayface-u${major} ${occupied?'occupied':''}" data-bay-add-u="${u}" ${occupied?'disabled':''}><span class="bayface-u-num left">${u}</span><span class="bayface-u-slot"></span><span class="bayface-u-num right">${u}</span></button>`;
+    rows+=`<button type="button" class="bayface-u${major} ${isOccupied?'occupied':''}" data-bay-add-u="${u}" ${isOccupied?'disabled':''}><span class="bayface-u-num left">${u}</span><span class="bayface-u-slot"></span><span class="bayface-u-num right">${u}</span></button>`;
   }
-  const assetLayer=assets.map(a=>{
+  const chipFor=(a,ghost)=>{
     const o=assetOccupancy(a);
     const clampedStart=Math.max(1,Math.min(units,o.start));
     const end=Math.min(units,o.end);
@@ -2921,11 +2923,12 @@ function bayfaceMarkup(rackId){
     const tooltip=[identity,a.assetTag,a.serial].filter(Boolean).join(' · ');
     const heightLabel=span===1?'1U':`${span}U`;
     const compact=span===1;
-    return `<button type="button" class="bayface-asset ${compact?'is-compact':''}" style="top:${top}px;height:${h}px;--type-color:${esc(color)}" data-bay-edit="${esc(a.id)}" title="${esc(tooltip)} · U${clampedStart}${span>1?`–U${end}`:''}">
+    return `<button type="button" class="bayface-asset ${compact?'is-compact':''} ${ghost?'is-ghost':''}" style="top:${top}px;height:${h}px;--type-color:${esc(color)}" ${ghost?'tabindex="-1" aria-hidden="true"':`data-bay-edit="${esc(a.id)}"`} title="${ghost?esc(`${identity} · na outra face`):esc(tooltip)} · U${clampedStart}${span>1?`–U${end}`:''}">
       <span class="bayface-asset-body"><span class="bayface-asset-name-row"><span class="bayface-asset-dot"></span><b>${esc(name)}</b></span>${subtitle?`<small>${esc(subtitle)}</small>`:''}</span>
       <span class="bayface-asset-u">${heightLabel}</span>
     </button>`;
-  }).join('');
+  };
+  const assetLayer=ghostAssets.map(a=>chipFor(a,true)).join('')+assets.map(a=>chipFor(a,false)).join('');
   const usagePct=units?Math.round(usedUnits/units*100):0;
   const rail=Array.from({length:Math.min(8,Math.max(4,Math.floor(units/6)))},(_,i)=>`<span style="left:${6+i*12}%"></span>`).join('');
   return `<div class="bayface-wrap">
@@ -2945,7 +2948,7 @@ function bayfaceMarkup(rackId){
     <div class="bayface-stage">
       <button type="button" class="bayface-nav prev" id="bayfaceNavPrev" aria-label="Rack anterior" title="Rack anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4l-8 8 8 8"/></svg></button>
       <div class="bayface-rack" data-units="${units}" style="--bayface-row-h:${rowH}px;--bayface-grid-h:${gridH}px">
-        <div class="bayface-topbar"><span class="bayface-brand">${esc(r.name)}</span><span class="bayface-rack-state">FRONT</span></div>
+        <div class="bayface-topbar"><span class="bayface-brand">${esc(r.name)}</span><button type="button" class="bayface-rack-state" id="bayfaceFaceToggle" title="Alternar entre frente e traseira do rack">${bayfaceFace==='front'?'FRONT':'REAR'}</button></div>
         <div class="bayface-frame">
           <div class="bayface-rail rail-left"></div><div class="bayface-rail rail-right"></div>
           <div class="bayface-mount-rails">${rail}</div>
@@ -5397,6 +5400,11 @@ function bind(){
   $('bayfaceClose')?.addEventListener('click',closeBayface);
   $('bayfaceAssetPickerClose')?.addEventListener('click',closeBayfaceAssetPicker);
   $('bayfaceAssetPickerSearch')?.addEventListener('input',renderBayfaceAssetPicker);
+  document.addEventListener('click',e=>{
+    if(!e.target.closest('#bayfaceFaceToggle'))return;
+    bayfaceFace=bayfaceFace==='front'?'rear':'front';
+    renderBayface($('bayfaceModal')?.dataset.rackId);
+  });
   
 
   // Bindar os controles do canvas ANTES da renderização do projeto.

@@ -758,6 +758,10 @@ body.guest-mode #btnSave{pointer-events:none;opacity:.45;cursor:not-allowed}
 .bayface-assets{position:absolute;left:18px;right:18px;top:0;bottom:0;pointer-events:none;z-index:8}
 .bayface-asset{position:absolute;left:0;right:0;width:100%;min-height:0;border:1px solid color-mix(in srgb,var(--type-color,var(--blue)) 42%,var(--border));border-left-width:4px;border-left-color:var(--type-color,var(--blue));background:linear-gradient(180deg,color-mix(in srgb,var(--type-color,var(--blue)) 20%,#1a2433),color-mix(in srgb,var(--type-color,var(--blue)) 7%,#0f1620));color:var(--text);border-radius:3px;padding:1px 2px 1px 7px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;text-align:left;cursor:pointer;pointer-events:auto;box-sizing:border-box;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 2px 8px rgba(0,0,0,.4)}
 .bayface-asset:hover{filter:brightness(1.18);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 12px rgba(0,0,0,.5)}
+.bayface-asset.is-ghost{opacity:.26;pointer-events:none;box-shadow:none;filter:saturate(.5)}
+.bayface-asset.is-ghost .bayface-asset-u{opacity:.7}
+button.bayface-rack-state{cursor:pointer;border:1px solid transparent;background:transparent;color:inherit;font:inherit;padding:0 4px;border-radius:3px}
+button.bayface-rack-state:hover{border-color:color-mix(in srgb,var(--blue) 45%,transparent);background:color-mix(in srgb,var(--blue) 14%,transparent)}
 .bayface-asset-body{min-width:0;display:flex;flex-direction:column;justify-content:center;line-height:1.15;grid-column:1;align-items:flex-start;overflow:hidden;padding-left:6px}
 .bayface-asset-name-row{display:flex;align-items:center;gap:5px;min-width:0;max-width:100%}
 .bayface-asset-dot{position:absolute;top:50%;left:4px;transform:translateY(-50%);width:6px;height:6px;border-radius:50%;background:var(--type-color,var(--blue));box-shadow:0 0 5px var(--type-color,var(--blue))}
