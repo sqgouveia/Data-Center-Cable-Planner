@@ -20,7 +20,7 @@ import {
   manualRouteData, computeRoute, validateManualRouteCandidate, rackNameById, calcCable
 } from './js/routing.js';
 import {
-  isAssetArchived, assetOccupancy, assetsOnFace, assetAtRackU,
+  isAssetArchived, assetOccupancy, assetsOnFace,
   assetsAtRackU, assetOwningPort, assetConflicts, occupiedUnits
 } from './js/occupancy.js';
 
@@ -3191,7 +3191,9 @@ function updateCableAssetNameField(c,side){
   const u=Math.floor(num(side==='origin'?c.originU:c.destU,0));
   const rack=state.racks.find(r=>r.id===rackId);
   const uInvalid=!rack||u<1||u>Math.max(1,Math.floor(num(rack.units,state.rackUnits)));
-  const asset=uInvalid?null:assetAtRackU(state.assets,rackId,u,'front');
+  const portId=side==='origin'?c.originPortId:c.destPortId;
+  const atU=uInvalid?[]:assetsAtRackU(state.assets,rackId,u);
+  const asset=assetOwningPort(state.assets,portId)||(atU.length===1?atU[0]:null);
   const field=$(side==='origin'?'cbOAssetName':'cbDAssetName'); if(!field)return;
   const hint=field.closest('label')?.querySelector('.field-help-inline');
   if(asset){
@@ -3216,8 +3218,10 @@ function renderCableProperties(p,c){
   const ouMax=o?Math.floor(num(o.units,state.rackUnits)):1, duMax=d?Math.floor(num(d.units,state.rackUnits)):1;
   const ouInvalid=!o||Math.floor(num(c.originU,0))<1||Math.floor(num(c.originU,0))>ouMax;
   const duInvalid=!d||Math.floor(num(c.destU,0))<1||Math.floor(num(c.destU,0))>duMax;
-  const originAsset=!ouInvalid?assetAtRackU(state.assets,c.originRack,Math.floor(num(c.originU,0)),'front'):null;
-  const destAsset=!duInvalid?assetAtRackU(state.assets,c.destRack,Math.floor(num(c.destU,0)),'front'):null;
+  const originAtU=ouInvalid?[]:assetsAtRackU(state.assets,c.originRack,Math.floor(num(c.originU,0)));
+  const destAtU=duInvalid?[]:assetsAtRackU(state.assets,c.destRack,Math.floor(num(c.destU,0)));
+  const originAsset=assetOwningPort(state.assets,c.originPortId)||(originAtU.length===1?originAtU[0]:null);
+  const destAsset=assetOwningPort(state.assets,c.destPortId)||(destAtU.length===1?destAtU[0]:null);
   // Enquanto a U tiver um asset instalado, o nome vem sempre desse asset — o
   // campo fica travado (evita alguém digitar um nome diferente do que está
   // de fato ali). Sem asset na U, o campo é texto livre, pra cobrir listas de
@@ -3509,21 +3513,34 @@ function processCableImportRows(selectedNewTypes=[]){
     const type=matched||typeRaw||defaultCableType();
     const originU=Math.floor(num(val(row,'U Origem',origin.units),origin.units));
     const destU=Math.floor(num(val(row,'U Destino',dest.units),dest.units));
-    const originAsset=assetAtRackU(state.assets,origin.id,originU,'front');
-    const destAsset=assetAtRackU(state.assets,dest.id,destU,'front');
+    const originAssets=assetsAtRackU(state.assets,origin.id,originU);
+    const destAssets=assetsAtRackU(state.assets,dest.id,destU);
+    const findPortByLabel=(list,label)=>{
+      for(const a of list){
+        const port=(a.ports||[]).find(p=>p.label===label);
+        if(port)return {asset:a,port};
+      }
+      return null;
+    };
     let originPortId=null, destPortId=null, originPortLabelFree='', destPortLabelFree='';
     const originPortLabel=String(val(row,'Porta Origem','')).trim();
     const destPortLabel=String(val(row,'Porta Destino','')).trim();
+    const originHit=originPortLabel?findPortByLabel(originAssets,originPortLabel):null;
+    const destHit=destPortLabel?findPortByLabel(destAssets,destPortLabel):null;
     if(originPortLabel){
-      if(originAsset?.ports?.length){const port=originAsset.ports.find(p=>p.label===originPortLabel);if(port)originPortId=port.id;else portsUnmatched++;}
+      if(originHit)originPortId=originHit.port.id;
+      else if(originAssets.some(a=>a.ports?.length))portsUnmatched++;
       else originPortLabelFree=originPortLabel; // sem portas cadastradas no modelo: aceita o texto livre sem validar
     }
     if(destPortLabel){
-      if(destAsset?.ports?.length){const port=destAsset.ports.find(p=>p.label===destPortLabel);if(port)destPortId=port.id;else portsUnmatched++;}
+      if(destHit)destPortId=destHit.port.id;
+      else if(destAssets.some(a=>a.ports?.length))portsUnmatched++;
       else destPortLabelFree=destPortLabel;
     }
     // Se já existe um asset instalado nessa U, o nome vem sempre dele;
     // senão, aceita o texto informado livremente, sem criar asset.
+    const originAsset=originHit?.asset||(originAssets.length===1?originAssets[0]:null);
+    const destAsset=destHit?.asset||(destAssets.length===1?destAssets[0]:null);
     const originAssetName=originAsset?originAsset.name:String(val(row,'Nome Asset Origem','')).trim();
     const destAssetName=destAsset?destAsset.name:String(val(row,'Nome Asset Destino','')).trim();
     state.cables.push({id:uid('cable'),name:String(val(row,'Nome',`Cabo-${String(state.cables.length+1).padStart(3,'0')}`)).trim(),type,originRack:origin.id,originU,originPortId,originPortLabel:originPortLabelFree,originAssetName,destRack:dest.id,destU,destPortId,destPortLabel:destPortLabelFree,destAssetName,slack:state.defaultSlack,via:[]});
@@ -3552,10 +3569,18 @@ function cableSummaryRows(){
   return [...groups.entries()].map(([key,qty])=>{const [type,length]=key.split('|');return {type,length:Number(length),qty};})
     .sort((a,b)=>(order.get(a.type)-order.get(b.type))||a.length-b.length);
 }
-function cablePortAt(rackId,u,portId){if(!portId)return null;return assetAtRackU(state.assets,rackId,u,'front')?.ports?.find(p=>p.id===portId)||null;}
+function cablePortAt(rackId,u,portId){
+  if(!portId)return null;
+  for(const a of assetsAtRackU(state.assets,rackId,u)){
+    const p=a.ports?.find(p=>p.id===portId);
+    if(p)return p;
+  }
+  return null;
+}
 function cableEndpointLabel(rackId,u,portId,freeformLabel='',assetNameFallback=''){
   const rack=state.racks.find(r=>r.id===rackId);
-  const asset=assetAtRackU(state.assets,rackId,u,'front');
+  const atU=assetsAtRackU(state.assets,rackId,u);
+  const asset=assetOwningPort(state.assets,portId)||(atU.length===1?atU[0]:null);
   const port=cablePortAt(rackId,u,portId);
   return [rack?.name||'—',`${u}U`,asset?.name||assetNameFallback||'—',port?.label||freeformLabel||'—'].join(' - ');
 }
