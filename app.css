@@ -4097,7 +4097,7 @@ body.guest-mode #btnSave {
   padding-right: 10px;
 }
 .col-head:last-child {
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 .col-resize-handle {
   position: absolute;
@@ -4494,7 +4494,7 @@ body.guest-mode #btnSave {
 .asset-actions {
   display: flex;
   gap: 5px;
-  justify-content: flex-end;
+  justify-content: flex-start;
   min-width: 150px;
   white-space: nowrap;
 }
@@ -6342,37 +6342,50 @@ button.bayface-rack-state:hover {
 .location-group {
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  margin-bottom: 10px;
-  overflow: hidden;
-  background: var(--panel2);
+  overflow: visible;
+  background: color-mix(in srgb, var(--panel) 78%, var(--bg));
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 .location-dc-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
-  padding: 11px 12px;
-  background: var(--panel);
-}
-.location-dc-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
 }
 .location-dc-icon {
   flex: none;
-  font-size: 15px;
-  width: 30px;
-  height: 30px;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--blue) 16%, var(--panel2));
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--blue) 24%, transparent),
+    color-mix(in srgb, var(--blue) 10%, transparent)
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 30%, transparent);
+  color: var(--blue-ink);
   display: flex;
   align-items: center;
   justify-content: center;
 }
+.location-dc-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.location-dc-info {
+  flex: 1;
+  min-width: 0;
+}
 .location-dc-info strong {
   display: block;
+  font-size: 15px;
   line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
@@ -6385,48 +6398,136 @@ button.bayface-rack-state:hover {
   margin-top: 1px;
   white-space: nowrap;
 }
-.location-dc-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.location-dc-kebab,
+.location-child-kebab {
+  position: relative;
   flex: none;
 }
-#assetCatalogModal.locations-only .location-dc-actions .iconbtn {
-  font-size: 15px;
-  padding: 3px;
-}
-.location-children {
-  padding: 4px 12px 6px 12px;
+.mini-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  min-width: 150px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 4px;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
+}
+.mini-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  padding: 8px 9px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mini-menu button:hover {
+  background: var(--panel2);
+}
+.mini-menu button.danger {
+  color: var(--red-ink);
+}
+.mini-menu button.danger:hover {
+  background: color-mix(in srgb, var(--red) 14%, transparent);
+}
+.location-subsection {
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  padding-top: 10px;
+}
+.location-subsection-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+.location-collapse-toggle {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  transition: transform 0.12s;
+}
+.location-collapse-toggle.is-collapsed {
+  transform: rotate(-90deg);
+}
+.location-subsection-title {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 750;
+  color: var(--text);
+}
+.location-subsection-title small {
+  color: var(--muted);
+  font-weight: 600;
+}
+.location-subsection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.location-subsection-list.collapsed {
+  display: none;
 }
 .location-child-row {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 7px 6px 7px 14px;
-  border-left: 2px solid var(--border);
-  border-radius: 0 6px 6px 0;
-  font-size: 11.5px;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 4px;
+  background: var(--panel2);
+  font-size: var(--fs-micro);
 }
 .location-child-row:hover {
-  background: var(--panel);
+  border-color: color-mix(in srgb, var(--blue) 35%, var(--border));
 }
 .location-child-icon {
   flex: none;
-  font-size: 11px;
-  opacity: 0.85;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
 }
-.location-child-name {
+.location-child-icon svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.location-child-text {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.location-child-name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 650;
 }
 .location-child-capacity {
-  flex: none;
   font-size: var(--fs-micro);
   color: var(--muted);
   white-space: nowrap;
@@ -6437,17 +6538,6 @@ button.bayface-rack-state:hover {
 }
 .location-child-capacity.cap-high {
   color: var(--red);
-}
-.location-child-actions {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  flex: none;
-  opacity: 0;
-  transition: opacity 0.12s;
-}
-.location-child-row:hover .location-child-actions {
-  opacity: 1;
 }
 .room-control #locationSelect {
   max-width: 125px;
@@ -6479,32 +6569,55 @@ button.bayface-rack-state:hover {
 }
 #assetCatalogModal.locations-only .asset-catalog-card {
   width: max-content;
-  min-width: 560px;
-  max-width: calc(100vw - 36px);
+  max-width: min(1040px, calc(100vw - 24px));
+  padding-bottom: 16px;
+}
+#assetCatalogModal.locations-only .catalog-locations-section .catalog-section-toprow {
+  display: none;
 }
 #assetCatalogModal.locations-only .catalog-section-head {
   flex-direction: row;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   flex-wrap: wrap;
+  margin-bottom: 14px;
 }
-#assetCatalogModal.locations-only #catalogLocationAdd {
+#assetCatalogModal.locations-only .catalog-add-btn {
   flex: none;
+  width: auto;
+}
+#assetCatalogModal.locations-only .locations-search {
+  flex: 1;
+  min-width: 220px;
+  margin: 0;
+}
+.locations-search {
+  position: relative;
 }
 #assetCatalogModal.locations-only #catalogLocations {
+  display: grid;
+  grid-template-columns: repeat(1, 235px);
+  gap: 14px;
+  align-items: stretch;
+  justify-content: start;
+}
+.locations-footer {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  font-size: var(--fs-micro);
+  color: var(--muted);
+}
+#assetCatalogModal.locations-only .locations-footer {
   display: flex;
-  flex-flow: row wrap;
-  align-items: flex-start;
-  gap: 8px;
 }
-#assetCatalogModal.locations-only .location-group {
-  width: 300px;
-  flex: none;
-  margin-bottom: 0;
-}
-@media (max-width: 640px) {
-  #assetCatalogModal.locations-only .location-group {
-    width: 100%;
+@media (max-width: 720px) {
+  #assetCatalogModal.locations-only #catalogLocations {
+    grid-template-columns: 1fr;
   }
 }
 .modal-card:not(.bulk-assets-card):not(.import-preview-card):not(

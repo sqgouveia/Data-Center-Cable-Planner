@@ -1947,24 +1947,38 @@ function renderAssetCatalogs(){
       if(!locMatch)return null;
       return {l,rooms,stocks};
     }).filter(Boolean);
+    const totalRooms=filtered.reduce((n,{rooms})=>n+rooms.length,0);
+    const totalStocks=filtered.reduce((n,{stocks})=>n+stocks.length,0);
+    if($('locationsFooterStats'))$('locationsFooterStats').textContent=`${filtered.length} data center${filtered.length===1?'':'s'} · ${totalRooms} sala${totalRooms===1?'':'s'} · ${totalStocks} estoque${totalStocks===1?'':'s'}`;
+    const locationCols=Math.max(1,Math.min(4,filtered.length));
+    locEl.style.gridTemplateColumns=`repeat(${locationCols}, 235px)`;
     locEl.innerHTML=filtered.map(({l,rooms,stocks})=>{
       const roomRows=rooms.filter(r=>!locQ||r.name.toLowerCase().includes(locQ)||l.name.toLowerCase().includes(locQ)).map(r=>{
         const t=roomThermalLoad(r);
-        const cap=t.capacity>0?`<small class="location-child-capacity cap-${t.level}">${t.watts}W / ${t.capacity}W</small>`:'';
-        return `<div class="location-child-row"><span class="location-child-icon room">🚪</span><span class="location-child-name">${esc(r.name)}</span>${cap}<div class="location-child-actions"><button type="button" class="iconbtn" data-location-room-edit="${esc(r.id)}" title="Editar sala">✎</button><button type="button" class="iconbtn danger-icon" data-location-room-delete="${esc(r.id)}" title="Excluir sala">×</button></div></div>`;
+        const cap=t.capacity>0?`<small class="location-child-capacity cap-${t.level}">${t.watts}W / ${t.capacity}W</small>`:'<small class="location-child-capacity">—</small>';
+        return `<div class="location-child-row"><span class="location-child-icon room"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="2" width="10" height="20" rx="1"/><path d="M11 12h.01"/></svg></span><div class="location-child-text"><span class="location-child-name">${esc(r.name)}</span>${cap}</div><div class="location-child-kebab"><button type="button" class="iconbtn" data-menu-toggle title="Mais ações">⋮</button><div class="mini-menu hidden"><button type="button" data-location-room-edit="${esc(r.id)}">Editar sala</button><button type="button" class="danger" data-location-room-delete="${esc(r.id)}">Excluir sala</button></div></div></div>`;
       }).join('');
-      const stockRows=stocks.filter(st=>!locQ||st.name.toLowerCase().includes(locQ)||l.name.toLowerCase().includes(locQ)).map(st=>`<div class="location-child-row"><span class="location-child-icon stock">📦</span><span class="location-child-name">${esc(st.name)}</span><div class="location-child-actions"><button type="button" class="iconbtn" data-location-stock-edit="${esc(l.id)}:${esc(st.id)}" title="Editar estoque">✎</button><button type="button" class="iconbtn danger-icon" data-location-stock-delete="${esc(l.id)}:${esc(st.id)}" title="Excluir estoque">×</button></div></div>`).join('');
+      const stockRows=stocks.filter(st=>!locQ||st.name.toLowerCase().includes(locQ)||l.name.toLowerCase().includes(locQ)).map(st=>`<div class="location-child-row"><span class="location-child-icon stock"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></span><div class="location-child-text"><span class="location-child-name">${esc(st.name)}</span></div><div class="location-child-kebab"><button type="button" class="iconbtn" data-menu-toggle title="Mais ações">⋮</button><div class="mini-menu hidden"><button type="button" data-location-stock-edit="${esc(l.id)}:${esc(st.id)}">Editar estoque</button><button type="button" class="danger" data-location-stock-delete="${esc(l.id)}:${esc(st.id)}">Excluir estoque</button></div></div></div>`).join('');
       return `<div class="location-group">
         <div class="location-dc-row">
-          <div class="location-dc-info"><span class="location-dc-icon">📍</span><div><strong>${esc(l.name)}</strong><small>${rooms.length} sala${rooms.length===1?'':'s'} · ${stocks.length} estoque${stocks.length===1?'':'s'}</small></div></div>
-          <div class="location-dc-actions">
-            <button type="button" class="iconbtn" data-location-room="${esc(l.id)}" title="Adicionar sala em ${esc(l.name)}">🚪＋</button>
-            <button type="button" class="iconbtn" data-location-stock="${esc(l.id)}" title="Adicionar estoque em ${esc(l.name)}">📦＋</button>
-            <button type="button" class="iconbtn" data-location-edit="${esc(l.id)}" title="Renomear">✎</button>
-            <button type="button" class="iconbtn danger-icon" data-location-delete="${esc(l.id)}" title="Excluir Data Center">×</button>
+          <span class="location-dc-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/></svg></span>
+          <div class="location-dc-info"><strong>${esc(l.name)}</strong><small>${rooms.length} sala${rooms.length===1?'':'s'} · ${stocks.length} estoque${stocks.length===1?'':'s'}</small></div>
+          <div class="location-dc-kebab">
+            <button type="button" class="iconbtn" data-menu-toggle title="Mais ações">⋮</button>
+            <div class="mini-menu hidden">
+              <button type="button" data-location-edit="${esc(l.id)}">Renomear</button>
+              <button type="button" class="danger" data-location-delete="${esc(l.id)}">Excluir Data Center</button>
+            </div>
           </div>
         </div>
-        ${roomRows||stockRows?`<div class="location-children">${roomRows}${stockRows}</div>`:''}
+        <div class="location-subsection">
+          <div class="location-subsection-head"><button type="button" class="location-collapse-toggle" data-collapse-toggle title="Recolher/expandir">▾</button><span class="location-subsection-title">Salas <small>(${rooms.length})</small></span><button type="button" class="btn ghost small" data-location-room="${esc(l.id)}">＋ Sala</button></div>
+          <div class="location-subsection-list">${roomRows||'<div class="empty">Nenhuma sala.</div>'}</div>
+        </div>
+        <div class="location-subsection">
+          <div class="location-subsection-head"><button type="button" class="location-collapse-toggle" data-collapse-toggle title="Recolher/expandir">▾</button><span class="location-subsection-title">Estoques <small>(${stocks.length})</small></span><button type="button" class="btn ghost small" data-location-stock="${esc(l.id)}">＋ Estoque</button></div>
+          <div class="location-subsection-list">${stockRows||'<div class="empty">Nenhum estoque.</div>'}</div>
+        </div>
       </div>`;
     }).join('')||'<div class="empty">Nenhuma localização encontrada.</div>';
   }
@@ -2072,8 +2086,10 @@ async function deleteAssetLocation(id){
 async function addAssetStock(locationId){const l=state.locations.find(x=>x.id===locationId);if(!l)return;const name=await uiPrompt(`Dê um nome para o novo estoque em ${l.name}.`,'Estoque '+(l.stocks.length+1),{title:'Novo estoque',label:'Nome do estoque',confirmText:'Criar estoque'});if(!name?.trim())return;const n=name.trim();if(l.stocks.some(s=>catalogNormalize(s.name)===catalogNormalize(n))){toast('Esse estoque já existe nessa localização.');return;}l.stocks.push({id:uid('stock'),name:n});save();renderAssetCatalogs();toast('Estoque criado');}
 async function renameAssetStock(locationId,stockId){const l=state.locations.find(x=>x.id===locationId);if(!l)return;const st=l.stocks.find(x=>x.id===stockId);if(!st)return;const name=await uiPrompt(`Digite o novo nome do estoque em ${l.name}.`,st.name,{title:'Renomear estoque',label:'Nome do estoque',confirmText:'Salvar'});if(!name?.trim())return;const n=name.trim();if(l.stocks.some(s=>s.id!==stockId&&catalogNormalize(s.name)===catalogNormalize(n))){toast('Esse estoque já existe nessa localização.');return;}st.name=n;save();renderAssetCatalogs();renderAssetsList($('assetsSearch')?.value||'');renderAssetCatalogSelects();toast('Estoque atualizado');}
 async function deleteAssetStock(locationId,stockId){const l=state.locations.find(x=>x.id===locationId);if(!l)return;const st=l.stocks.find(x=>x.id===stockId);if(!st)return;if(state.assets.some(a=>a.locationId===locationId&&a.stockId===stockId)){toast('Este estoque está sendo usado por assets.');return;}const ok=await uiConfirm('',{title:`Excluir o estoque "${st.name}"?`,confirmText:'Excluir estoque',danger:true});if(!ok)return;l.stocks=l.stocks.filter(x=>x.id!==stockId);if(!l.stocks.length)l.stocks.push({id:uid('stock'),name:'Estoque Principal'});save();renderAssetCatalogs();}
-function openAssetCatalogModal(){normalizeAssetCatalogs();renderAssetCatalogManufacturerSelect();renderAssetCatalogTypeSelect();renderAssetCatalogs();renderCableTypesCatalog();const m=$('assetCatalogModal');if(!m)return;m.classList.remove('locations-only');$('assetCatalogTitle').textContent='Cadastros';m.querySelector('.catalog-modal-head span').textContent='Tipos de ativo, fabricantes, modelos, status, substatus, tipos de cabo e localizações usados no sistema.';m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.style.zIndex='300';}
-function openLocationsModal(){normalizeLocations();renderAssetCatalogs();const m=$('assetCatalogModal');if(!m)return;m.classList.add('locations-only');$('assetCatalogTitle').textContent='Localizações';m.querySelector('.catalog-modal-head span').textContent='Gerencie Data Centers, salas e estoques.';m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.style.zIndex='300';}
+const CATALOG_MODAL_ICON='<path d="m9 2 1.5 1.5L14 6l-8 8-4 1 1-4 8-8Z"/><path d="M13 5.5 16 2l4.5 4.5L17 10"/>';
+const LOCATIONS_MODAL_ICON='<path d="M12 21s7-5.2 7-12A7 7 0 1 0 5 9c0 6.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/>';
+function openAssetCatalogModal(){normalizeAssetCatalogs();renderAssetCatalogManufacturerSelect();renderAssetCatalogTypeSelect();renderAssetCatalogs();renderCableTypesCatalog();const m=$('assetCatalogModal');if(!m)return;m.classList.remove('locations-only');$('assetCatalogTitle').textContent='Cadastros';m.querySelector('.catalog-modal-head span').textContent='Tipos de ativo, fabricantes, modelos, status, substatus, tipos de cabo e localizações usados no sistema.';const icon=m.querySelector('.catalog-modal-head .modal-icon svg');if(icon)icon.innerHTML=CATALOG_MODAL_ICON;m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.style.zIndex='300';}
+function openLocationsModal(){normalizeLocations();renderAssetCatalogs();const m=$('assetCatalogModal');if(!m)return;m.classList.add('locations-only');$('assetCatalogTitle').textContent='Localizações';m.querySelector('.catalog-modal-head span').textContent='Gerencie Data Centers, salas e estoques.';const icon=m.querySelector('.catalog-modal-head .modal-icon svg');if(icon)icon.innerHTML=LOCATIONS_MODAL_ICON;m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.style.zIndex='300';}
 function closeAssetCatalogModal(){const m=$('assetCatalogModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');closeCatalogEditor();}
 function renderAssetCatalogManufacturerSelect(){
   normalizeAssetCatalogs();const el=$('catalogModelManufacturer');if(!el)return;const current=el.value||'';el.innerHTML='<option value="">Todos os fabricantes</option>'+state.assetCatalogs.manufacturers.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');el.value=current&&state.assetCatalogs.manufacturers.includes(current)?current:'';
@@ -5545,6 +5561,26 @@ function bind(){
   
   $('btnCatalogs')?.addEventListener('click',openAssetCatalogModal);
   $('assetCatalogClose')?.addEventListener('click',closeAssetCatalogModal);
+  $('catalogLocations')?.addEventListener('click',e=>{
+    const menuBtn=e.target.closest('[data-menu-toggle]');
+    if(menuBtn){
+      e.stopPropagation();
+      const panel=menuBtn.nextElementSibling;
+      const wasHidden=panel.classList.contains('hidden');
+      document.querySelectorAll('#catalogLocations .mini-menu').forEach(p=>p.classList.add('hidden'));
+      if(wasHidden)panel.classList.remove('hidden');
+      return;
+    }
+    const collapseBtn=e.target.closest('[data-collapse-toggle]');
+    if(collapseBtn){
+      const list=collapseBtn.closest('.location-subsection')?.querySelector('.location-subsection-list');
+      list?.classList.toggle('collapsed');
+      collapseBtn.classList.toggle('is-collapsed');
+    }
+  });
+  document.addEventListener('click',e=>{
+    if(!e.target.closest('.location-dc-kebab')&&!e.target.closest('.location-child-kebab'))document.querySelectorAll('#catalogLocations .mini-menu').forEach(p=>p.classList.add('hidden'));
+  });
   
   $('assetsSearch')?.addEventListener('input',e=>{assetsPage=1;renderAssetsList(e.target.value);});
   $('assetsTableHead')?.addEventListener('click',e=>{

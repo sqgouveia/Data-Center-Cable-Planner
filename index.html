@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=104" />
+    <link rel="stylesheet" href="app.css?v=105" />
   </head>
   <body>
     <div id="authScreen" class="auth-screen" aria-hidden="false">
@@ -1973,6 +1973,15 @@
                 </div>
               </div>
               </div>
+              <div class="catalog-search locations-search">
+                <span>⌕</span
+                ><input
+                  id="catalogLocationSearch"
+                  type="search"
+                  placeholder="Buscar data center, sala ou estoque..."
+                  autocomplete="off"
+                />
+              </div>
               <button
                 type="button"
                 class="btn primary small catalog-add-btn full"
@@ -1981,17 +1990,11 @@
                 ＋ Data Center
               </button>
             </div>
-            <div class="catalog-search">
-              <span>⌕</span
-              ><input
-                id="catalogLocationSearch"
-                type="search"
-                placeholder="Buscar localização, sala ou estoque..."
-                autocomplete="off"
-              />
-            </div>
             <div id="catalogLocations" class="catalog-list"></div>
           </section>
+        </div>
+        <div id="locationsFooter" class="locations-footer">
+          <span id="locationsFooterStats"></span>
         </div>
         <div class="catalog-note">
           <span>i</span>
@@ -3438,6 +3441,6 @@
         </div>
       </div>
     </div>
-    <script type="module" src="app.js?v=99"></script>
+    <script type="module" src="app.js?v=100"></script>
   </body>
 </html>
