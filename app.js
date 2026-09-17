@@ -20,8 +20,8 @@ import {
   manualRouteData, computeRoute, validateManualRouteCandidate, rackNameById, calcCable
 } from './js/routing.js';
 import {
-  isAssetArchived, assetOccupancy, assetsOnFace,
-  assetsAtRackU, assetOwningPort, assetConflicts, occupiedUnits
+  isAssetArchived, assetOccupancy, assetsOnFace, assetAtRackU,
+  assetOwningPort, assetConflicts, occupiedUnits
 } from './js/occupancy.js';
 
 // --- Supabase authentication -------------------------------------------------
@@ -124,7 +124,7 @@ const ASSET_LOG_FIELDS = {
   name:'Nome', type:'Tipo', manufacturer:'Fabricante', model:'Modelo', assetTag:'Asset Tag', serial:'Serial Number',
   locationType:'Tipo de localização', locationName:'Localização', locationId:'Localização (ID)', stockId:'Estoque', roomId:'Sala', rackId:'Rack',
   uStart:'U inicial', uHeight:'Quantidade de U', status:'Status', substatus:'Substatus', ports:'Portas', powerW:'Potência (W)', weightKg:'Peso (kg)',
-  purchaseDate:'Data de compra', warrantyExpiration:'Vencimento da garantia', endOfLife:'Fim de vida (EOL)'
+  purchaseDate:'Data de compra', warrantyExpiration:'Vencimento da garantia', endOfLife:'Fim de vida (EOL)', notes:'Observações'
 };
 const ASSET_LOG_HIDDEN_FIELDS = new Set(['locationId','stockId','roomId']);
 function assetLogComparable(v){
@@ -1123,7 +1123,7 @@ function normalizeState(){
   state.cables=state.cables.filter(c=>rackIds.has(c.originRack)&&rackIds.has(c.destRack));
   // Assets are project-level. A missing rack means the asset is unassigned; never delete it.
   state.assets.forEach(a=>{if(a.rackId&&!allRackIds.has(a.rackId)){a.rackId=null;}});
-  state.cables.forEach(c=>{c.type=cableTypeNames().includes(c.type)?c.type:defaultCableType();c.via=(c.via||[]).filter(id=>rackIds.has(id));c.originPortId=c.originPortId||null;c.destPortId=c.destPortId||null;c.originPortLabel=String(c.originPortLabel||'');c.destPortLabel=String(c.destPortLabel||'');c.originAssetName=String(c.originAssetName||'');c.destAssetName=String(c.destAssetName||'');});
+  state.cables.forEach(c=>{c.type=cableTypeNames().includes(c.type)?c.type:defaultCableType();c.via=(c.via||[]).filter(id=>rackIds.has(id));c.originPortId=c.originPortId||null;c.destPortId=c.destPortId||null;c.originPortLabel=String(c.originPortLabel||'');c.destPortLabel=String(c.destPortLabel||'');c.originAssetName=String(c.originAssetName||'');c.destAssetName=String(c.destAssetName||'');c.originFace=c.originFace==='rear'?'rear':'front';c.destFace=c.destFace==='rear'?'rear':'front';});
   if(state.selected?.type==='rack'&&!rackIds.has(state.selected.id))state.selected=null;
   state.multiSelected=Array.isArray(state.multiSelected)?state.multiSelected.filter(id=>rackIds.has(id)):[];
   if(state.selected?.type==='rack' && !state.multiSelected.includes(state.selected.id)) state.multiSelected=[state.selected.id];
@@ -1821,6 +1821,7 @@ function openAssetsModalWithAttentionFilter(){
   $('assetsSearch').value=''; assetColumnFilters={}; assetSortColumn='warranty'; assetSortDir='asc'; assetSelectedIds=new Set(); assetColumnWidths={...ASSET_COLUMN_WIDTHS_DEFAULT};
   assetAttentionOnly=true;
   assetColumnsAutoFitted=false;
+  assetsPage=1;
   renderAssetsList();
 }
 function cablePortConflict(cable,side,portId){
@@ -1875,7 +1876,9 @@ function renderCableTypesCatalog(){
   normalizeCableCatalogs();
   const el=$('catalogCableTypes'); if(!el)return;
   const types=state.cableCatalogs.types;
-  el.innerHTML=types.map((t,i)=>`<div class="catalog-row"><span title="${esc(t.name)}">${esc(t.name)}</span><div><input type="color" class="catalog-color-swatch" data-cable-type-color="${i}" value="${esc(t.color)}" title="Cor deste tipo"><button type="button" class="iconbtn" data-cable-type-edit="${i}" title="Editar">✎</button><button type="button" class="iconbtn danger-icon" data-cable-type-delete="${i}" title="Excluir">×</button></div></div>`).join('')||'<div class="empty">Nenhum tipo cadastrado.</div>';
+  const q=String($('catalogCableTypeSearch')?.value||'').toLowerCase().trim();
+  const filtered=types.map((t,i)=>({t,i})).filter(({t})=>!q||t.name.toLowerCase().includes(q));
+  el.innerHTML=filtered.map(({t,i})=>`<div class="catalog-row"><span title="${esc(t.name)}">${esc(t.name)}</span><div><input type="color" class="catalog-color-swatch" data-cable-type-color="${i}" value="${esc(t.color)}" title="Cor deste tipo"><button type="button" class="iconbtn" data-cable-type-edit="${i}" title="Editar">✎</button><button type="button" class="iconbtn danger-icon" data-cable-type-delete="${i}" title="Excluir">×</button></div></div>`).join('')||'<div class="empty">Nenhum tipo cadastrado.</div>';
   el.querySelectorAll('[data-cable-type-color]').forEach(inp=>{
     inp.oninput=()=>{types[Number(inp.dataset.cableTypeColor)].color=inp.value;};
     inp.onchange=()=>{save();renderCables();render();};
@@ -2255,7 +2258,7 @@ function assetSubstatusValues(){normalizeAssetCatalogs();return state.assetCatal
 function normalizeAssets(){
   state.assets=Array.isArray(state.assets)?state.assets:[];
   state.assets=state.assets.filter(a=>a&&a.id).map(a=>({
-    id:a.id,name:String(a.name||'Equipamento'),type:String(a.type||'Equipamento'),manufacturer:String(a.manufacturer||''),model:String(a.model||''),assetTag:String(a.assetTag||''),serial:String(a.serial||''),locationType:a.locationType||(a.roomId?'room':'stock'),locationName:String(a.locationName||((a.roomId&&state.rooms?.find(r=>r.id===a.roomId)?.name)||(!a.roomId?'Estoque':''))),roomId:a.roomId||null,rackId:a.rackId||null,face:a.rackId?(a.face==='rear'?'rear':'front'):null,uStart:Math.max(1,Math.floor(num(a.uStart,1))),uHeight:Math.max(1,Math.floor(num(a.uHeight,1))),status:String(a.status||'Instalado'),substatus:String(a.substatus||''),locationId:a.locationId||null,stockId:a.stockId||null,ports:Array.isArray(a.ports)?a.ports.filter(p=>p&&p.id).map(p=>({id:String(p.id),label:String(p.label||'Porta'),poe:!!p.poe})):[],powerW:Math.max(0,Math.floor(num(a.powerW,0))),weightKg:Math.max(0,num(a.weightKg,0)),purchaseDate:/^\d{4}-\d{2}-\d{2}$/.test(a.purchaseDate)?a.purchaseDate:'',warrantyExpiration:/^\d{4}-\d{2}-\d{2}$/.test(a.warrantyExpiration)?a.warrantyExpiration:'',endOfLife:/^\d{4}-\d{2}-\d{2}$/.test(a.endOfLife)?a.endOfLife:''
+    id:a.id,name:String(a.name||'Equipamento'),type:String(a.type||'Equipamento'),manufacturer:String(a.manufacturer||''),model:String(a.model||''),assetTag:String(a.assetTag||''),serial:String(a.serial||''),locationType:a.locationType||(a.roomId?'room':'stock'),locationName:String(a.locationName||((a.roomId&&state.rooms?.find(r=>r.id===a.roomId)?.name)||(!a.roomId?'Estoque':''))),roomId:a.roomId||null,rackId:a.rackId||null,face:a.rackId?(a.face==='rear'?'rear':'front'):null,uStart:Math.max(1,Math.floor(num(a.uStart,1))),uHeight:Math.max(1,Math.floor(num(a.uHeight,1))),status:String(a.status||'Instalado'),substatus:String(a.substatus||''),locationId:a.locationId||null,stockId:a.stockId||null,ports:Array.isArray(a.ports)?a.ports.filter(p=>p&&p.id).map(p=>({id:String(p.id),label:String(p.label||'Porta'),poe:!!p.poe})):[],powerW:Math.max(0,Math.floor(num(a.powerW,0))),weightKg:Math.max(0,num(a.weightKg,0)),purchaseDate:/^\d{4}-\d{2}-\d{2}$/.test(a.purchaseDate)?a.purchaseDate:'',warrantyExpiration:/^\d{4}-\d{2}-\d{2}$/.test(a.warrantyExpiration)?a.warrantyExpiration:'',endOfLife:/^\d{4}-\d{2}-\d{2}$/.test(a.endOfLife)?a.endOfLife:'',notes:String(a.notes||'').slice(0,500)
   }));
 }
 function updateAssetUFieldsState(){
@@ -2320,12 +2323,9 @@ function findPortConnection(portId){
   return allProjectCables().find(c=>c.originPortId===portId||c.destPortId===portId)||null;
 }
 function setAssetPortsCollapsed(collapsed){
-  const list=$('assetPortsList'); if(!list)return;
-  list.classList.toggle('hidden',collapsed);
-  const btn=$('assetPortsToggle');
-  if(btn)btn.setAttribute('aria-expanded',collapsed?'false':'true');
-  const label=$('assetPortsToggleLabel');
-  if(label)label.textContent=collapsed?'Mostrar':'Ocultar';
+  const section=$('assetStepPortas'); if(!section)return;
+  section.classList.toggle('ports-collapsed',collapsed);
+  $('assetPortsToggle')?.setAttribute('aria-expanded',collapsed?'false':'true');
 }
 function renderAssetPortsEditor(){
   const list=$('assetPortsList'); if(!list)return;
@@ -2340,10 +2340,11 @@ function renderAssetPortsEditor(){
       const otherRackId=isOrigin?conn.destRack:conn.originRack;
       const otherU=isOrigin?conn.destU:conn.originU;
       const otherPortId=isOrigin?conn.destPortId:conn.originPortId;
-      connLabel=cableEndpointLabel(otherRackId,otherU,otherPortId,'',isOrigin?conn.destAssetName:conn.originAssetName);
+      const otherFace=isOrigin?conn.destFace:conn.originFace;
+      connLabel=cableEndpointLabel(otherRackId,otherU,otherPortId,'',isOrigin?conn.destAssetName:conn.originAssetName,otherFace);
     }
     return `<div class="asset-port-row ${conn?'is-used':'is-free'}"><span class="asset-port-index">${i+1}</span><div class="asset-port-fields"><input type="text" class="asset-port-name" data-port-id="${esc(p.id)}" value="${esc(p.label)}" placeholder="Nome da porta">${conn?`<small class="asset-port-conn" title="${esc(conn.name)} → ${esc(connLabel)}">🔗 ${esc(conn.name)} → ${esc(connLabel)}</small>`:'<small class="asset-port-conn is-free-label">Disponível</small>'}</div><label class="asset-port-poe" title="Porta PoE"><input type="checkbox" data-port-poe="${esc(p.id)}" ${p.poe?'checked':''}><span>PoE</span></label><button type="button" class="iconbtn danger-icon" data-port-remove="${esc(p.id)}" title="Remover porta">×</button></div>`;
-  }).join(''):'<div class="empty">Nenhuma porta cadastrada.</div>';
+  }).join(''):'<div class="asset-ports-empty"><span class="asset-ports-empty-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v4M15 4v4M9 16v4M15 16v4"/></svg></span><b>Nenhuma porta cadastrada</b><span>Adicione as portas do equipamento para facilitar o planejamento de conectividade.</span></div>';
   list.querySelectorAll('[data-port-id]').forEach(inp=>inp.oninput=()=>{const p=assetEditPorts.find(x=>x.id===inp.dataset.portId);if(p)p.label=inp.value;});
   list.querySelectorAll('[data-port-poe]').forEach(cb=>cb.onchange=()=>{const p=assetEditPorts.find(x=>x.id===cb.dataset.portPoe);if(p)p.poe=cb.checked;});
   list.querySelectorAll('[data-port-remove]').forEach(b=>b.onclick=()=>{assetEditPorts=assetEditPorts.filter(p=>p.id!==b.dataset.portRemove);renderAssetPortsEditor();});
@@ -2362,7 +2363,8 @@ async function exportAssetPortsXLSX(){
         const otherRackId=isOrigin?conn.destRack:conn.originRack;
         const otherU=isOrigin?conn.destU:conn.originU;
         const otherPortId=isOrigin?conn.destPortId:conn.originPortId;
-        connLabel=cableEndpointLabel(otherRackId,otherU,otherPortId,'',isOrigin?conn.destAssetName:conn.originAssetName);
+        const otherFace=isOrigin?conn.destFace:conn.originFace;
+        connLabel=cableEndpointLabel(otherRackId,otherU,otherPortId,'',isOrigin?conn.destAssetName:conn.originAssetName,otherFace);
       }
       return [p.label,p.poe?'Sim':'Não',conn?'Em uso':'Disponível',conn?.name||'',connLabel];
     });
@@ -2422,7 +2424,7 @@ function openAssetModal(assetId=null, rackId=null, uStart=null){
   if($('assetFace'))$('assetFace').value=asset?.face||'';
   assetEditPorts=asset?.ports?cloneData(asset.ports):[];
   if(!assetEditPorts.length)autoFillPortsFromModelIfEmpty();
-  setAssetPortsCollapsed(true);
+  setAssetPortsCollapsed(false);
   renderAssetPortsEditor();
   autoFillPortsFromModelIfEmpty();
   if($('assetPowerW')){$('assetPowerW').value=asset?.powerW||'';if(!$('assetPowerW').value)autoFillPowerFromModelIfEmpty();}
@@ -2430,7 +2432,9 @@ function openAssetModal(assetId=null, rackId=null, uStart=null){
   if($('assetPurchaseDate'))$('assetPurchaseDate').value=asset?.purchaseDate||'';
   if($('assetWarrantyExpiration'))$('assetWarrantyExpiration').value=asset?.warrantyExpiration||'';
   if($('assetEndOfLife'))$('assetEndOfLife').value=asset?.endOfLife||'';
+  if($('assetNotes')){$('assetNotes').value=asset?.notes||'';updateAssetNotesCount();}
   updateAssetLifecycleBadge();
+  resetAssetEditStepNav();
   $('assetEditModal').classList.add('open');$('assetEditModal').classList.remove('hidden');$('assetEditModal').setAttribute('aria-hidden','false');$('assetEditModal').style.zIndex='320';requestAnimationFrame(()=>$('assetName')?.focus());
   const historyBtn=$('assetEditHistory');
   if(historyBtn){
@@ -2451,6 +2455,32 @@ function updateAssetLifecycleBadge(){
   else if(eol==='soon'){level='soon';text=ASSET_LIFECYCLE_LABELS.eol.soon;}
   else if(warranty==='soon'){level='soon';text=ASSET_LIFECYCLE_LABELS.warranty.soon;}
   el.textContent=text; el.className='asset-lifecycle-badge'+(text?` level-${level}`:'');
+}
+function updateAssetNotesCount(){
+  const el=$('assetNotesCount'); const field=$('assetNotes'); if(!el||!field)return;
+  el.textContent=`${field.value.length}/500`;
+}
+function initAssetEditStepNav(){
+  const content=$('assetEditContent');
+  const steps=Array.from(document.querySelectorAll('#assetEditNav .asset-edit-step'));
+  if(!content||!steps.length)return;
+  steps.forEach(step=>{
+    step.addEventListener('click',()=>{
+      const target=$(step.dataset.stepTarget);
+      target?.scrollIntoView({behavior:'smooth',block:'start'});
+    });
+  });
+  const setActive=id=>steps.forEach(s=>s.classList.toggle('active',s.dataset.stepTarget===id));
+  setActive(steps[0]?.dataset.stepTarget);
+  const observer=new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{if(entry.isIntersecting)setActive(entry.target.id);});
+  },{root:content,threshold:0,rootMargin:'-8% 0px -75% 0px'});
+  document.querySelectorAll('#assetEditForm .asset-edit-section').forEach(sec=>observer.observe(sec));
+}
+function resetAssetEditStepNav(){
+  const content=$('assetEditContent'); if(content)content.scrollTop=0;
+  const steps=document.querySelectorAll('#assetEditNav .asset-edit-step');
+  steps.forEach((s,i)=>s.classList.toggle('active',i===0));
 }
 async function saveAssetForm(){
   const id=$('assetEditId').value.trim();
@@ -2477,7 +2507,8 @@ async function saveAssetForm(){
   const purchaseDate=$('assetPurchaseDate')?.value||'';
   const warrantyExpiration=$('assetWarrantyExpiration')?.value||'';
   const endOfLife=$('assetEndOfLife')?.value||'';
-  const locVal=$('assetLocation').value||''; const stockParts=locVal.startsWith('stock:')?locVal.split(':'):null; const finalLocationId=stockParts?.[1]||roomObj?.locationId||state.locations?.[0]?.id||null; const finalStockId=stockParts?.[2]||null; const asset={id:id||uid('asset'),name,type:$('assetType').value||'Equipamento',manufacturer:$('assetManufacturer').value.trim(),model:$('assetModel').value.trim(),assetTag:$('assetTag').value.trim(),serial,locationType,locationName:locationType==='stock'?'Estoque':(roomObj?.name||''),locationId:finalLocationId,stockId:finalStockId,roomId:locationRoomId,rackId,face:rackId?face:null,uStart,uHeight,status:$('assetStatus').value||'Instalado',substatus:$('assetSubstatus').value||'',ports:cloneData(assetEditPorts),powerW,weightKg,purchaseDate,warrantyExpiration,endOfLife};
+  const notes=($('assetNotes')?.value||'').trim().slice(0,500);
+  const locVal=$('assetLocation').value||''; const stockParts=locVal.startsWith('stock:')?locVal.split(':'):null; const finalLocationId=stockParts?.[1]||roomObj?.locationId||state.locations?.[0]?.id||null; const finalStockId=stockParts?.[2]||null; const asset={id:id||uid('asset'),name,type:$('assetType').value||'Equipamento',manufacturer:$('assetManufacturer').value.trim(),model:$('assetModel').value.trim(),assetTag:$('assetTag').value.trim(),serial,locationType,locationName:locationType==='stock'?'Estoque':(roomObj?.name||''),locationId:finalLocationId,stockId:finalStockId,roomId:locationRoomId,rackId,face:rackId?face:null,uStart,uHeight,status:$('assetStatus').value||'Instalado',substatus:$('assetSubstatus').value||'',ports:cloneData(assetEditPorts),powerW,weightKg,purchaseDate,warrantyExpiration,endOfLife,notes};
   if(assetConflicts(state.assets,asset,id||null)){toast('Não é possível: existe outro equipamento ocupando uma ou mais U.');return;}
   if(rack && powerW>0 && num(rack.powerCapacityW,0)>0){
     const othersPowerW=state.assets.filter(a=>a.rackId===rack.id && a.id!==asset.id).reduce((sum,a)=>sum+Math.max(0,num(a.powerW,0)),0);
@@ -2529,9 +2560,9 @@ async function deleteAsset(assetId){
 }
 function locateAsset(assetId){const a=state.assets.find(x=>x.id===assetId);if(!a)return;if(a.roomId&&a.roomId!==state.activeRoomId)switchRoom(a.roomId);if(a.rackId){state.selected={type:'rack',id:a.rackId};state.multiSelected=[a.rackId];state.trayMultiSelected=[];closeAssetsModal();closeBayface();renderAll(false);openBayface(a.rackId);}}
 let assetColumnFilters={};
-const ASSET_COLUMN_ORDER=['check','assetTag','name','type','manufacturer','model','serial','location','rack','u','uHeight','status','substatus','purchaseDate','warranty','eol','actions'];
-const ASSET_COLUMN_WIDTHS_DEFAULT={check:36,assetTag:126,name:170,type:100,manufacturer:120,model:130,serial:130,location:170,rack:80,u:64,uHeight:64,status:100,substatus:100,purchaseDate:110,warranty:120,eol:120,actions:150};
-const ASSET_COLUMN_MIN_WIDTHS={check:36,assetTag:70,name:90,type:70,manufacturer:70,model:70,serial:80,location:90,rack:60,u:48,uHeight:48,status:70,substatus:70,purchaseDate:80,warranty:80,eol:80,actions:120};
+const ASSET_COLUMN_ORDER=['check','assetTag','name','type','manufacturer','model','serial','location','rack','face','u','uHeight','status','substatus','purchaseDate','warranty','eol','actions'];
+const ASSET_COLUMN_WIDTHS_DEFAULT={check:36,assetTag:126,name:170,type:100,manufacturer:120,model:130,serial:130,location:170,rack:80,face:70,u:64,uHeight:64,status:100,substatus:100,purchaseDate:110,warranty:120,eol:120,actions:150};
+const ASSET_COLUMN_MIN_WIDTHS={check:36,assetTag:70,name:90,type:70,manufacturer:70,model:70,serial:80,location:90,rack:60,face:56,u:48,uHeight:48,status:70,substatus:70,purchaseDate:80,warranty:80,eol:80,actions:120};
 let assetColumnWidths={...ASSET_COLUMN_WIDTHS_DEFAULT};
 let assetColumnsAutoFitted=false;
 function measureTextWidth(text,font){
@@ -2539,7 +2570,7 @@ function measureTextWidth(text,font){
   measureTextWidth._ctx.font=font;
   return measureTextWidth._ctx.measureText(String(text||'')).width;
 }
-const ASSET_COLUMN_HEADER_LABELS={assetTag:'Asset Tag',name:'Nome',type:'Tipo',manufacturer:'Fabricante',model:'Modelo',serial:'SN',location:'Localização',rack:'Rack',u:'U',uHeight:'Qtd. U',status:'Status',substatus:'Substatus',purchaseDate:'Compra',warranty:'Garantia',eol:'EOL'};
+const ASSET_COLUMN_HEADER_LABELS={assetTag:'Asset Tag',name:'Nome',type:'Tipo',manufacturer:'Fabricante',model:'Modelo',serial:'SN',location:'Localização',rack:'Rack',face:'Face',u:'U',uHeight:'Qtd. U',status:'Status',substatus:'Substatus',purchaseDate:'Compra',warranty:'Garantia',eol:'EOL',notes:'Observações'};
 function autoFitAssetColumnText(a,col){
   switch(col){
     case 'assetTag': return a.assetTag||'—';
@@ -2603,7 +2634,7 @@ function bindAssetColumnResize(){
     };
   });
 }
-const ASSET_FILTER_COLUMNS={assetTag:'Asset Tag',name:'Nome',type:'Tipo',manufacturer:'Fabricante',model:'Modelo',serial:'Serial Number',location:'Localização',rack:'Rack',u:'U',uHeight:'Qtd. U',status:'Status',substatus:'Substatus',purchaseDate:'Data de compra',warranty:'Garantia',eol:'EOL'};
+const ASSET_FILTER_COLUMNS={assetTag:'Asset Tag',name:'Nome',type:'Tipo',manufacturer:'Fabricante',model:'Modelo',serial:'Serial Number',location:'Localização',rack:'Rack',face:'Face',u:'U',uHeight:'Qtd. U',status:'Status',substatus:'Substatus',purchaseDate:'Data de compra',warranty:'Garantia',eol:'EOL'};
 function assetColumnValue(a,col){
   const r=assetRack(a.rackId), u=assetOccupancy(a);
   switch(col){
@@ -2615,6 +2646,7 @@ function assetColumnValue(a,col){
     case 'serial': return a.serial||'—';
     case 'location': return assetLocationLabel(a);
     case 'rack': return assetRack(a.rackId)?.name||'Sem rack';
+    case 'face': return r?(a.face==='rear'?'Traseira':'Frente'):'—';
     case 'u': return r?`U${u.start}${u.end!==u.start?'–U'+u.end:''}`:'—';
     case 'uHeight': return r?String(a.uHeight||1)+'U':'—';
     case 'status': return a.status||'—';
@@ -2649,24 +2681,88 @@ function openAssetColumnFilterMenu(col,anchorBtn){
   const values=[...counts.keys()].sort((x,y)=>x.localeCompare(y,'pt-BR'));
   const selected=assetColumnFilters[col]||new Set();
   const panel=document.createElement('div'); panel.className='col-filter-panel';
-  panel.innerHTML=`<div class="col-filter-panel-head"><b>${esc(ASSET_FILTER_COLUMNS[col]||col)}</b>${selected.size?'<button type="button" class="col-filter-clear">Limpar</button>':''}</div><div class="col-filter-panel-list">${values.length?values.map(v=>`<label class="col-filter-option"><input type="checkbox" value="${esc(v)}" ${selected.has(v)?'checked':''}><span>${esc(v)}</span><small>${counts.get(v)}</small></label>`).join(''):'<div class="empty">Nenhum valor.</div>'}</div>`;
+  panel.innerHTML=`<div class="col-filter-panel-head"><b>${esc(ASSET_FILTER_COLUMNS[col]||col)}</b>${selected.size?'<button type="button" class="col-filter-clear">Limpar</button>':''}</div><div class="col-filter-panel-search"><input type="text" class="col-filter-search-input" placeholder="Buscar valor..." autocomplete="off"></div><div class="col-filter-panel-list">${values.length?values.map(v=>`<label class="col-filter-option"><input type="checkbox" value="${esc(v)}" ${selected.has(v)?'checked':''}><span>${esc(v)}</span><small>${counts.get(v)}</small></label>`).join(''):'<div class="empty">Nenhum valor.</div>'}</div>`;
   document.body.appendChild(panel);
   const rect=anchorBtn.getBoundingClientRect();
   panel.style.top=`${rect.bottom+4}px`; panel.style.left=`${Math.min(rect.left,window.innerWidth-panel.offsetWidth-12)}px`;
+  const searchInput=panel.querySelector('.col-filter-search-input');
+  searchInput?.addEventListener('input',()=>{
+    const sq=searchInput.value.toLowerCase().trim();
+    panel.querySelectorAll('.col-filter-option').forEach(opt=>{
+      const label=opt.querySelector('span')?.textContent.toLowerCase()||'';
+      opt.style.display=(!sq||label.includes(sq))?'':'none';
+    });
+  });
+  if(values.length>4)searchInput?.focus();
   panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.onchange=()=>{
     const set=assetColumnFilters[col]instanceof Set?assetColumnFilters[col]:new Set();
     if(cb.checked)set.add(cb.value); else set.delete(cb.value);
     assetColumnFilters[col]=set;
+    assetsPage=1;
     renderAssetsList($('assetsSearch')?.value||'');
     openAssetColumnFilterMenu(col,anchorBtn);
   });
   panel.querySelector('.col-filter-clear')?.addEventListener('click',()=>{
     delete assetColumnFilters[col];
+    assetsPage=1;
     renderAssetsList($('assetsSearch')?.value||'');
     closeAssetColumnFilterMenus();
   });
 }
 let assetSortColumn=null, assetSortDir='asc';
+let assetsPage=1, assetsPageSize=10;
+const ASSET_STATUS_DOT_COLORS={ativo:'var(--green)',instalado:'var(--green)',ligado:'var(--green)',emestoque:'var(--yellow)',estoque:'var(--yellow)',emmanutencao:'var(--orange)',manutencao:'var(--orange)',aguardandopeca:'var(--orange)',desativado:'var(--muted)',desligado:'var(--muted)',arquivado:'var(--purple)',disposed:'var(--purple)',reserva:'var(--blue)',reservado:'var(--blue)',perdido:'var(--red)',retired:'var(--muted)',planejado:'var(--blue)'};
+const ASSET_STATUS_DOT_PALETTE=['var(--blue)','var(--green)','var(--orange)','var(--yellow)','var(--purple)','var(--red)','var(--muted)'];
+function assetStatusDotColor(status,index){
+  const key=catalogNormalize(status);
+  if(ASSET_STATUS_DOT_COLORS[key])return ASSET_STATUS_DOT_COLORS[key];
+  return ASSET_STATUS_DOT_PALETTE[index%ASSET_STATUS_DOT_PALETTE.length];
+}
+function renderAssetsKpis(items){
+  const wrap=$('assetsKpiRow'); if(!wrap)return;
+  const total=items.length;
+  const counts=new Map();
+  items.forEach(a=>{const s=a.status||'Sem status';counts.set(s,(counts.get(s)||0)+1);});
+  const order=[...counts.keys()].sort((x,y)=>counts.get(y)-counts.get(x));
+  const activeStatus=assetColumnFilters.status&&assetColumnFilters.status.size===1?[...assetColumnFilters.status][0]:null;
+  const tiles=order.map((status,i)=>{
+    const n=counts.get(status);
+    const pct=total?(n/total*100).toFixed(1).replace('.',','):'0,0';
+    return `<button type="button" class="asset-kpi-tile${status===activeStatus?' is-active':''}" data-kpi-status="${esc(status)}"><span class="asset-kpi-dot" style="background:${assetStatusDotColor(status,i)}"></span><div class="asset-kpi-text"><small>${esc(status)}</small><b>${n}</b></div><span class="asset-kpi-pct">${pct}%</span></button>`;
+  }).join('');
+  const warrantyExpiredCount=items.filter(a=>assetWarrantyLevel(a)==='expired').length;
+  const warrantyActive=assetColumnFilters.warranty&&assetColumnFilters.warranty.has('Vencida');
+  const warrantyTile=warrantyExpiredCount?`<button type="button" class="asset-kpi-tile asset-kpi-danger${warrantyActive?' is-active':''}" data-kpi-warranty="1"><span class="asset-kpi-dot" style="background:var(--red)"></span><div class="asset-kpi-text"><small>Garantia vencida</small><b>${warrantyExpiredCount}</b></div></button>`:'';
+  wrap.innerHTML=`<button type="button" class="asset-kpi-tile asset-kpi-total${!activeStatus&&!warrantyActive?' is-active':''}" data-kpi-total="1"><span class="asset-kpi-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></span><div class="asset-kpi-text"><small>Total</small><b>${total}</b></div></button>${tiles}${warrantyTile}`;
+}
+function renderAssetsFilterBar(){
+  document.querySelectorAll('.assets-filter-bar [data-filter-col]').forEach(btn=>{
+    const col=btn.dataset.filterCol;
+    const active=assetColumnFilters[col]&&assetColumnFilters[col].size>0;
+    btn.classList.toggle('is-filtered',!!active);
+  });
+  const anyActive=Object.values(assetColumnFilters).some(v=>v&&v.size>0);
+  $('assetsClearFilters')?.classList.toggle('is-active',anyActive);
+}
+function renderAssetsPagination(totalItems){
+  const pageSize=assetsPageSize;
+  const totalPages=Math.max(1,Math.ceil(totalItems/pageSize));
+  if(assetsPage>totalPages)assetsPage=totalPages;
+  if(assetsPage<1)assetsPage=1;
+  const start=totalItems?(assetsPage-1)*pageSize+1:0;
+  const end=Math.min(totalItems,assetsPage*pageSize);
+  if($('assetsPageRange'))$('assetsPageRange').textContent=`${start}–${end} de ${totalItems}`;
+  if($('assetsPageSize'))$('assetsPageSize').value=String(pageSize);
+  const btns=$('assetsPageButtons'); if(!btns)return;
+  const pages=[];
+  const windowSize=5;
+  let from=Math.max(1,assetsPage-Math.floor(windowSize/2));
+  let to=Math.min(totalPages,from+windowSize-1);
+  from=Math.max(1,to-windowSize+1);
+  for(let p=from;p<=to;p++)pages.push(p);
+  const pageBtn=(p,label,disabled,active)=>`<button type="button" class="assets-page-btn${active?' is-active':''}" data-page="${p}" ${disabled?'disabled':''}>${label}</button>`;
+  btns.innerHTML=pageBtn(1,'«',assetsPage<=1)+pageBtn(assetsPage-1,'‹',assetsPage<=1)+pages.map(p=>pageBtn(p,String(p),false,p===assetsPage)).join('')+pageBtn(assetsPage+1,'›',assetsPage>=totalPages)+pageBtn(totalPages,'»',assetsPage>=totalPages);
+}
 let assetSelectedIds=new Set();
 function assetSortValue(a,col){
   const r=assetRack(a.rackId), u=assetOccupancy(a);
@@ -2679,6 +2775,7 @@ function assetSortValue(a,col){
     case 'serial': return (a.serial||'').toLowerCase();
     case 'location': return assetLocationLabel(a).toLowerCase();
     case 'rack': return (r?.name||'').toLowerCase();
+    case 'face': return r?(a.face==='rear'?'traseira':'frente'):'';
     case 'u': return r?u.start:-1;
     case 'uHeight': return r?(a.uHeight||1):-1;
     case 'status': return (a.status||'').toLowerCase();
@@ -2697,8 +2794,9 @@ function renderAssetsTableSort(){
   });
 }
 function updateAssetsBulkBar(){
-  const bar=$('assetsBulkBar'); if(!bar)return;
   const count=assetSelectedIds.size;
+  if($('assetsSelectedCountFooter'))$('assetsSelectedCountFooter').textContent=String(count);
+  const bar=$('assetsBulkBar'); if(!bar)return;
   bar.classList.toggle('hidden',count===0);
   if($('assetsSelectedCount'))$('assetsSelectedCount').textContent=String(count);
   const statusSel=$('assetsBulkStatus');
@@ -2789,29 +2887,44 @@ function renderAssetsList(filter=''){
   if(!assetColumnsAutoFitted && items.length){ autoFitAssetColumns(items); assetColumnsAutoFitted=true; }
   const visibleIds=new Set(items.map(a=>a.id));
   assetSelectedIds=new Set([...assetSelectedIds].filter(id=>visibleIds.has(id)));
-  $('assetsCount').textContent=String(items.length); if($('assetsActiveCount'))$('assetsActiveCount').textContent=String(items.filter(a=>!isAssetArchived(a)).length); if($('assetsArchivedCount'))$('assetsArchivedCount').textContent=String(items.filter(isAssetArchived).length);
+  if($('assetsCount'))$('assetsCount').textContent=String(items.length); if($('assetsActiveCount'))$('assetsActiveCount').textContent=String(items.filter(a=>!isAssetArchived(a)).length); if($('assetsArchivedCount'))$('assetsArchivedCount').textContent=String(items.filter(isAssetArchived).length);
   const warrantyExpiredCount=items.filter(a=>assetWarrantyLevel(a)==='expired').length;
   if($('assetsWarrantyExpiredCount'))$('assetsWarrantyExpiredCount').textContent=String(warrantyExpiredCount);
   if($('assetsWarrantyExpiredStat'))$('assetsWarrantyExpiredStat').classList.toggle('hidden',warrantyExpiredCount===0);
-  wrap.innerHTML=items.length?items.map(a=>{const r=assetRack(a.rackId),u=assetOccupancy(a),color=bayfaceTypeColor(a.type),checked=assetSelectedIds.has(a.id),warrantyLevel=assetWarrantyLevel(a),eolLevel=assetEndOfLifeLevel(a);return `<div class="asset-row ${isAssetArchived(a)?'asset-archived':''} ${checked?'is-selected':''}" style="--type-color:${esc(color)}"><div class="asset-cell asset-cell-check"><input type="checkbox" data-asset-select="${esc(a.id)}" ${checked?'checked':''}></div><div class="asset-cell"><strong>${esc(a.assetTag||'—')}</strong></div><div class="asset-cell">${esc(a.name)}</div><div class="asset-cell"><span class="asset-type-chip"><i></i>${esc(a.type)}</span></div><div class="asset-cell">${esc(a.manufacturer||'—')}</div><div class="asset-cell">${esc(a.model||'—')}</div><div class="asset-cell">${esc(a.serial||'—')}</div><div class="asset-cell">${esc(assetLocationLabel(a))}</div><div class="asset-cell">${esc(r?.name||'Sem rack')}</div><div class="asset-cell">${r?`U${u.start}${u.end!==u.start?'–U'+u.end:''}`:'—'}</div><div class="asset-cell">${r?esc(String(a.uHeight||1)+'U'):'—'}</div><div class="asset-cell"><span class="asset-status ${isAssetArchived(a)?'archived':''}">${esc(a.status||'—')}</span></div><div class="asset-cell">${esc(a.substatus||'—')}</div><div class="asset-cell">${esc(formatAssetDate(a.purchaseDate)||'—')}</div><div class="asset-cell">${warrantyLevel==='none'?'<span class="asset-warranty-chip level-none">—</span>':`<span class="asset-warranty-chip level-${warrantyLevel}" title="Vencimento: ${esc(formatAssetDate(a.warrantyExpiration))}"><i></i>${esc(formatAssetDate(a.warrantyExpiration))}</span>`}</div><div class="asset-cell">${eolLevel==='none'?'<span class="asset-warranty-chip level-none">—</span>':`<span class="asset-warranty-chip level-${eolLevel}" title="Fim de vida: ${esc(formatAssetDate(a.endOfLife))}"><i></i>${esc(formatAssetDate(a.endOfLife))}</span>`}</div><div class="asset-actions"><button class="iconbtn" type="button" data-asset-locate="${esc(a.id)}" title="Localizar no rack">⌖</button><button class="iconbtn" type="button" data-asset-edit="${esc(a.id)}" title="Editar asset">✎</button><button class="iconbtn" type="button" data-asset-history="${esc(a.id)}" title="Histórico">↺</button><button class="iconbtn danger-icon" type="button" data-asset-delete="${esc(a.id)}" title="Excluir permanentemente">×</button></div></div>`}).join(''):'<div class="empty">Nenhum asset encontrado.</div>';
+  const kpiMatchesFilters=a=>Object.entries(assetColumnFilters).every(([col,values])=>{if(col==='status'||col==='warranty')return true;if(!values||!values.size)return true;return values.has(assetColumnValue(a,col));});
+  let kpiItems=state.assets.filter(a=>{const room=assetRoom(a);const matchesSearch=!q||[a.name,a.type,a.manufacturer,a.model,a.assetTag,a.serial,a.locationName||'',room?.name||'',assetRack(a.rackId)?.name||''].join(' ').toLowerCase().includes(q);return matchesSearch&&kpiMatchesFilters(a);});
+  if(assetAttentionOnly){const attn=new Set(assetsNeedingAttention().map(a=>a.id));kpiItems=kpiItems.filter(a=>attn.has(a.id));}
+  renderAssetsKpis(kpiItems);
+  renderAssetsFilterBar();
+  const totalPages=Math.max(1,Math.ceil(items.length/assetsPageSize));
+  if(assetsPage>totalPages)assetsPage=totalPages;
+  if(assetsPage<1)assetsPage=1;
+  const pageStart=(assetsPage-1)*assetsPageSize;
+  const pageItems=items.slice(pageStart,pageStart+assetsPageSize);
+  wrap.innerHTML=pageItems.length?pageItems.map(a=>{const r=assetRack(a.rackId),u=assetOccupancy(a),color=bayfaceTypeColor(a.type),checked=assetSelectedIds.has(a.id),warrantyLevel=assetWarrantyLevel(a),eolLevel=assetEndOfLifeLevel(a);return `<div class="asset-row ${isAssetArchived(a)?'asset-archived':''} ${checked?'is-selected':''}" data-asset-id="${esc(a.id)}" style="--type-color:${esc(color)}"><div class="asset-cell asset-cell-check"><input type="checkbox" data-asset-select="${esc(a.id)}" ${checked?'checked':''}></div><div class="asset-cell"><strong>${esc(a.assetTag||'—')}</strong></div><div class="asset-cell">${esc(a.name)}</div><div class="asset-cell"><span class="asset-type-chip"><i></i>${esc(a.type)}</span></div><div class="asset-cell">${esc(a.manufacturer||'—')}</div><div class="asset-cell">${esc(a.model||'—')}</div><div class="asset-cell">${esc(a.serial||'—')}</div><div class="asset-cell">${esc(assetLocationLabel(a))}</div><div class="asset-cell">${esc(r?.name||'Sem rack')}</div><div class="asset-cell">${r?(a.face==='rear'?'Traseira':'Frente'):'—'}</div><div class="asset-cell">${r?`U${u.start}${u.end!==u.start?'–U'+u.end:''}`:'—'}</div><div class="asset-cell">${r?esc(String(a.uHeight||1)+'U'):'—'}</div><div class="asset-cell"><span class="asset-status ${isAssetArchived(a)?'archived':''}">${esc(a.status||'—')}</span></div><div class="asset-cell">${esc(a.substatus||'—')}</div><div class="asset-cell">${esc(formatAssetDate(a.purchaseDate)||'—')}</div><div class="asset-cell">${warrantyLevel==='none'?'<span class="asset-warranty-chip level-none">—</span>':`<span class="asset-warranty-chip level-${warrantyLevel}" title="Vencimento: ${esc(formatAssetDate(a.warrantyExpiration))}"><i></i>${esc(formatAssetDate(a.warrantyExpiration))}</span>`}</div><div class="asset-cell">${eolLevel==='none'?'<span class="asset-warranty-chip level-none">—</span>':`<span class="asset-warranty-chip level-${eolLevel}" title="Fim de vida: ${esc(formatAssetDate(a.endOfLife))}"><i></i>${esc(formatAssetDate(a.endOfLife))}</span>`}</div><div class="asset-actions"><button class="iconbtn" type="button" data-asset-locate="${esc(a.id)}" title="Localizar no rack"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button><button class="iconbtn" type="button" data-asset-edit="${esc(a.id)}" title="Editar asset"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 2 1.5 1.5L14 6l-8 8-4 1 1-4 8-8Z"/><path d="M13 5.5 16 2l4.5 4.5L17 10"/></svg></button><button class="iconbtn" type="button" data-asset-history="${esc(a.id)}" title="Histórico"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button><button class="iconbtn danger-icon" type="button" data-asset-delete="${esc(a.id)}" title="Excluir permanentemente"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg></button></div></div>`}).join(''):'<div class="empty">Nenhum asset encontrado.</div>';
   wrap.querySelectorAll('[data-asset-locate]').forEach(b=>b.onclick=()=>locateAsset(b.dataset.assetLocate));
   wrap.querySelectorAll('[data-asset-edit]').forEach(b=>b.onclick=()=>openAssetModal(b.dataset.assetEdit));
   wrap.querySelectorAll('[data-asset-history]').forEach(b=>b.onclick=()=>openAssetHistory(b.dataset.assetHistory));
   wrap.querySelectorAll('[data-asset-delete]').forEach(b=>b.onclick=()=>deleteAsset(b.dataset.assetDelete));
+  wrap.querySelectorAll('.asset-row').forEach(row=>row.ondblclick=e=>{
+    if(e.target.closest('.asset-cell-check')||e.target.closest('.asset-actions'))return;
+    openAssetModal(row.dataset.assetId);
+  });
   wrap.querySelectorAll('[data-asset-select]').forEach(cb=>cb.onchange=()=>{
     if(cb.checked)assetSelectedIds.add(cb.dataset.assetSelect); else assetSelectedIds.delete(cb.dataset.assetSelect);
     cb.closest('.asset-row')?.classList.toggle('is-selected',cb.checked);
-    if($('assetsSelectAll'))$('assetsSelectAll').checked=items.length>0&&assetSelectedIds.size===items.length;
+    if($('assetsSelectAll'))$('assetsSelectAll').checked=pageItems.length>0&&pageItems.every(x=>assetSelectedIds.has(x.id));
     updateAssetsBulkBar();
   });
-  if($('assetsSelectAll'))$('assetsSelectAll').checked=items.length>0&&assetSelectedIds.size===items.length;
+  if($('assetsSelectAll'))$('assetsSelectAll').checked=pageItems.length>0&&pageItems.every(x=>assetSelectedIds.has(x.id));
   renderAssetsTableHead();
   renderAssetsTableSort();
+  renderAssetsPagination(items.length);
   updateAssetsBulkBar();
   applyAssetColumnWidths();
   bindAssetColumnResize();
 }
-function openAssetsModal(){const m=$('assetsModal');if(!m)return;closeAssetModal();closeAssetCatalogModal();m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');$('assetsSearch').value='';assetColumnFilters={};assetSortColumn=null;assetSortDir='asc';assetSelectedIds=new Set();assetColumnWidths={...ASSET_COLUMN_WIDTHS_DEFAULT};assetAttentionOnly=false;assetColumnsAutoFitted=false;renderAssetsList();}
+function openAssetsModal(){const m=$('assetsModal');if(!m)return;closeAssetModal();closeAssetCatalogModal();m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');$('assetsSearch').value='';assetColumnFilters={};assetSortColumn=null;assetSortDir='asc';assetSelectedIds=new Set();assetColumnWidths={...ASSET_COLUMN_WIDTHS_DEFAULT};assetAttentionOnly=false;assetColumnsAutoFitted=false;assetsPage=1;renderAssetsList();}
 function closeAssetsModal(){const m=$('assetsModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
 let bayfaceFace='front';
 function bayfacePickerAssets(rackId,uStart){
@@ -2875,7 +2988,7 @@ function assignBayfaceAsset(assetId,rackId,uStart){
   for(let u=uStart;u<uStart+height;u++)if(used.has(u)){toast(`Não é possível colocar o asset: U${u} já está ocupada.`);return;}
   const before={...asset};
   const room=assetRackRoom({rackId});
-  asset.locationType='room'; asset.locationName=room?.name||state.rooms?.find(x=>x.id===state.activeRoomId)?.name||''; asset.locationId=room?.locationId||asset.locationId||null; asset.stockId=null; asset.roomId=room?.id||state.activeRoomId||null; asset.rackId=rackId; asset.uStart=uStart;
+  asset.locationType='room'; asset.locationName=room?.name||state.rooms?.find(x=>x.id===state.activeRoomId)?.name||''; asset.locationId=room?.locationId||asset.locationId||null; asset.stockId=null; asset.roomId=room?.id||state.activeRoomId||null; asset.rackId=rackId; asset.uStart=uStart; asset.face=bayfaceFace;
   recordAssetAudit({action:'UPDATE',asset,after:asset,before,changes:assetLogDiff(before,asset)});
   save(); closeBayfaceAssetPicker(); renderAll(false); renderAssetsList($('assetsSearch')?.value||''); renderBayface(rackId); toast(`Asset adicionado à U${uStart} do rack ${rack.name}.`);
 }
@@ -2895,7 +3008,6 @@ function bayfaceMarkup(rackId){
   const units=Math.max(1,Math.floor(num(r.units,state.rackUnits)));
   const sortAssets=list=>list.slice().sort((a,b)=>a.uStart-b.uStart||a.name.localeCompare(b.name));
   const assets=sortAssets(assetsOnFace(state.assets,rackId,bayfaceFace));
-  const ghostAssets=sortAssets(assetsOnFace(state.assets,rackId,bayfaceFace==='front'?'rear':'front'));
   const occupied=occupiedUnits(state.assets,rackId,bayfaceFace);
   const usedUnits=[...occupied].filter(u=>u>=1&&u<=units).length;
   const freeUnits=Math.max(0,units-usedUnits);
@@ -2907,7 +3019,7 @@ function bayfaceMarkup(rackId){
     const major=u%5===0?' major':'';
     rows+=`<button type="button" class="bayface-u${major} ${isOccupied?'occupied':''}" data-bay-add-u="${u}" ${isOccupied?'disabled':''}><span class="bayface-u-num left">${u}</span><span class="bayface-u-slot"></span><span class="bayface-u-num right">${u}</span></button>`;
   }
-  const chipFor=(a,ghost)=>{
+  const chipFor=(a)=>{
     const o=assetOccupancy(a);
     const clampedStart=Math.max(1,Math.min(units,o.start));
     const end=Math.min(units,o.end);
@@ -2923,12 +3035,12 @@ function bayfaceMarkup(rackId){
     const tooltip=[identity,a.assetTag,a.serial].filter(Boolean).join(' · ');
     const heightLabel=span===1?'1U':`${span}U`;
     const compact=span===1;
-    return `<button type="button" class="bayface-asset ${compact?'is-compact':''} ${ghost?'is-ghost':''}" style="top:${top}px;height:${h}px;--type-color:${esc(color)}" ${ghost?'tabindex="-1" aria-hidden="true"':`data-bay-edit="${esc(a.id)}"`} title="${ghost?esc(`${identity} · na outra face`):esc(tooltip)} · U${clampedStart}${span>1?`–U${end}`:''}">
+    return `<button type="button" class="bayface-asset ${compact?'is-compact':''}" style="top:${top}px;height:${h}px;--type-color:${esc(color)}" data-bay-edit="${esc(a.id)}" title="${esc(tooltip)} · U${clampedStart}${span>1?`–U${end}`:''}">
       <span class="bayface-asset-body"><span class="bayface-asset-name-row"><span class="bayface-asset-dot"></span><b>${esc(name)}</b></span>${subtitle?`<small>${esc(subtitle)}</small>`:''}</span>
       <span class="bayface-asset-u">${heightLabel}</span>
     </button>`;
   };
-  const assetLayer=ghostAssets.map(a=>chipFor(a,true)).join('')+assets.map(a=>chipFor(a,false)).join('');
+  const assetLayer=assets.map(a=>chipFor(a)).join('');
   const usagePct=units?Math.round(usedUnits/units*100):0;
   const rail=Array.from({length:Math.min(8,Math.max(4,Math.floor(units/6)))},(_,i)=>`<span style="left:${6+i*12}%"></span>`).join('');
   return `<div class="bayface-wrap">
@@ -2970,12 +3082,23 @@ function fitBayfaceHeight(m){
   const units=Number(rack.dataset.units)||0;
   if(!units)return;
   const cs=getComputedStyle(rack);
-  let rowH=parseFloat(cs.getPropertyValue('--bayface-row-h'))||20;
+  const oldRowH=parseFloat(cs.getPropertyValue('--bayface-row-h'))||20;
   const overflow=card.scrollHeight-card.clientHeight;
   if(overflow>1){
-    rowH=Math.max(10,rowH-Math.ceil(overflow/units));
-    rack.style.setProperty('--bayface-row-h',rowH+'px');
-    rack.style.setProperty('--bayface-grid-h',(rowH*units)+'px');
+    const newRowH=Math.max(10,oldRowH-Math.ceil(overflow/units));
+    const scale=newRowH/oldRowH;
+    rack.style.setProperty('--bayface-row-h',newRowH+'px');
+    rack.style.setProperty('--bayface-grid-h',(newRowH*units)+'px');
+    // Os chips de asset (.bayface-asset) são posicionados em px absolutos calculados
+    // com o rowH original em chipFor() — precisam ser reescalados na mesma proporção
+    // que a grade encolheu, senão ficam na posição/altura antiga (bug: asset aparece
+    // deslocado e com o dobro da altura em racks altos o bastante pra estourar o modal).
+    rack.querySelectorAll('.bayface-asset').forEach(chip=>{
+      const top=parseFloat(chip.style.top)||0;
+      const height=parseFloat(chip.style.height)||0;
+      chip.style.top=(top*scale)+'px';
+      chip.style.height=(height*scale)+'px';
+    });
   }
 }
 function openBayface(rackId){
@@ -3189,11 +3312,11 @@ function refreshCableValidation(c){
 function updateCableAssetNameField(c,side){
   const rackId=side==='origin'?c.originRack:c.destRack;
   const u=Math.floor(num(side==='origin'?c.originU:c.destU,0));
+  const face=(side==='origin'?c.originFace:c.destFace)==='rear'?'rear':'front';
   const rack=state.racks.find(r=>r.id===rackId);
   const uInvalid=!rack||u<1||u>Math.max(1,Math.floor(num(rack.units,state.rackUnits)));
   const portId=side==='origin'?c.originPortId:c.destPortId;
-  const atU=uInvalid?[]:assetsAtRackU(state.assets,rackId,u);
-  const asset=assetOwningPort(state.assets,portId)||(atU.length===1?atU[0]:null);
+  const asset=uInvalid?null:(assetOwningPort(state.assets,portId)||assetAtRackU(state.assets,rackId,u,face));
   const field=$(side==='origin'?'cbOAssetName':'cbDAssetName'); if(!field)return;
   const hint=field.closest('label')?.querySelector('.field-help-inline');
   if(asset){
@@ -3212,16 +3335,20 @@ function updateCableAssetNameField(c,side){
 
 function renderCableProperties(p,c){
   if(!c){p.innerHTML='<div class="empty">Cabo não encontrado.</div>';return;}
-  const opts=state.racks.map(r=>`<option value="${r.id}">${esc(rowForRack(r)?.name||'')} / ${esc(r.name)} (${Math.floor(num(r.units,state.rackUnits))}U)</option>`).join('');
+  const rackLabel=r=>`${rowForRack(r)?.name||''} / ${r.name}`;
+  const opts=state.racks.slice().sort((a,b)=>rackLabel(a).localeCompare(rackLabel(b),'pt-BR')).map(r=>`<option value="${r.id}">${esc(rackLabel(r))} (${Math.floor(num(r.units,state.rackUnits))}U)</option>`).join('');
   const v=cableUnitValidation(c);
   const o=v.origin,d=v.dest;
   const ouMax=o?Math.floor(num(o.units,state.rackUnits)):1, duMax=d?Math.floor(num(d.units,state.rackUnits)):1;
   const ouInvalid=!o||Math.floor(num(c.originU,0))<1||Math.floor(num(c.originU,0))>ouMax;
   const duInvalid=!d||Math.floor(num(c.destU,0))<1||Math.floor(num(c.destU,0))>duMax;
-  const originAtU=ouInvalid?[]:assetsAtRackU(state.assets,c.originRack,Math.floor(num(c.originU,0)));
-  const destAtU=duInvalid?[]:assetsAtRackU(state.assets,c.destRack,Math.floor(num(c.destU,0)));
-  const originAsset=assetOwningPort(state.assets,c.originPortId)||(originAtU.length===1?originAtU[0]:null);
-  const destAsset=assetOwningPort(state.assets,c.destPortId)||(destAtU.length===1?destAtU[0]:null);
+  const originFace=c.originFace==='rear'?'rear':'front', destFace=c.destFace==='rear'?'rear':'front';
+  // Seletor de face sempre visível — mesmo numa U totalmente livre, a
+  // traseira é uma posição válida pra um futuro asset, então precisa dar
+  // pra escolher o lado antes de existir qualquer coisa cadastrada ali.
+  const originUForFace=Math.floor(num(c.originU,0)), destUForFace=Math.floor(num(c.destU,0));
+  const originAsset=ouInvalid?null:(assetOwningPort(state.assets,c.originPortId)||assetAtRackU(state.assets,c.originRack,originUForFace,originFace));
+  const destAsset=duInvalid?null:(assetOwningPort(state.assets,c.destPortId)||assetAtRackU(state.assets,c.destRack,destUForFace,destFace));
   // Enquanto a U tiver um asset instalado, o nome vem sempre desse asset — o
   // campo fica travado (evita alguém digitar um nome diferente do que está
   // de fato ali). Sem asset na U, o campo é texto livre, pra cobrir listas de
@@ -3235,9 +3362,11 @@ function renderCableProperties(p,c){
   p.innerHTML=`<label>Nome<input id="cbName" value="${esc(c.name)}"></label>
   <label>Tipo<select id="cbType">${cableTypeNames().map(t=>`<option value="${esc(t)}" ${c.type===t?'selected':''}>${esc(t)}</option>`).join('')}</select></label>
   <div class="grid2"><label>Rack origem<select id="cbOR">${opts}</select></label><label>U origem<input id="cbOU" class="${ouInvalid?'input-error':''}" type="number" min="1" max="${ouMax}" value="${c.originU}"><small id="cbOUError" class="field-error">${ouInvalid?`Máximo: ${ouMax}U.`:''}</small></label></div>
+  ${!ouInvalid?`<label>Face na origem<select id="cbOFace"><option value="front" ${originFace==='front'?'selected':''}>Frente</option><option value="rear" ${originFace==='rear'?'selected':''}>Traseira</option></select></label>`:''}
   ${!ouInvalid?`<label>Nome do asset na origem <small class="field-help-inline">${originAsset?'(preenchido automaticamente pelo asset instalado nessa U)':'(opcional — nem todo asset precisa estar cadastrado ainda)'}</small><input id="cbOAssetName" value="${esc(originAsset?originAsset.name:(c.originAssetName||''))}" placeholder="Nome do equipamento nessa U" ${originAsset?'disabled':''}></label>`:''}
   ${!ouInvalid?(originAsset?.ports?.length?`<label>Porta de origem <small class="field-help-inline">(${esc(originAsset.name)})</small><select id="cbOPort">${portOptions(originAsset,c.originPortId)}</select></label>${originConflict?`<div class="field-error">Porta já usada pelo cabo "${esc(originConflict.name)}".</div>`:''}`:`<label>Porta de origem <small class="field-help-inline">${originAsset?`(${esc(originAsset.name)}, sem portas cadastradas)`:'(opcional)'}</small><input id="cbOPortFree" value="${esc(c.originPortLabel||'')}" placeholder="Digite o nome da porta"></label>`):''}
   <div class="grid2"><label>Rack destino<select id="cbDR">${opts}</select></label><label>U destino<input id="cbDU" class="${duInvalid?'input-error':''}" type="number" min="1" max="${duMax}" value="${c.destU}"><small id="cbDUError" class="field-error">${duInvalid?`Máximo: ${duMax}U.`:''}</small></label></div>
+  ${!duInvalid?`<label>Face no destino<select id="cbDFace"><option value="front" ${destFace==='front'?'selected':''}>Frente</option><option value="rear" ${destFace==='rear'?'selected':''}>Traseira</option></select></label>`:''}
   ${!duInvalid?`<label>Nome do asset no destino <small class="field-help-inline">${destAsset?'(preenchido automaticamente pelo asset instalado nessa U)':'(opcional — nem todo asset precisa estar cadastrado ainda)'}</small><input id="cbDAssetName" value="${esc(destAsset?destAsset.name:(c.destAssetName||''))}" placeholder="Nome do equipamento nessa U" ${destAsset?'disabled':''}></label>`:''}
   ${!duInvalid?(destAsset?.ports?.length?`<label>Porta de destino <small class="field-help-inline">(${esc(destAsset.name)})</small><select id="cbDPort">${portOptions(destAsset,c.destPortId)}</select></label>${destConflict?`<div class="field-error">Porta já usada pelo cabo "${esc(destConflict.name)}".</div>`:''}`:`<label>Porta de destino <small class="field-help-inline">${destAsset?`(${esc(destAsset.name)}, sem portas cadastradas)`:'(opcional)'}</small><input id="cbDPortFree" value="${esc(c.destPortLabel||'')}" placeholder="Digite o nome da porta"></label>`):''}
   ${!v.valid?`<div class="validation-error">⚠ ${v.errors.map(esc).join('<br>')}</div>`:''}
@@ -3254,12 +3383,14 @@ function renderCableProperties(p,c){
   $('cbOR').value=c.originRack;$('cbDR').value=c.destRack;
   const sync=()=>{refreshVisuals();renderProperties();};
   $('cbType').onchange=()=>{c.type=$('cbType').value;sync();};
-  $('cbOR').onchange=()=>{c.originRack=$('cbOR').value;c.originPortId=null;c.originPortLabel='';c.originAssetName='';sync();};
-  $('cbDR').onchange=()=>{c.destRack=$('cbDR').value;c.destPortId=null;c.destPortLabel='';c.destAssetName='';sync();};
+  $('cbOR').onchange=()=>{c.originRack=$('cbOR').value;c.originFace='front';c.originPortId=null;c.originPortLabel='';c.originAssetName='';sync();};
+  $('cbDR').onchange=()=>{c.destRack=$('cbDR').value;c.destFace='front';c.destPortId=null;c.destPortLabel='';c.destAssetName='';sync();};
   $('cbOU').oninput=()=>{c.originU=Math.floor(num($('cbOU').value,0));refreshCableValidation(c);updateCableResult(c);refreshVisuals();updateCableAssetNameField(c,'origin');};
   $('cbDU').oninput=()=>{c.destU=Math.floor(num($('cbDU').value,0));refreshCableValidation(c);updateCableResult(c);refreshVisuals();updateCableAssetNameField(c,'dest');};
   $('cbOU').onchange=()=>{c.originPortId=null;c.originPortLabel='';c.originAssetName='';save();renderProperties();};
   $('cbDU').onchange=()=>{c.destPortId=null;c.destPortLabel='';c.destAssetName='';save();renderProperties();};
+  $('cbOFace')&&($('cbOFace').onchange=()=>{c.originFace=$('cbOFace').value==='rear'?'rear':'front';c.originPortId=null;c.originPortLabel='';c.originAssetName='';save();renderProperties();});
+  $('cbDFace')&&($('cbDFace').onchange=()=>{c.destFace=$('cbDFace').value==='rear'?'rear':'front';c.destPortId=null;c.destPortLabel='';c.destAssetName='';save();renderProperties();});
   $('cbOPort')&&($('cbOPort').onchange=()=>{c.originPortId=$('cbOPort').value||null;save();renderProperties();});
   $('cbDPort')&&($('cbDPort').onchange=()=>{c.destPortId=$('cbDPort').value||null;save();renderProperties();});
   $('cbOPortFree')&&($('cbOPortFree').onchange=()=>{c.originPortLabel=$('cbOPortFree').value.trim();save();renderProperties();});
@@ -3297,7 +3428,7 @@ function renderManualRouteUI(c){
 }
 function refreshVisuals(){normalizeState();render();renderCables();updateAlertsCenterBadge();updateRoomThermalBadge();save();}
 
-function addCable(){if(state.racks.length<2){toast('Crie pelo menos 2 racks');return;}const c={id:uid('cable'),name:`Cabo-${String(state.cables.length+1).padStart(3,'0')}`,originRack:state.racks[0].id,originU:state.racks[0].units,destRack:state.racks[1].id,destU:state.racks[1].units,slack:state.defaultSlack,type:defaultCableType(),via:[]};state.cables.push(c);state.multiSelected=[];state.selected={type:'cable',id:c.id};renderAll();toast('Cabo adicionado');}
+function addCable(){if(state.racks.length<2){toast('Crie pelo menos 2 racks');return;}const c={id:uid('cable'),name:`Cabo-${String(state.cables.length+1).padStart(3,'0')}`,originRack:state.racks[0].id,originU:state.racks[0].units,originFace:'front',destRack:state.racks[1].id,destU:state.racks[1].units,destFace:'front',slack:state.defaultSlack,type:defaultCableType(),via:[]};state.cables.push(c);state.multiSelected=[];state.selected={type:'cable',id:c.id};renderAll();toast('Cabo adicionado');}
 
 function cableRouteLabel(c,res){
   if(!res?.reachable) return '';
@@ -3395,27 +3526,33 @@ async function downloadCableTemplate(){
     if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('Cabos');
-    const headers=['Nome','Tipo','Rack Origem','U Origem','Nome Asset Origem','Porta Origem','Rack Destino','U Destino','Nome Asset Destino','Porta Destino'];
+    const headers=['Nome','Tipo','Rack Origem','U Origem','Face Origem','Nome Asset Origem','Porta Origem','Rack Destino','U Destino','Face Destino','Nome Asset Destino','Porta Destino'];
     ws.addRow(headers);
-    ws.addRow(['FIB-001',defaultCableType(),'Row-1-01',40,'SWITCH01','G0/0/1','Row-2-01',40,'ROUTER01','G0/0/2']);
+    ws.addRow(['FIB-001',defaultCableType(),'Row-1-01',40,'Frente','SWITCH01','G0/0/1','Row-2-01',40,'Frente','ROUTER01','G0/0/2']);
     ws.freezePanes={xSplit:0,ySplit:1};
-    ws.autoFilter={from:'A1',to:'J2'};
+    ws.autoFilter={from:'A1',to:'L2'};
     ws.getRow(1).font={bold:true};
-    ws.columns=[{width:20},{width:24},{width:20},{width:12},{width:20},{width:16},{width:20},{width:12},{width:20},{width:16}];
-    const note=ws.getCell('L1'); note.value='Porta Origem e Porta Destino são opcionais. Se o modelo do asset já tiver portas cadastradas, o nome precisa ser idêntico a uma delas. Se o modelo não tiver portas cadastradas, o texto informado é aceito livremente, sem validação. Nome Asset Origem/Destino é opcional: se já existir um asset cadastrado naquele rack/U, o sistema usa o nome dele automaticamente; se não existir, o texto informado é aceito livremente, sem criar nenhum asset novo.'; note.font={italic:true,color:{argb:'FF8B96AC'}};
+    ws.columns=[{width:20},{width:24},{width:20},{width:12},{width:14},{width:20},{width:16},{width:20},{width:12},{width:14},{width:20},{width:16}];
+    const note=ws.getCell('N1'); note.value='Porta Origem e Porta Destino são opcionais. Se o modelo do asset já tiver portas cadastradas, o nome precisa ser idêntico a uma delas. Se o modelo não tiver portas cadastradas, o texto informado é aceito livremente, sem validação. Nome Asset Origem/Destino é opcional: se já existir um asset cadastrado naquele rack/U/face, o sistema usa o nome dele automaticamente; se não existir, o texto informado é aceito livremente, sem criar nenhum asset novo. Face Origem/Destino: Frente ou Traseira (deixado em branco vira Frente).'; note.font={italic:true,color:{argb:'FF8B96AC'}};
     applyTypeValidation(ws);
 
-    // Lista suspensa de racks (origem e destino), igual à de Tipo — usa uma
-    // aba de referência oculta em vez de lista inline, pra não esbarrar no
-    // limite de caracteres do Excel quando há muitos racks no projeto.
+    // Lista suspensa de racks (origem e destino) e de face, igual à de Tipo —
+    // usa uma aba de referência oculta em vez de lista inline, pra não esbarrar
+    // no limite de caracteres do Excel quando há muitos racks no projeto.
     const refWs=wb.addWorksheet('NÃO EDITAR - Referência');
-    const allRacks=[...new Set(allProjectRacks().map(({rack:r})=>r.name).filter(Boolean))];
+    // Cabos são por sala — a lista só traz racks da sala ativa, não do projeto
+    // inteiro, senão apareceria rack de outra sala pra escolher aqui.
+    const allRacks=[...new Set(state.racks.map(r=>r.name).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
     refWs.getColumn(1).values=['Racks',...allRacks];
+    refWs.getColumn(2).values=['Face','Frente','Traseira'];
     refWs.state='hidden';
     const rackRange=`'NÃO EDITAR - Referência'!$A$2:$A$${Math.max(2,allRacks.length+1)}`;
+    const faceRange=`'NÃO EDITAR - Referência'!$B$2:$B$3`;
     for(let row=2;row<=1000;row++){
       ws.getCell(`C${row}`).dataValidation={type:'list',allowBlank:true,formulae:[rackRange]};
-      ws.getCell(`G${row}`).dataValidation={type:'list',allowBlank:true,formulae:[rackRange]};
+      ws.getCell(`E${row}`).dataValidation={type:'list',allowBlank:true,formulae:[faceRange]};
+      ws.getCell(`H${row}`).dataValidation={type:'list',allowBlank:true,formulae:[rackRange]};
+      ws.getCell(`J${row}`).dataValidation={type:'list',allowBlank:true,formulae:[faceRange]};
     }
 
     const buf=await wb.xlsx.writeBuffer();
@@ -3513,8 +3650,10 @@ function processCableImportRows(selectedNewTypes=[]){
     const type=matched||typeRaw||defaultCableType();
     const originU=Math.floor(num(val(row,'U Origem',origin.units),origin.units));
     const destU=Math.floor(num(val(row,'U Destino',dest.units),dest.units));
-    const originAssets=assetsAtRackU(state.assets,origin.id,originU);
-    const destAssets=assetsAtRackU(state.assets,dest.id,destU);
+    const originFace=String(val(row,'Face Origem','')).trim().toLowerCase()==='traseira'?'rear':'front';
+    const destFace=String(val(row,'Face Destino','')).trim().toLowerCase()==='traseira'?'rear':'front';
+    const originAssets=[assetAtRackU(state.assets,origin.id,originU,originFace)].filter(Boolean);
+    const destAssets=[assetAtRackU(state.assets,dest.id,destU,destFace)].filter(Boolean);
     const findPortByLabel=(list,label)=>{
       for(const a of list){
         const port=(a.ports||[]).find(p=>p.label===label);
@@ -3543,7 +3682,7 @@ function processCableImportRows(selectedNewTypes=[]){
     const destAsset=destHit?.asset||(destAssets.length===1?destAssets[0]:null);
     const originAssetName=originAsset?originAsset.name:String(val(row,'Nome Asset Origem','')).trim();
     const destAssetName=destAsset?destAsset.name:String(val(row,'Nome Asset Destino','')).trim();
-    state.cables.push({id:uid('cable'),name:String(val(row,'Nome',`Cabo-${String(state.cables.length+1).padStart(3,'0')}`)).trim(),type,originRack:origin.id,originU,originPortId,originPortLabel:originPortLabelFree,originAssetName,destRack:dest.id,destU,destPortId,destPortLabel:destPortLabelFree,destAssetName,slack:state.defaultSlack,via:[]});
+    state.cables.push({id:uid('cable'),name:String(val(row,'Nome',`Cabo-${String(state.cables.length+1).padStart(3,'0')}`)).trim(),type,originRack:origin.id,originU,originFace,originPortId,originPortLabel:originPortLabelFree,originAssetName,destRack:dest.id,destU,destFace,destPortId,destPortLabel:destPortLabelFree,destAssetName,slack:state.defaultSlack,via:[]});
     added++;
   }
   renderAll();
@@ -3569,19 +3708,16 @@ function cableSummaryRows(){
   return [...groups.entries()].map(([key,qty])=>{const [type,length]=key.split('|');return {type,length:Number(length),qty};})
     .sort((a,b)=>(order.get(a.type)-order.get(b.type))||a.length-b.length);
 }
-function cablePortAt(rackId,u,portId){
+function cablePortAt(rackId,u,portId,face='front'){
   if(!portId)return null;
-  for(const a of assetsAtRackU(state.assets,rackId,u)){
-    const p=a.ports?.find(p=>p.id===portId);
-    if(p)return p;
-  }
-  return null;
+  const asset=assetOwningPort(state.assets,portId)||assetAtRackU(state.assets,rackId,u,face);
+  const p=asset?.ports?.find(p=>p.id===portId);
+  return p||null;
 }
-function cableEndpointLabel(rackId,u,portId,freeformLabel='',assetNameFallback=''){
+function cableEndpointLabel(rackId,u,portId,freeformLabel='',assetNameFallback='',face='front'){
   const rack=state.racks.find(r=>r.id===rackId);
-  const atU=assetsAtRackU(state.assets,rackId,u);
-  const asset=assetOwningPort(state.assets,portId)||(atU.length===1?atU[0]:null);
-  const port=cablePortAt(rackId,u,portId);
+  const asset=assetOwningPort(state.assets,portId)||assetAtRackU(state.assets,rackId,u,face);
+  const port=cablePortAt(rackId,u,portId,face);
   return [rack?.name||'—',`${u}U`,asset?.name||assetNameFallback||'—',port?.label||freeformLabel||'—'].join(' - ');
 }
 function compactPortLabels(labels){
@@ -3617,7 +3753,13 @@ function cablesByRoom(){
 async function exportAssetsXLSX(){
   try{
     if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
-    const headers=['Asset Tag','Nome','Tipo','Fabricante','Modelo','Serial Number','Localização','Rack','U Inicial','Quantidade U','Status','Substatus','Portas','Portas Disponíveis','Portas Usadas','Data de Compra','Vencimento da Garantia','Status da Garantia','Fim de Vida (EOL)'];
+    // Rótulos das colunas compartilhadas com o inventário vêm de ASSET_COLUMN_HEADER_LABELS
+    // (fonte única) — mudar o nome de uma coluna lá já reflete aqui, sem duplicar string.
+    // L.warranty/L.eol no inventário nomeiam o NÍVEL calculado (Vencida/Dentro do ciclo),
+    // que aqui é a coluna separada de status — não a data de vencimento, que fica com seu
+    // próprio nome pra não colidir com a coluna de status ao lado.
+    const L=ASSET_COLUMN_HEADER_LABELS;
+    const headers=[L.assetTag,L.name,L.type,L.manufacturer,L.model,L.serial,L.location,L.rack,L.face,L.u,L.uHeight,L.status,L.substatus,'Portas','Portas Disponíveis','Portas Usadas',L.purchaseDate,'Vencimento da Garantia',L.warranty,L.eol,L.notes];
     const roomCables=cablesByRoom();
     const WARRANTY_LABELS={expired:'Vencida',soon:'Vence em breve',ok:'Em garantia',none:'—'};
     const rows=(state.assets||[]).map(a=>{
@@ -3628,7 +3770,7 @@ async function exportAssetsXLSX(){
       cables.forEach(c=>{if(c.originPortId)usedIds.add(c.originPortId);if(c.destPortId)usedIds.add(c.destPortId);});
       const available=ports.filter(p=>!usedIds.has(p.id)).map(p=>p.label);
       const used=ports.filter(p=>usedIds.has(p.id)).map(p=>p.label);
-      return [a.assetTag||'',a.name||'',a.type||'',a.manufacturer||'',a.model||'',a.serial||'',assetLocationLabel(a),rack?.name||'',rack?a.uStart||'':'',rack?(a.uHeight||1):'',a.status||'',a.substatus||'',compactPortLabels(ports.map(p=>p.label)),compactPortLabels(available),compactPortLabels(used),formatAssetDate(a.purchaseDate),formatAssetDate(a.warrantyExpiration),WARRANTY_LABELS[assetWarrantyLevel(a)],formatAssetDate(a.endOfLife)];
+      return [a.assetTag||'',a.name||'',a.type||'',a.manufacturer||'',a.model||'',a.serial||'',assetLocationLabel(a),rack?.name||'',rack?(a.face==='rear'?'Traseira':'Frente'):'',rack?a.uStart||'':'',rack?(a.uHeight||1):'',a.status||'',a.substatus||'',compactPortLabels(ports.map(p=>p.label)),compactPortLabels(available),compactPortLabels(used),formatAssetDate(a.purchaseDate),formatAssetDate(a.warrantyExpiration),WARRANTY_LABELS[assetWarrantyLevel(a)],formatAssetDate(a.endOfLife),a.notes||''];
     });
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('Assets');
@@ -3644,13 +3786,14 @@ async function exportAssetsXLSX(){
 async function exportCablesXLSX(){
   try{
     if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
-    const headers=['Nome','Tipo','Rack Origem','U Origem','Nome Asset Origem','Porta Origem','Rack Destino','U Destino','Nome Asset Destino','Porta Destino','Vertical Origem (m)','Trecho Calhas (m)','Vertical Destino (m)','Conexões (m)','Base (m)','Folga (m)','Total (m)','Total Arredondado (m)','Rota','Etiqueta'];
+    const headers=['Nome','Tipo','Rack Origem','U Origem','Face Origem','Nome Asset Origem','Porta Origem','Rack Destino','U Destino','Face Destino','Nome Asset Destino','Porta Destino','Vertical Origem (m)','Trecho Calhas (m)','Vertical Destino (m)','Conexões (m)','Base (m)','Folga (m)','Total (m)','Total Arredondado (m)','Rota','Etiqueta'];
     const labelCol=headers.indexOf('Etiqueta')+1;
     const rows=state.cables.map(c=>{
       const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack),res=calcCable(c);
-      const oPort=cablePortAt(c.originRack,c.originU,c.originPortId), dPort=cablePortAt(c.destRack,c.destU,c.destPortId);
-      const label=`${cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName)}\n${cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName)}`;
-      return [c.name,c.type||defaultCableType(),o?.name||'',c.originU,c.originAssetName||'',oPort?.label||c.originPortLabel||'',d?.name||'',c.destU,c.destAssetName||'',dPort?.label||c.destPortLabel||'',res.v1,res.tray,res.v2,res.connection,res.base,res.slack,res.total,res.reachable?Math.ceil(res.total):'',cableRouteLabel(c,res),label];
+      const originFace=c.originFace==='rear'?'rear':'front', destFace=c.destFace==='rear'?'rear':'front';
+      const oPort=cablePortAt(c.originRack,c.originU,c.originPortId,originFace), dPort=cablePortAt(c.destRack,c.destU,c.destPortId,destFace);
+      const label=`${cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName,originFace)}\n${cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName,destFace)}`;
+      return [c.name,c.type||defaultCableType(),o?.name||'',c.originU,originFace==='rear'?'Traseira':'Frente',c.originAssetName||'',oPort?.label||c.originPortLabel||'',d?.name||'',c.destU,destFace==='rear'?'Traseira':'Frente',c.destAssetName||'',dPort?.label||c.destPortLabel||'',res.v1,res.tray,res.v2,res.connection,res.base,res.slack,res.total,res.reachable?Math.ceil(res.total):'',cableRouteLabel(c,res),label];
     });
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('Cabos');
@@ -3687,8 +3830,8 @@ let cablesSearchQuery='';
 let cableMultiSelected=[];
 function cableSearchHaystack(c){
   const o=state.racks.find(r=>r.id===c.originRack), d=state.racks.find(r=>r.id===c.destRack);
-  const originLabel=cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName);
-  const destLabel=cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName);
+  const originLabel=cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName,c.originFace);
+  const destLabel=cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName,c.destFace);
   return [c.name,c.type,o?.name,d?.name,c.originU,c.destU,c.originPortLabel,c.destPortLabel,c.originAssetName,c.destAssetName,originLabel,destLabel].filter(Boolean).join(' ').toLowerCase();
 }
 function renderCables(){
@@ -3701,8 +3844,8 @@ function renderCables(){
   else{
     el.innerHTML=filtered.map(c=>{
       const invalid=!cableUnitValidation(c).valid;
-      const originLabel=cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName);
-      const destLabel=cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName);
+      const originLabel=cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName,c.originFace);
+      const destLabel=cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName,c.destFace);
       const checked=cableMultiSelected.includes(c.id);
       const isSelected=state.selected?.type==='cable'&&state.selected.id===c.id;
       return `<div class="cable-item ${isSelected?'selected':''} ${invalid?'invalid':''} ${checked?'is-checked':''}" style="${isSelected?'':`border-left-color:${cableTypeColor(c.type)}`}" data-cable="${c.id}">
@@ -4118,9 +4261,9 @@ function hexToRgb(hex){
   const n=parseInt(m[1],16);
   return [(n>>16)&255,(n>>8)&255,n&255];
 }
-function buildRackBayfaceTableBody(rack){
+function buildRackBayfaceTableBody(rack,face){
   const units=Math.max(1,Math.floor(num(rack.units,state.rackUnits)));
-  const assets=state.assets.filter(a=>a.rackId===rack.id && !isAssetArchived(a));
+  const assets=assetsOnFace(state.assets,rack.id,face);
   const occupiedByU=new Map();
   assets.forEach(a=>{
     const o=assetOccupancy(a);
@@ -4241,40 +4384,46 @@ async function generatePDFReport(options={}){
 
     // --- Bayface dos racks: tabela simples (U + equipamento), com bordas e
     // linhas mescladas para equipamentos de mais de uma U. Largura estreita,
-    // proporcional a um rack de verdade, com vários lado a lado quando couberem. ---
+    // proporcional a um rack de verdade, com vários lado a lado quando couberem.
+    // Cada rack tem duas faces independentes (front/rear) — uma seção de páginas
+    // por face (todos os racks em Frente, depois nova página com todos em
+    // Traseira), não uma tabela por face dentro do mesmo rack: senão um asset
+    // da traseira soma na mesma U de um da frente e um dos dois desaparece. ---
     if(allRacks.length){
-      doc.addPage(); y=20;
-      doc.setFontSize(16); doc.setFont(undefined,'bold'); doc.setTextColor(0);
-      doc.text('Bayface dos racks', margin, y);
-      y += 10;
       const rackColWidth=54, gap=5;
       const racksPerRow=Math.max(1,Math.floor((pageWidth-margin*2+gap)/(rackColWidth+gap)));
-      for(let i=0;i<allRacks.length;i+=racksPerRow){
-        // se sobrar pouco espaço na página atual, começa uma nova antes de
-        // desenhar essa fileira de racks (evita espremer a fonte à toa)
-        if(pageHeight-y-15 < 80){ doc.addPage(); y=20; }
-        const availableH=pageHeight-y-15;
-        let maxFinalY=y;
-        const rowItems=allRacks.slice(i,i+racksPerRow);
-        rowItems.forEach((item,idx)=>{
-          const x=margin+idx*(rackColWidth+gap);
-          const units=Math.max(1,Math.floor(num(item.rack.units,state.rackUnits)));
-          doc.setFontSize(7.5); doc.setFont(undefined,'bold'); doc.setTextColor(0);
-          doc.text(`${item.room.name||''} — ${item.rack.name||''}`, x, y, {maxWidth:rackColWidth});
-          const style=pickRackTableStyle(units, availableH-6);
-          doc.autoTable({
-            startY: y+5,
-            body: buildRackBayfaceTableBody(item.rack),
-            theme:'grid',
-            styles:{fontSize:style.fontSize,cellPadding:style.cellPadding,lineColor:[200,200,200],lineWidth:0.1},
-            columnStyles:{0:{cellWidth:8},2:{cellWidth:8}},
-            margin:{left:x},
-            tableWidth:rackColWidth,
+      [['front','Frente'],['rear','Traseira']].forEach(([faceKey,faceLabel])=>{
+        doc.addPage(); y=20;
+        doc.setFontSize(16); doc.setFont(undefined,'bold'); doc.setTextColor(0);
+        doc.text(`Bayface dos racks — ${faceLabel}`, margin, y);
+        y += 10;
+        for(let i=0;i<allRacks.length;i+=racksPerRow){
+          // se sobrar pouco espaço na página atual, começa uma nova antes de
+          // desenhar essa fileira de racks (evita espremer a fonte à toa)
+          if(pageHeight-y-15 < 80){ doc.addPage(); y=20; }
+          const availableH=pageHeight-y-15;
+          let maxFinalY=y;
+          const rowItems=allRacks.slice(i,i+racksPerRow);
+          rowItems.forEach((item,idx)=>{
+            const x=margin+idx*(rackColWidth+gap);
+            const units=Math.max(1,Math.floor(num(item.rack.units,state.rackUnits)));
+            doc.setFontSize(7.5); doc.setFont(undefined,'bold'); doc.setTextColor(0);
+            doc.text(`${item.room.name||''} — ${item.rack.name||''}`, x, y, {maxWidth:rackColWidth});
+            const style=pickRackTableStyle(units, availableH-6);
+            doc.autoTable({
+              startY: y+5,
+              body: buildRackBayfaceTableBody(item.rack,faceKey),
+              theme:'grid',
+              styles:{fontSize:style.fontSize,cellPadding:style.cellPadding,lineColor:[200,200,200],lineWidth:0.1},
+              columnStyles:{0:{cellWidth:8},2:{cellWidth:8}},
+              margin:{left:x},
+              tableWidth:rackColWidth,
+            });
+            maxFinalY=Math.max(maxFinalY, doc.lastAutoTable.finalY);
           });
-          maxFinalY=Math.max(maxFinalY, doc.lastAutoTable.finalY);
-        });
-        y=maxFinalY+14;
-      }
+          y=maxFinalY+14;
+        }
+      });
     }
 
     // --- Assets por status ---
@@ -4411,19 +4560,20 @@ async function makeAssetsTemplate(){
     normalizeAssetCatalogs(); normalizeLocations();
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('Assets');
-    const headers=['Asset Tag','Nome','Serial Number','Modelo','Localização','Rack','U Inicial','Quantidade U','Status','Substatus','Potência (W)','Peso (kg)','Data de compra','Vencimento da garantia','Fim de vida (EOL)'];
+    const headers=['Asset Tag','Nome','Serial Number','Modelo','Localização','Rack','Face','U Inicial','Quantidade U','Status','Substatus','Potência (W)','Peso (kg)','Data de compra','Vencimento da garantia','Fim de vida (EOL)','Observações'];
     ws.addRow(headers);
     (state.assets||[]).forEach(a=>{
       const room=assetRoom(a), rack=assetRack(a.rackId);
       const rackDisplay=rack ? `${room?.name||assetRackRoom(a)?.name||''} / ${rack.name||''}`.replace(/^ \/ /,'') : '';
-      ws.addRow([a.assetTag||'',a.name||'',a.serial||'',a.model||'',assetLocationLabel(a),rackDisplay,a.uStart||'',a.uHeight||1,a.status||'Instalado',a.substatus||'',a.powerW||'',a.weightKg||'',a.purchaseDate||'',a.warrantyExpiration||'',a.endOfLife||'']);
+      const faceDisplay=rack ? (a.face==='rear'?'Traseira':'Frente') : '';
+      ws.addRow([a.assetTag||'',a.name||'',a.serial||'',a.model||'',assetLocationLabel(a),rackDisplay,faceDisplay,a.uStart||'',a.uHeight||1,a.status||'Instalado',a.substatus||'',a.powerW||'',a.weightKg||'',a.purchaseDate||'',a.warrantyExpiration||'',a.endOfLife||'',a.notes||'']);
     });
     ws.views=[{state:'frozen',ySplit:1}];
-    ws.autoFilter={from:'A1',to:'O1'};
+    ws.autoFilter={from:'A1',to:'Q1'};
     ws.getRow(1).font={bold:true,color:{argb:'FFFFFFFF'}};
     ws.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1F2937'}};
     ws.getRow(1).alignment={vertical:'middle'};
-    ws.columns=[18,32,24,30,28,22,12,14,18,22,16,14,16,20,18].map(width=>({width}));
+    ws.columns=[18,32,24,30,28,22,12,12,14,18,22,16,14,16,20,18,32].map(width=>({width}));
     ws.getRow(1).height=24;
     ws.getCell('A1').note='Opcional. Identificador interno do asset.';
     ws.getCell('B1').note='Obrigatório.';
@@ -4431,15 +4581,17 @@ async function makeAssetsTemplate(){
     ws.getCell('D1').note='Obrigatório. O sistema usa o modelo cadastrado para identificar Tipo e Fabricante.';
     ws.getCell('E1').note='Obrigatório. Formato: Data Center / Sala ou Data Center / Estoque.';
     ws.getCell('F1').note='Opcional. Se informado, deve existir na sala selecionada.';
-    ws.getCell('G1').note='Obrigatório somente quando um Rack for informado. O sistema valida se a U está livre.';
-    ws.getCell('H1').note='Quantidade de U ocupadas pelo asset.';
-    ws.getCell('I1').note='Status do asset. Valores sugeridos: Arquivado, Instalado, Reservado, Desligado, Estoque.';
-    ws.getCell('J1').note='Substatus. Valores sugeridos: Em estoque, Ligado, Desligado, Disposed, Perdido, Retired, Retornado ao Vendor.';
-    ws.getCell('K1').note='Opcional. Se deixado em branco, usa o valor cadastrado no modelo (Catálogo → Modelos), quando existir.';
+    ws.getCell('G1').note='Obrigatória somente quando um Rack for informado. Frente ou Traseira.';
+    ws.getCell('H1').note='Obrigatório somente quando um Rack for informado. O sistema valida se a U está livre.';
+    ws.getCell('I1').note='Quantidade de U ocupadas pelo asset.';
+    ws.getCell('J1').note='Status do asset. Valores sugeridos: Arquivado, Instalado, Reservado, Desligado, Estoque.';
+    ws.getCell('K1').note='Substatus. Valores sugeridos: Em estoque, Ligado, Desligado, Disposed, Perdido, Retired, Retornado ao Vendor.';
     ws.getCell('L1').note='Opcional. Se deixado em branco, usa o valor cadastrado no modelo (Catálogo → Modelos), quando existir.';
-    ws.getCell('M1').note='Opcional. Formato AAAA-MM-DD ou DD/MM/AAAA.';
+    ws.getCell('M1').note='Opcional. Se deixado em branco, usa o valor cadastrado no modelo (Catálogo → Modelos), quando existir.';
     ws.getCell('N1').note='Opcional. Formato AAAA-MM-DD ou DD/MM/AAAA.';
     ws.getCell('O1').note='Opcional. Formato AAAA-MM-DD ou DD/MM/AAAA.';
+    ws.getCell('P1').note='Opcional. Formato AAAA-MM-DD ou DD/MM/AAAA.';
+    ws.getCell('Q1').note='Opcional. Até 500 caracteres.';
 
     // --- Aba de referência (oculta), fonte das listas suspensas e da busca
     // de potência/peso por modelo. Não é pra ser editada pelo usuário. ---
@@ -4458,6 +4610,7 @@ async function makeAssetsTemplate(){
     refWs.getColumn(5).values=['Peso (kg)',...allModels.map(m=>m.weightKg||'')];
     refWs.getColumn(6).values=['Status',...assetStatusValues()];
     refWs.getColumn(7).values=['Substatus',...assetSubstatusValues()];
+    refWs.getColumn(8).values=['Face','Frente','Traseira'];
     refWs.state='hidden';
 
     const locRange=`'NÃO EDITAR - Referência'!$A$2:$A$${Math.max(2,allLocations.length+1)}`;
@@ -4465,20 +4618,22 @@ async function makeAssetsTemplate(){
     const modelRange=`'NÃO EDITAR - Referência'!$C$2:$C$${Math.max(2,allModels.length+1)}`;
     const statusRange=`'NÃO EDITAR - Referência'!$F$2:$F$${Math.max(2,assetStatusValues().length+1)}`;
     const substatusRange=`'NÃO EDITAR - Referência'!$G$2:$G$${Math.max(2,assetSubstatusValues().length+1)}`;
+    const faceRange=`'NÃO EDITAR - Referência'!$H$2:$H$3`;
     const existingRows=(state.assets||[]).length;
     for(let row=2;row<=1000;row++){
       ws.getCell(`D${row}`).dataValidation={type:'list',allowBlank:true,formulae:[modelRange]};
       ws.getCell(`E${row}`).dataValidation={type:'list',allowBlank:true,formulae:[locRange]};
       ws.getCell(`F${row}`).dataValidation={type:'list',allowBlank:true,formulae:[rackRange]};
-      ws.getCell(`I${row}`).dataValidation={type:'list',allowBlank:true,formulae:[statusRange]};
-      ws.getCell(`J${row}`).dataValidation={type:'list',allowBlank:true,formulae:[substatusRange]};
+      ws.getCell(`G${row}`).dataValidation={type:'list',allowBlank:true,formulae:[faceRange]};
+      ws.getCell(`J${row}`).dataValidation={type:'list',allowBlank:true,formulae:[statusRange]};
+      ws.getCell(`K${row}`).dataValidation={type:'list',allowBlank:true,formulae:[substatusRange]};
       // As fórmulas de potência/peso só vão nas linhas em branco (pra novos
       // assets) — nas linhas que já têm um asset exportado, mantém o valor
       // real dele, que pode ter sido alterado manualmente e ser diferente
       // do padrão cadastrado no modelo.
       if(row>existingRows+1){
-        ws.getCell(`K${row}`).value={formula:`IFERROR(VLOOKUP(D${row},'NÃO EDITAR - Referência'!$C:$E,2,FALSE),"")`};
-        ws.getCell(`L${row}`).value={formula:`IFERROR(VLOOKUP(D${row},'NÃO EDITAR - Referência'!$C:$E,3,FALSE),"")`};
+        ws.getCell(`L${row}`).value={formula:`IFERROR(VLOOKUP(D${row},'NÃO EDITAR - Referência'!$C:$E,2,FALSE),"")`};
+        ws.getCell(`M${row}`).value={formula:`IFERROR(VLOOKUP(D${row},'NÃO EDITAR - Referência'!$C:$E,3,FALSE),"")`};
       }
     }
 
@@ -4695,8 +4850,16 @@ function renderImportProblems(item,idx){
 }
 function renderEditableAssetImportPreview(){
   const rows=pendingImport?.rows||[], table=$('importPreviewTable'); if(!table)return;
-  const fields=[['Nome','text'],['Serial Number','text'],['Modelo','model'],['Localização','room'],['Rack','rack'],['U Inicial','u'],['Quantidade U','number'],['Status','status'],['Substatus','substatus'],['Potência (W)','number'],['Peso (kg)','number'],['Data de compra','date'],['Vencimento da garantia','date'],['Fim de vida (EOL)','date']];
-  table.innerHTML=`<table class="asset-import-edit-grid"><thead><tr><th></th>${fields.map(f=>`<th>${esc(f[0])}${['Nome','Serial Number','Modelo'].includes(f[0])?' *':''}</th>`).join('')}<th>Validação</th><th></th></tr></thead><tbody>${rows.map((item,idx)=>{const d=item.data||{};const status=item._validated?(item.valid?'valid':'invalid'):'pending';return `<tr class="import-row ${status==='valid'?'import-valid':status==='invalid'?'import-invalid':'import-pending'}" data-import-index="${idx}"><td class="import-row-state">${status==='valid'?'✓':status==='invalid'?'!':'•'}</td>${fields.map(([key,type])=>{let control='';if(type==='model')control=`<select data-import-field="${key}">${assetImportCatalogOptions('model',d[key]||'')}</select>`;else if(type==='room')control=`<select data-import-field="${key}">${assetImportRoomOptions(d[key]||'')}</select>`;else if(type==='rack')control=`<select data-import-field="${key}">${assetImportRackOptions(d['Localização']||d['Sala']||'',d[key]||'')}</select>`;else if(type==='status')control=`<select data-import-field="${key}">${assetImportCatalogOptions('status',d[key]||'Instalado')}</select>`;else if(type==='substatus')control=`<select data-import-field="${key}">${assetImportCatalogOptions('substatus',d[key]||'')}</select>`;else if(type==='u')control=`<select data-import-field="${key}">${assetImportUOptions(item)}</select>`;else if(type==='date')control=`<input data-import-field="${key}" type="date" value="${esc(d[key]??'')}">`;else control=`<input data-import-field="${key}" type="${type==='number'?'number':'text'}" value="${esc(d[key]??'')}" ${key==='Quantidade U'?'min="1" max="60"':''}>`;return `<td>${control}</td>`}).join('')}<td class="import-row-message">${status==='pending'?'<div class="import-validation-pending">⏳ Aguardando validação</div>':renderImportProblems(item,idx)}</td><td><button type="button" class="iconbtn danger-icon import-row-remove" data-import-remove="${idx}" title="Remover esta linha da importação">×</button></td></tr>`}).join('')}</tbody></table>`;
+  // key (usada em data-import-field e como chave em item.data, precisa bater com o
+  // cabeçalho da coluna no Excel) e label (texto exibido) são independentes aqui —
+  // label segue os mesmos rótulos curtos de ASSET_COLUMN_HEADER_LABELS (inventário),
+  // sem precisar renomear a coluna que o usuário vê na planilha.
+  const L=ASSET_COLUMN_HEADER_LABELS;
+  const fields=[['Asset Tag','text',90,L.assetTag],['Nome','text',130,L.name],['Serial Number','text',110,L.serial],['Modelo','model',130,L.model],['Localização','room',130,L.location],['Rack','rack',70,L.rack],['Face','face',80,L.face],['U Inicial','u',68,L.u],['Quantidade U','number',60,L.uHeight],['Status','status',90,L.status],['Substatus','substatus',100,L.substatus],['Potência (W)','number',70,'Potência (W)'],['Peso (kg)','number',70,'Peso (kg)'],['Data de compra','date',120,L.purchaseDate],['Vencimento da garantia','date',120,L.warranty],['Fim de vida (EOL)','date',120,L.eol]];
+  // Largura fixa por coluna (th e td), não deixada pro navegador decidir pelo conteúdo
+  // (table-layout:fixed no CSS depende disso — sem largura no th, a coluna volta a
+  // esticar pro texto mais longo do header, tipo "VENCIMENTO DA GARANTIA").
+  table.innerHTML=`<table class="asset-import-edit-grid"><thead><tr><th style="width:30px"></th>${fields.map(f=>`<th style="width:${f[2]}px">${esc(f[3])}${['Nome','Serial Number','Modelo'].includes(f[0])?' *':''}</th>`).join('')}<th style="width:200px">Validação</th><th style="width:36px"></th></tr></thead><tbody>${rows.map((item,idx)=>{const d=item.data||{};const status=item._validated?(item.valid?'valid':'invalid'):'pending';return `<tr class="import-row ${status==='valid'?'import-valid':status==='invalid'?'import-invalid':'import-pending'}" data-import-index="${idx}"><td class="import-row-state">${status==='valid'?'✓':status==='invalid'?'!':'•'}</td>${fields.map(([key,type])=>{let control='';if(type==='model')control=`<select data-import-field="${key}">${assetImportCatalogOptions('model',d[key]||'')}</select>`;else if(type==='room')control=`<select data-import-field="${key}">${assetImportRoomOptions(d[key]||'')}</select>`;else if(type==='rack')control=`<select data-import-field="${key}">${assetImportRackOptions(d['Localização']||d['Sala']||'',d[key]||'')}</select>`;else if(type==='status')control=`<select data-import-field="${key}">${assetImportCatalogOptions('status',d[key]||'Instalado')}</select>`;else if(type==='substatus')control=`<select data-import-field="${key}">${assetImportCatalogOptions('substatus',d[key]||'')}</select>`;else if(type==='u')control=`<select data-import-field="${key}">${assetImportUOptions(item)}</select>`;else if(type==='face')control=`<select data-import-field="${key}"><option value="">Selecione</option><option value="Frente" ${catalogNormalize(d[key]||'')==='frente'?'selected':''}>Frente</option><option value="Traseira" ${catalogNormalize(d[key]||'')==='traseira'?'selected':''}>Traseira</option></select>`;else if(type==='date')control=`<input data-import-field="${key}" type="date" value="${esc(d[key]??'')}">`;else control=`<input data-import-field="${key}" type="${type==='number'?'number':'text'}" value="${esc(d[key]??'')}" ${key==='Quantidade U'?'min="1" max="60"':''}>`;return `<td>${control}</td>`}).join('')}<td class="import-row-message">${status==='pending'?'<div class="import-validation-pending">⏳ Aguardando validação</div>':renderImportProblems(item,idx)}</td><td><button type="button" class="iconbtn danger-icon import-row-remove" data-import-remove="${idx}" title="Remover esta linha da importação">×</button></td></tr>`}).join('')}</tbody></table>`;
   table.querySelectorAll('[data-import-field]').forEach(el=>el.addEventListener('change',()=>updateEditableImportRow(el.closest('tr'),{rerenderRow:true})));
   table.querySelectorAll('[data-import-field="Nome"],[data-import-field="Serial Number"],[data-import-field="Quantidade U"],[data-import-field="Potência (W)"],[data-import-field="Peso (kg)"]').forEach(el=>el.addEventListener('input',()=>updateEditableImportRow(el.closest('tr'),{rerenderRow:false})));
   table.querySelectorAll('.import-model-action').forEach(btn=>btn.addEventListener('click',()=>openImportModelRegistration(Number(btn.dataset.importModel))));
@@ -5011,6 +5174,7 @@ async function processAssetsWorkbook(file){
         'Sala':getCol(raw,['sala','room','room name']),
         'Localização':getCol(raw,['localização','localizacao','location']),
         'Rack':getCol(raw,['rack','rack name']),
+        'Face':getCol(raw,['face','frente/traseira','front/rear']),
         'U Inicial':getCol(raw,['u inicial','u start','ustart','position','position u','u']),
         'Quantidade U':getCol(raw,['quantidade u','u height','uheight','quantidade de u','height','u size'])||'1',
         'Status':getCol(raw,['status','state'])||'Ativo',
@@ -5082,7 +5246,7 @@ async function processAssetsWorkbook(file){
       validateAssetImportRows(preview);
       const ready=preview.filter(r=>r.valid);
       ready.forEach(item=>{
-        const d=item.data; const resolved=resolveAssetImportLocation(d['Localização']||d.Sala); const room=resolved.room; const stock=resolved.stock; const rack=room&&d.Rack?room.data?.racks?.find(r=>catalogNormalize(r.name)===catalogNormalize(d.Rack)):null; const loc=resolved.loc; const asset=autoFillAssetFromModel({id:uid('asset'),name:d.Nome,type:d.Tipo,manufacturer:d.Fabricante,model:d.Modelo,assetTag:d['Asset Tag'],serial:d['Serial Number'],status:d.Status||'Instalado',substatus:d.Substatus||'',locationType:stock?'stock':'room',locationName:d['Localização']||d.Sala||'',locationId:loc?.id||null,stockId:stock?.id||null,roomId:room?.id||null,rackId:rack?.id||null,face:rack?parseImportFace(d.Face):null,uStart:Math.max(1,Math.floor(parseImportNumber(d['U Inicial'],1))),uHeight:Math.max(1,Math.floor(parseImportNumber(d['Quantidade U'],1))),ports:[],powerW:Math.max(0,Math.floor(parseImportNumber(d['Potência (W)'],0))),weightKg:Math.max(0,parseImportNumber(d['Peso (kg)'],0)),purchaseDate:parseImportDate(d['Data de compra']),warrantyExpiration:parseImportDate(d['Vencimento da garantia']),endOfLife:parseImportDate(d['Fim de vida (EOL)'])}); state.assets.push(asset); recordAssetAudit({action:'CREATE',asset,after:asset,changes:[]});
+        const d=item.data; const resolved=resolveAssetImportLocation(d['Localização']||d.Sala); const room=resolved.room; const stock=resolved.stock; const rack=room&&d.Rack?room.data?.racks?.find(r=>catalogNormalize(r.name)===catalogNormalize(d.Rack)):null; const loc=resolved.loc; const asset=autoFillAssetFromModel({id:uid('asset'),name:d.Nome,type:d.Tipo,manufacturer:d.Fabricante,model:d.Modelo,assetTag:d['Asset Tag'],serial:d['Serial Number'],status:d.Status||'Instalado',substatus:d.Substatus||'',locationType:stock?'stock':'room',locationName:d['Localização']||d.Sala||'',locationId:loc?.id||null,stockId:stock?.id||null,roomId:room?.id||null,rackId:rack?.id||null,face:rack?parseImportFace(d.Face):null,uStart:Math.max(1,Math.floor(parseImportNumber(d['U Inicial'],1))),uHeight:Math.max(1,Math.floor(parseImportNumber(d['Quantidade U'],1))),ports:[],powerW:Math.max(0,Math.floor(parseImportNumber(d['Potência (W)'],0))),weightKg:Math.max(0,parseImportNumber(d['Peso (kg)'],0)),purchaseDate:parseImportDate(d['Data de compra']),warrantyExpiration:parseImportDate(d['Vencimento da garantia']),endOfLife:parseImportDate(d['Fim de vida (EOL)']),notes:String(d['Observações']||'').slice(0,500)}); state.assets.push(asset); recordAssetAudit({action:'CREATE',asset,after:asset,changes:[]});
       });
       const imported=ready.length;save();closeImportPreview();renderAll(false);renderAssetsList($('assetsSearch')?.value||'');toast(`${imported} asset(s) importado(s)`);
     });
@@ -5335,6 +5499,42 @@ function bind(){
   $('assetsNew')?.addEventListener('click',()=>openAssetModal());
   $('assetsBulk')?.addEventListener('click',openBulkAssetsModal);
   $('assetsExport')?.addEventListener('click',exportAssetsXLSX);
+  $('assetsKpiRow')?.addEventListener('click',e=>{
+    const btn=e.target.closest('button'); if(!btn)return;
+    assetsPage=1;
+    if(btn.dataset.kpiTotal){delete assetColumnFilters.status;delete assetColumnFilters.warranty;}
+    else if(btn.dataset.kpiWarranty){
+      const active=assetColumnFilters.warranty&&assetColumnFilters.warranty.has('Vencida');
+      if(active)delete assetColumnFilters.warranty; else assetColumnFilters.warranty=new Set(['Vencida']);
+    }else if(btn.dataset.kpiStatus){
+      const status=btn.dataset.kpiStatus;
+      const active=assetColumnFilters.status&&assetColumnFilters.status.size===1&&assetColumnFilters.status.has(status);
+      if(active)delete assetColumnFilters.status; else assetColumnFilters.status=new Set([status]);
+    }
+    renderAssetsList($('assetsSearch')?.value||'');
+  });
+  $('assetsFilterBar')?.addEventListener('click',e=>{
+    const filterBtn=e.target.closest('[data-filter-col]');
+    if(!filterBtn)return;
+    e.stopPropagation();
+    const already=filterBtn.classList.contains('menu-open');
+    closeAssetColumnFilterMenus();
+    document.querySelectorAll('.assets-filter-bar [data-filter-col]').forEach(b=>b.classList.remove('menu-open'));
+    if(already)return;
+    filterBtn.classList.add('menu-open');
+    assetsPage=1;
+    openAssetColumnFilterMenu(filterBtn.dataset.filterCol,filterBtn);
+  });
+  $('assetsClearFilters')?.addEventListener('click',()=>{
+    assetColumnFilters={}; assetsPage=1; closeAssetColumnFilterMenus();
+    renderAssetsList($('assetsSearch')?.value||'');
+  });
+  $('assetsPageSize')?.addEventListener('change',e=>{assetsPageSize=Number(e.target.value)||10;assetsPage=1;renderAssetsList($('assetsSearch')?.value||'');});
+  $('assetsPageButtons')?.addEventListener('click',e=>{
+    const btn=e.target.closest('[data-page]'); if(!btn||btn.disabled)return;
+    assetsPage=Number(btn.dataset.page)||1;
+    renderAssetsList($('assetsSearch')?.value||'');
+  });
   $('assetsBulkClose')?.addEventListener('click',closeBulkAssetsModal);
   $('assetsBulkCancel')?.addEventListener('click',closeBulkAssetsModal);
   $('assetsBulkManual')?.addEventListener('click',()=>{$('assetsBulkChooser')?.classList.add('hidden');$('assetsBulkEditor')?.classList.remove('hidden');$('assetsBulkModal')?.querySelector('.bulk-assets-card')?.classList.add('wide');});
@@ -5346,7 +5546,7 @@ function bind(){
   $('btnCatalogs')?.addEventListener('click',openAssetCatalogModal);
   $('assetCatalogClose')?.addEventListener('click',closeAssetCatalogModal);
   
-  $('assetsSearch')?.addEventListener('input',e=>renderAssetsList(e.target.value));
+  $('assetsSearch')?.addEventListener('input',e=>{assetsPage=1;renderAssetsList(e.target.value);});
   $('assetsTableHead')?.addEventListener('click',e=>{
     const filterBtn=e.target.closest('[data-filter-col]');
     if(filterBtn){
@@ -5376,7 +5576,7 @@ function bind(){
   $('assetsBulkStatus')?.addEventListener('change',e=>{const v=e.target.value;e.target.value='';if(v)bulkChangeAssetStatus(v);});
   $('assetsBulkSubstatus')?.addEventListener('change',e=>{const v=e.target.value;e.target.value='';if(v)bulkChangeAssetSubstatus(v);});
   $('assetsBulkLocation')?.addEventListener('change',e=>{const v=e.target.value;e.target.value='';if(v)bulkChangeAssetLocation(v);});
-  document.addEventListener('click',e=>{if(!e.target.closest('.col-filter-panel')&&!e.target.closest('[data-filter-col]')){closeAssetColumnFilterMenus();document.querySelectorAll('#assetsTableHead [data-filter-col]').forEach(b=>b.classList.remove('menu-open'));}});
+  document.addEventListener('click',e=>{if(!e.target.closest('.col-filter-panel')&&!e.target.closest('[data-filter-col]')){closeAssetColumnFilterMenus();document.querySelectorAll('#assetsTableHead [data-filter-col], .assets-filter-bar [data-filter-col]').forEach(b=>b.classList.remove('menu-open'));}});
   window.addEventListener('resize',closeAssetColumnFilterMenus);
   $('assetEditCancel')?.addEventListener('click',closeAssetModal);
   $('assetEditCancelTop')?.addEventListener('click',closeAssetModal);
@@ -5384,11 +5584,13 @@ function bind(){
   $('roomEditorForm')?.addEventListener('submit',e=>{e.preventDefault();saveRoomEditor();});
   $('roomEditorClose')?.addEventListener('click',closeRoomEditor);
   $('roomEditorCancel')?.addEventListener('click',closeRoomEditor);
-  $('assetPortsToggle')?.addEventListener('click',()=>{setAssetPortsCollapsed(!$('assetPortsList')?.classList.contains('hidden'));});
-  $('assetPortsAdd')?.addEventListener('click',()=>{assetEditPorts.push({id:uid('port'),label:`Porta ${assetEditPorts.length+1}`,poe:false});setAssetPortsCollapsed(false);renderAssetPortsEditor();const inputs=document.querySelectorAll('#assetPortsList .asset-port-name');const last=inputs[inputs.length-1];if(last){last.focus();last.select();}});
+  $('assetPortsAdd')?.addEventListener('click',()=>{assetEditPorts.push({id:uid('port'),label:`Porta ${assetEditPorts.length+1}`,poe:false});renderAssetPortsEditor();const inputs=document.querySelectorAll('#assetPortsList .asset-port-name');const last=inputs[inputs.length-1];if(last){last.focus();last.select();}});
+  $('assetPortsToggle')?.addEventListener('click',()=>{const section=$('assetStepPortas');setAssetPortsCollapsed(!section?.classList.contains('ports-collapsed'));});
   $('assetWarrantyExpiration')?.addEventListener('input',updateAssetLifecycleBadge);
   $('assetEndOfLife')?.addEventListener('input',updateAssetLifecycleBadge);
+  $('assetNotes')?.addEventListener('input',updateAssetNotesCount);
   $('assetPortsExport')?.addEventListener('click',exportAssetPortsXLSX);
+  initAssetEditStepNav();
   $('portRangeAdd')?.addEventListener('click',()=>{
     const start=$('portRangeStart').value.trim(), end=$('portRangeEnd').value.trim();
     if(!start||!end){toast('Informe a primeira e a última porta.');return;}
@@ -5415,6 +5617,7 @@ function bind(){
   $('assetLocation')?.addEventListener('change',()=>refreshAssetRackOptions(''));
   $('assetRack')?.addEventListener('change',updateAssetUFieldsState);
   $('assetModel')?.addEventListener('change',()=>{const modelName=$('assetModel')?.value||'';if(!modelName)return;normalizeAssetCatalogs();const m=state.assetCatalogs.models.find(x=>String(x.name)===String(modelName));if(!m)return;renderAssetCatalogSelects({assetType:m.type||'',assetManufacturer:m.manufacturer||'',assetModel:m.name||''});autoFillPortsFromModelIfEmpty();autoFillPowerFromModelIfEmpty();autoFillWeightFromModelIfEmpty();});
+  $('catalogCableTypeSearch')?.addEventListener('input',renderCableTypesCatalog);
   $('catalogTypeSearch')?.addEventListener('input',renderAssetCatalogs);
   $('catalogManufacturerSearch')?.addEventListener('input',renderAssetCatalogs);
   $('catalogStatusSearch')?.addEventListener('input',renderAssetCatalogs);
