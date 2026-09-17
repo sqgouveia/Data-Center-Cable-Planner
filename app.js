@@ -5389,7 +5389,7 @@ function bulkRowHtml(){return `<tr>
 <td><input data-bulk-field="purchase" type="date"></td>
 <td><input data-bulk-field="warranty" type="date"></td>
 <td><input data-bulk-field="eol" type="date"></td>
-<td><button class="iconbtn danger-icon" type="button" data-bulk-remove title="Remover linha">×</button></td></tr>`;}
+<td><button class="iconbtn danger-icon" type="button" data-bulk-remove title="Remover linha"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg></button></td></tr>`;}
 function initBulkTableResizers(){
   const table=document.querySelector('.bulk-assets-table');
   if(!table||table.dataset.resizersReady==='1')return;

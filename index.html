@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=105" />
+    <link rel="stylesheet" href="app.css?v=107" />
   </head>
   <body>
     <div id="authScreen" class="auth-screen" aria-hidden="false">
@@ -2420,14 +2420,17 @@
               <tbody id="assetsBulkBody"></tbody>
             </table>
           </div>
-          <div class="form-actions">
+          <div class="form-actions bulk-assets-actions">
             <button id="assetsBulkBack" class="btn ghost" type="button">
-              ← Voltar</button
-            ><button id="assetsBulkCancel" class="btn ghost" type="button">
-              Cancelar</button
-            ><button id="assetsBulkSave" class="btn primary" type="button">
-              ✓ Validar e cadastrar
+              ← Voltar
             </button>
+            <div class="bulk-assets-actions-right">
+              <button id="assetsBulkCancel" class="btn ghost" type="button">
+                Cancelar</button
+              ><button id="assetsBulkSave" class="btn primary" type="button">
+                ✓ Validar e cadastrar
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -3441,6 +3444,6 @@
         </div>
       </div>
     </div>
-    <script type="module" src="app.js?v=100"></script>
+    <script type="module" src="app.js?v=101"></script>
   </body>
 </html>

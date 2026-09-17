@@ -534,6 +534,16 @@ select:disabled {
 .form-actions .btn {
   flex: 1;
 }
+.bulk-assets-actions {
+  justify-content: space-between;
+}
+.bulk-assets-actions .btn {
+  flex: none;
+}
+.bulk-assets-actions-right {
+  display: flex;
+  gap: 7px;
+}
 .switch {
   display: flex;
   justify-content: space-between;
@@ -5928,17 +5938,38 @@ button.bayface-rack-state:hover {
 .bulk-assets-card {
   width: min(680px, calc(100vw - 24px));
 }
+.bulk-assets-card .modal-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--r-lg);
+}
+.bulk-assets-card .modal-icon svg {
+  width: 22px;
+  height: 22px;
+}
 .bulk-assets-help {
   display: flex;
   gap: 10px;
   align-items: center;
-  padding: 8px 10px;
-  margin-bottom: 10px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--panel2);
+  padding: 9px 12px;
+  margin-bottom: 12px;
+  border: 1px solid color-mix(in srgb, var(--blue) 30%, var(--border));
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--blue) 10%, var(--panel));
   font-size: var(--fs-micro);
   color: var(--muted);
+}
+.bulk-assets-help > span:first-child {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--blue) 24%, transparent);
+  color: var(--blue-ink);
+  font-size: 10px;
+  font-weight: 800;
 }
 .bulk-assets-help b {
   color: var(--text);
@@ -5948,8 +5979,17 @@ button.bayface-rack-state:hover {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   flex-wrap: wrap;
+}
+#assetsBulkAddRow {
+  border-color: color-mix(in srgb, var(--blue) 40%, var(--border));
+  color: var(--blue-ink);
+  background: color-mix(in srgb, var(--blue) 10%, var(--panel2));
+}
+#assetsBulkAddRow:hover {
+  border-color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 16%, var(--panel2));
 }
 .bulk-assets-table-wrap {
   max-height: 58vh;
@@ -6028,6 +6068,22 @@ button.bayface-rack-state:hover {
 .bulk-assets-table td:last-child {
   text-align: center;
   padding-inline: 2px;
+}
+.bulk-assets-table td:last-child .iconbtn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.bulk-assets-table td:last-child .iconbtn .ic {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .bulk-col-resizer {
   position: absolute;
