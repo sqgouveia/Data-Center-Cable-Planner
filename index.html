@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=126" />
+    <link rel="stylesheet" href="app.css?v=127" />
   </head>
   <body>
     <div id="authScreen" class="auth-screen" aria-hidden="false">
@@ -324,7 +324,11 @@
             /></svg
           ><span>Tema</span>
         </button>
-        <button id="btnProjects" class="btn ghost ui-icon-label">
+        <button
+          id="btnProjects"
+          class="btn ghost ui-icon-label"
+          title="Meus projetos"
+        >
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
             <rect x="3" y="3" width="7" height="7" rx="1.5" />
             <rect x="14" y="3" width="7" height="7" rx="1.5" />
@@ -405,18 +409,30 @@
           data-status="saved"
           >✓ Salvo na nuvem</span
         >
-        <button id="btnSave" class="btn ghost ui-icon-label">
+        <button
+          id="btnSave"
+          class="btn ghost ui-icon-label"
+          title="Salvar na nuvem"
+        >
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M5 4h11l3 3v13H5z" />
             <path d="M8 4v6h8V4M8 20v-6h8v6" /></svg
           ><span>Salvar na nuvem</span>
         </button>
-        <button id="btnImportProject" class="btn ghost ui-icon-label">
+        <button
+          id="btnImportProject"
+          class="btn ghost ui-icon-label"
+          title="Importar projeto"
+        >
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 3v12M7 10l5 5 5-5M5 20h14" /></svg
           ><span>Importar projeto</span>
         </button>
-        <button id="btnExport" class="btn ghost ui-icon-label">
+        <button
+          id="btnExport"
+          class="btn ghost ui-icon-label"
+          title="Exportar projeto"
+        >
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 21V9M7 12l5-5 5 5M5 4h14" /></svg
           ><span>Exportar projeto</span>

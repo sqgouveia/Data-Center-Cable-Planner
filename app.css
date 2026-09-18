@@ -9142,3 +9142,43 @@ button.bayface-rack-state {
   font-size: 11px;
   white-space: nowrap;
 }
+
+/* ===== Telas menores: nada pode ficar cortado nas barras do topo ===== */
+/* "safe" faz o conteúdo que não cabe começar da esquerda e ficar rolável, em vez de
+   vazar pra esquerda (onde o overflow escondia o seletor de DC/sala e os primeiros botões). */
+.topbar .actions {
+  justify-content: safe flex-end;
+}
+@media (max-width: 1500px) {
+  .topbar .brand span {
+    display: none;
+  }
+  #btnTheme > span,
+  #btnProjects > span,
+  #btnImportProject > span,
+  #btnExport > span,
+  #btnPdfReport > span {
+    display: none;
+  }
+}
+@media (max-width: 1300px) {
+  .topbar .auth-user-email {
+    display: none;
+  }
+}
+@media (max-width: 1200px) {
+  #btnSave > span {
+    display: none;
+  }
+}
+/* Barra da planta: o bloco do nome encolhe (com reticências) e o selo térmico nunca é cortado. */
+.toolbar-title > div:first-child {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.toolbar-title .room-thermal-badge {
+  flex: none;
+}
+.planner-project-info {
+  grid-template-columns: minmax(0, auto);
+}
