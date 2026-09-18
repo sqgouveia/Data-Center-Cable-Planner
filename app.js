@@ -4216,9 +4216,16 @@ function setupPan(){
 function projectSummaryStats(){
   return {rows:state.rows.length,racks:state.racks.length,trays:state.trays.length,cables:state.cables.length};
 }
+const PLANNER_SUMMARY_ICONS={
+  rows:'<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/>',
+  racks:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M12 3v18"/>',
+  trays:'<path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4"/>',
+  cables:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'
+};
+function plannerSummaryItem(kind,text){return `<span><svg class="planner-sum-icon" viewBox="0 0 24 24" aria-hidden="true">${PLANNER_SUMMARY_ICONS[kind]}</svg>${text}</span>`;}
 function updateProjectSummary(){
   const s=projectSummaryStats(), inline=$('plannerProjectSummary');
-  if(inline) inline.innerHTML=`<span>${s.rows} ${s.rows===1?'fileira':'fileiras'}</span><span>${s.racks} ${s.racks===1?'rack':'racks'}</span><span>${s.trays} ${s.trays===1?'calha':'calhas'}</span><span>${s.cables} ${s.cables===1?'cabo':'cabos'}</span>`;
+  if(inline) inline.innerHTML=plannerSummaryItem('rows',`${s.rows} ${s.rows===1?'fileira':'fileiras'}`)+plannerSummaryItem('racks',`${s.racks} ${s.racks===1?'rack':'racks'}`)+plannerSummaryItem('trays',`${s.trays} ${s.trays===1?'calha':'calhas'}`)+plannerSummaryItem('cables',`${s.cables} ${s.cables===1?'cabo':'cabos'}`);
   const grid=$('projectSummaryGrid'), name=$('summaryProjectName');
   if(name) name.textContent=state.projectName||'Data Center';
   if(grid){ const items=[['▤','Fileiras',s.rows],['▥','Racks',s.racks],['━','Calhas',s.trays],['⌁','Cabos',s.cables]]; grid.innerHTML=items.map(([icon,label,value])=>`<div class="summary-metric"><span class="summary-metric-icon">${icon}</span><div><strong>${value}</strong><span>${label}</span></div></div>`).join(''); }

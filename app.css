@@ -9172,7 +9172,7 @@ button.bayface-rack-state {
   }
 }
 /* Barra da planta: o bloco do nome encolhe (com reticências) e o selo térmico nunca é cortado. */
-.toolbar-title > div:first-child {
+.toolbar-title > .planner-project-info {
   flex: 0 1 auto;
   min-width: 0;
 }
@@ -9181,4 +9181,44 @@ button.bayface-rack-state {
 }
 .planner-project-info {
   grid-template-columns: minmax(0, auto);
+}
+
+/* ===== Cabeçalho da planta: ícone + nome + resumo com ícones ===== */
+.toolbar-title .planner-project-icon {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: var(--r-lg);
+}
+.toolbar-title .planner-project-icon svg {
+  width: 22px;
+  height: 22px;
+}
+.planner-project-info .planner-project-main strong {
+  font-size: 15px !important;
+}
+.planner-project-info .planner-project-summary {
+  gap: 16px;
+  margin-top: 2px;
+}
+.toolbar-title .planner-project-info .planner-project-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px !important;
+}
+.toolbar-title .planner-project-info .planner-project-summary span + span::before {
+  content: none;
+}
+.planner-sum-icon {
+  display: block;
+  width: 15px;
+  height: 15px;
+  flex: none;
+  fill: none;
+  stroke: var(--blue-ink);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.85;
 }
