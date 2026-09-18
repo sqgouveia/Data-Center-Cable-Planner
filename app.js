@@ -4857,10 +4857,19 @@ function validateAssetImportRows(rows){
   return rows.filter(r=>!r.valid).map(item=>({line:item.line,message:item.message}));
 }
 
+const IMPORT_ICON_INVALID='<svg class="import-state-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 7v6M12 16.6h.01"/></svg>';
+const IMPORT_ICON_VALID='<svg class="import-state-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12.4 2.8 2.8L16 9.6"/></svg>';
+function importStateIcon(status){return status==='valid'?IMPORT_ICON_VALID:status==='invalid'?IMPORT_ICON_INVALID:'•';}
+function setImportConfirmLabel(text){const el=$('importPreviewConfirmLabel');if(el)el.textContent=text;}
+function setImportFooterStats(total,valid,invalid){
+  const el=$('importPreviewFooterStats'); if(!el)return;
+  const info='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v5M12 7.6h.01"/></svg>';
+  el.innerHTML=`<span>${info}${total} linha${total===1?'':'s'} no total</span>`+(valid===null?'':`<span>${valid} válida${valid===1?'':'s'}</span><span>${invalid} precisa${invalid===1?'':'m'} de correção</span>`);
+}
 function renderImportProblems(item,idx){
   const problems=String(item.message||'').split(/(?<=\.)\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ])/).map(x=>x.trim()).filter(Boolean);
   const warning=item.warning?`<div class="import-validation-warning">⚠ ${esc(item.warning)}</div>`:'';
-  const list=problems.length?`<ul class="import-validation-list">${problems.map(p=>`<li>✕ ${esc(p)}</li>`).join('')}</ul>`:`<div class="import-validation-ok">✓ Válido</div>`;
+  const list=problems.length?`<ul class="import-validation-list">${problems.map(p=>`<li>${esc(p)}</li>`).join('')}</ul>`:`<div class="import-validation-ok">✓ Válido</div>`;
   const model=item._modelMissing?`<button type="button" class="import-model-action" data-import-model="${idx}"><span>＋</span> Cadastrar modelo</button>`:'';
   return `<div class="import-validation-box ${problems.length?'has-errors':'is-valid'}">${list}${warning}${model}</div>`;
 }
@@ -4875,7 +4884,7 @@ function renderEditableAssetImportPreview(){
   // Largura fixa por coluna (th e td), não deixada pro navegador decidir pelo conteúdo
   // (table-layout:fixed no CSS depende disso — sem largura no th, a coluna volta a
   // esticar pro texto mais longo do header, tipo "VENCIMENTO DA GARANTIA").
-  table.innerHTML=`<table class="asset-import-edit-grid"><thead><tr><th style="width:30px"></th>${fields.map(f=>`<th style="width:${f[2]}px">${esc(f[3])}${['Nome','Serial Number','Modelo'].includes(f[0])?' *':''}</th>`).join('')}<th style="width:200px">Validação</th><th style="width:36px"></th></tr></thead><tbody>${rows.map((item,idx)=>{const d=item.data||{};const status=item._validated?(item.valid?'valid':'invalid'):'pending';return `<tr class="import-row ${status==='valid'?'import-valid':status==='invalid'?'import-invalid':'import-pending'}" data-import-index="${idx}"><td class="import-row-state">${status==='valid'?'✓':status==='invalid'?'!':'•'}</td>${fields.map(([key,type])=>{let control='';if(type==='model')control=`<select data-import-field="${key}">${assetImportCatalogOptions('model',d[key]||'')}</select>`;else if(type==='room')control=`<select data-import-field="${key}">${assetImportRoomOptions(d[key]||'')}</select>`;else if(type==='rack')control=`<select data-import-field="${key}">${assetImportRackOptions(d['Localização']||d['Sala']||'',d[key]||'')}</select>`;else if(type==='status')control=`<select data-import-field="${key}">${assetImportCatalogOptions('status',d[key]||'Instalado')}</select>`;else if(type==='substatus')control=`<select data-import-field="${key}">${assetImportCatalogOptions('substatus',d[key]||'')}</select>`;else if(type==='u')control=`<select data-import-field="${key}">${assetImportUOptions(item)}</select>`;else if(type==='face')control=`<select data-import-field="${key}"><option value="">Selecione</option><option value="Frente" ${catalogNormalize(d[key]||'')==='frente'?'selected':''}>Frente</option><option value="Traseira" ${catalogNormalize(d[key]||'')==='traseira'?'selected':''}>Traseira</option></select>`;else if(type==='date')control=`<input data-import-field="${key}" type="date" value="${esc(d[key]??'')}">`;else control=`<input data-import-field="${key}" type="${type==='number'?'number':'text'}" value="${esc(d[key]??'')}" ${key==='Quantidade U'?'min="1" max="60"':''}>`;return `<td>${control}</td>`}).join('')}<td class="import-row-message">${status==='pending'?'<div class="import-validation-pending">⏳ Aguardando validação</div>':renderImportProblems(item,idx)}</td><td><button type="button" class="iconbtn danger-icon import-row-remove" data-import-remove="${idx}" title="Remover esta linha da importação">×</button></td></tr>`}).join('')}</tbody></table>`;
+  table.innerHTML=`<table class="asset-import-edit-grid"><thead><tr><th style="width:38px">#</th><th style="width:34px"></th>${fields.map(f=>`<th style="width:${f[2]}px">${esc(f[3])}${['Nome','Serial Number','Modelo'].includes(f[0])?' *':''}</th>`).join('')}<th style="width:300px">Validação</th><th style="width:36px"></th></tr></thead><tbody>${rows.map((item,idx)=>{const d=item.data||{};const status=item._validated?(item.valid?'valid':'invalid'):'pending';return `<tr class="import-row ${status==='valid'?'import-valid':status==='invalid'?'import-invalid':'import-pending'}" data-import-index="${idx}"><td class="import-row-num">${idx+1}</td><td class="import-row-state">${importStateIcon(status)}</td>${fields.map(([key,type])=>{let control='';if(type==='model')control=`<select data-import-field="${key}">${assetImportCatalogOptions('model',d[key]||'')}</select>`;else if(type==='room')control=`<select data-import-field="${key}">${assetImportRoomOptions(d[key]||'')}</select>`;else if(type==='rack')control=`<select data-import-field="${key}">${assetImportRackOptions(d['Localização']||d['Sala']||'',d[key]||'')}</select>`;else if(type==='status')control=`<select data-import-field="${key}">${assetImportCatalogOptions('status',d[key]||'Instalado')}</select>`;else if(type==='substatus')control=`<select data-import-field="${key}">${assetImportCatalogOptions('substatus',d[key]||'')}</select>`;else if(type==='u')control=`<select data-import-field="${key}">${assetImportUOptions(item)}</select>`;else if(type==='face')control=`<select data-import-field="${key}"><option value="">Selecione</option><option value="Frente" ${catalogNormalize(d[key]||'')==='frente'?'selected':''}>Frente</option><option value="Traseira" ${catalogNormalize(d[key]||'')==='traseira'?'selected':''}>Traseira</option></select>`;else if(type==='date')control=`<input data-import-field="${key}" type="date" value="${esc(d[key]??'')}">`;else control=`<input data-import-field="${key}" type="${type==='number'?'number':'text'}" value="${esc(d[key]??'')}" ${key==='Quantidade U'?'min="1" max="60"':''}>`;return `<td>${control}</td>`}).join('')}<td class="import-row-message">${status==='pending'?'<div class="import-validation-pending">⏳ Aguardando validação</div>':renderImportProblems(item,idx)}</td><td><button type="button" class="iconbtn danger-icon import-row-remove" data-import-remove="${idx}" title="Remover esta linha da importação">×</button></td></tr>`}).join('')}</tbody></table>`;
   table.querySelectorAll('[data-import-field]').forEach(el=>el.addEventListener('change',()=>updateEditableImportRow(el.closest('tr'),{rerenderRow:true})));
   table.querySelectorAll('[data-import-field="Nome"],[data-import-field="Serial Number"],[data-import-field="Quantidade U"],[data-import-field="Potência (W)"],[data-import-field="Peso (kg)"]').forEach(el=>el.addEventListener('input',()=>updateEditableImportRow(el.closest('tr'),{rerenderRow:false})));
   table.querySelectorAll('.import-model-action').forEach(btn=>btn.addEventListener('click',()=>openImportModelRegistration(Number(btn.dataset.importModel))));
@@ -4923,7 +4932,7 @@ function updateEditableImportRow(tr, {rerenderRow=false}={}){
     pendingImport.rows.forEach((r,i)=>{
       const row=document.querySelector(`#importPreviewTable tr[data-import-index="${i}"]`); if(!row)return;
       row.classList.toggle('import-valid',!!r.valid);row.classList.toggle('import-invalid',!r.valid);
-      const stateCell=row.querySelector('.import-row-state'); if(stateCell)stateCell.textContent=r.valid?'✓':'!';
+      const stateCell=row.querySelector('.import-row-state'); if(stateCell)stateCell.innerHTML=importStateIcon(r.valid?'valid':'invalid');
       const msg=row.querySelector('.import-row-message'); if(msg)msg.innerHTML=renderImportProblems(r,i);
     });
     document.querySelectorAll('#importPreviewTable .import-model-action').forEach(btn=>btn.onclick=()=>openImportModelRegistration(Number(btn.dataset.importModel)));
@@ -4932,13 +4941,14 @@ function updateEditableImportRow(tr, {rerenderRow=false}={}){
 }
 function updateImportPreviewSummary(){
   const rows=pendingImport?.rows||[], validated=rows.filter(r=>r._validated).length, valid=rows.filter(r=>r._validated&&r.valid).length, invalid=rows.filter(r=>r._validated&&!r.valid).length;
-  if(!validated){$('importPreviewSummary').innerHTML=`<div><b>${rows.length}</b> linhas carregadas</div><div>⏳ Aguardando validação</div>`;}
-  else $('importPreviewSummary').innerHTML=`<div class="import-stat-valid"><b>${valid}</b> válidos</div><div class="import-stat-invalid"><b>${invalid}</b> precisam de correção</div><div><b>${rows.length}</b> linhas analisadas</div>`;
-  $('importPreviewConfirm').textContent=validated&&valid?`✓ Importar ${valid} válido${valid===1?'':'s'}`:'Importar'; $('importPreviewConfirm').disabled=!validated||valid===0;
-  const errEl=$('importPreviewErrors'); const errors=rows.filter(r=>r._validated&&!r.valid); if(errors.length){errEl.classList.remove('hidden');errEl.innerHTML='<strong>Corrija as linhas em vermelho.</strong>';}else if(validated){errEl.classList.add('hidden');errEl.innerHTML='';}else{errEl.classList.add('hidden');errEl.innerHTML='';}
+  if(!validated){$('importPreviewSummary').innerHTML=`<div><b>${rows.length}</b> linhas carregadas</div><div>⏳ Aguardando validação</div>`;setImportFooterStats(rows.length,null,null);}
+  else{$('importPreviewSummary').innerHTML=`<div class="import-stat-valid"><b>${valid}</b> válidos</div><div class="import-stat-invalid"><b>${invalid}</b> precisam de correção</div><div><b>${rows.length}</b> linhas analisadas</div>`;setImportFooterStats(rows.length,valid,invalid);}
+  setImportConfirmLabel(validated&&valid?`Importar ${valid} válido${valid===1?'':'s'}`:'Importar'); $('importPreviewConfirm').disabled=!validated||valid===0;
+  const errEl=$('importPreviewErrors'); const errors=rows.filter(r=>r._validated&&!r.valid); if(errors.length){errEl.classList.toggle('hidden',errEl.dataset.dismissed==='1');errEl.innerHTML=`${IMPORT_ICON_INVALID}<span>Corrija as linhas em vermelho <em>para continuar.</em></span><button type="button" class="import-alert-close" aria-label="Dispensar aviso">×</button>`;}else if(validated){errEl.classList.add('hidden');errEl.innerHTML='';}else{errEl.classList.add('hidden');errEl.innerHTML='';}
 }
 function openImportPreview(kind, rows, errors, title, subtitle, onConfirm){
   pendingImport={kind,rows,errors,onConfirm};
+  const alertEl=$('importPreviewErrors'); alertEl.classList.toggle('is-alert',kind==='assets'); delete alertEl.dataset.dismissed;
   $('importPreviewTitle').textContent=title; $('importPreviewSubtitle').textContent=subtitle;
   const m=$('importPreviewModal');m.classList.remove('hidden');m.classList.add('open');m.setAttribute('aria-hidden','false');m.style.zIndex='500';
   if(kind==='assets'){
@@ -4954,7 +4964,7 @@ function openImportPreview(kind, rows, errors, title, subtitle, onConfirm){
     const errEl=$('importPreviewErrors');if(errors.length){errEl.classList.remove('hidden');errEl.innerHTML='<strong>Problemas encontrados</strong>'+errors.slice(0,80).map(e=>`<div>Linha ${e.line}: ${esc(e.message)}</div>`).join('');}else{errEl.classList.add('hidden');errEl.innerHTML='';}
     const previewRows=rows.slice(0,80),headers=['Aba','Tipo','Fabricante','Modelo','Situação'];
     $('importPreviewTable').innerHTML=`<table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${previewRows.map(r=>`<tr><td>${esc(r.sheet)}</td><td>${esc(r.type)}</td><td>${esc(r.manufacturer)}</td><td>${esc(r.model)}</td><td>${r.valid?'✓ Válido':'⚠ Erro'}</td></tr>`).join('')}</tbody></table>`;
-    $('importPreviewConfirm').textContent=valid?`✓ Importar ${valid} válido${valid===1?'':'s'}`:'Nenhum dado válido';$('importPreviewConfirm').disabled=!valid;
+    setImportConfirmLabel(valid?`Importar ${valid} válido${valid===1?'':'s'}`:'Nenhum dado válido');setImportFooterStats(total,valid,total-valid);$('importPreviewConfirm').disabled=!valid;
   }
 }
 
@@ -5050,7 +5060,7 @@ function renderCatalogSinglePreviewRows(kind, rows){
   validateCatalogImportRows(kind,rows);
   const valid=rows.filter(r=>r.valid).length, invalid=rows.length-valid, newRows=rows.filter(r=>r.valid&&!r.existing).length;
   $('importPreviewSummary').innerHTML=`<div class="import-stat-valid"><b>${valid}</b> válidos</div><div class="import-stat-invalid"><b>${invalid}</b> com problemas</div><div><b>${rows.length}</b> linhas analisadas</div>`;
-  $('importPreviewConfirm').textContent=newRows?`✓ Importar ${newRows} novo${newRows===1?'':'s'}`:(valid?'✓ Concluir':'Nenhum dado válido');
+  setImportConfirmLabel(newRows?`Importar ${newRows} novo${newRows===1?'':'s'}`:(valid?'Concluir':'Nenhum dado válido'));setImportFooterStats(rows.length,valid,invalid);
   $('importPreviewConfirm').disabled=valid===0;
   const headers=kind==='models'?['Linha','Modelo','Fabricante','Tipo de Ativo','Validação']:kind==='cableTypes'?['Linha','Nome','Cor','Validação']:['Linha','Nome','Validação'];
   const body=rows.slice(0,300).map((r,i)=>{
@@ -5107,6 +5117,7 @@ function openCatalogSinglePreview(kind, rows){
     normalizeAssetCatalogs();save();renderAssetCatalogManufacturerSelect();renderAssetCatalogTypeSelect();renderAssetCatalogs();renderAssetCatalogSelects();toast(added?`${added} ${catalogSingleLabel(kind).toLowerCase()} importado(s)`:'Nenhum novo cadastro para importar');
   }};
   const m=$('importPreviewModal');m.classList.remove('hidden');m.classList.add('open');m.setAttribute('aria-hidden','false');m.style.zIndex='600';
+  $('importPreviewErrors').classList.remove('is-alert');
   $('importPreviewTitle').textContent=`Importar ${catalogSingleLabel(kind)}`;
   $('importPreviewSubtitle').textContent='Edite qualquer célula abaixo. A validação é automática e os registros já existentes permanecem verdes.';
   renderCatalogSinglePreviewRows(kind,rows);
@@ -5258,7 +5269,7 @@ async function processAssetsWorkbook(file){
       const seen=new Set();validRows.filter(r=>r.rackId===rackId).forEach(r=>{const st=Math.floor(parseImportNumber(r.data['U Inicial'],1)),h=Math.max(1,Math.floor(parseImportNumber(r.data['Quantidade U'],1)));for(let u=st;u<st+h;u++){if(seen.has(u)){r.valid=false;r.warning='Conflito de U com outra linha desta importação.';if(!errors.some(e=>e.line===r.line))errors.push({line:r.line,message:'Conflito de U com outra linha desta importação.'});break;}seen.add(u);}});
     }
     const validCount=preview.filter(r=>r.valid).length;
-    openImportPreview('assets',preview,errors,'Importar assets',`Revise e corrija os registros diretamente nesta tela.${warnings.length?` ${warnings.length} alerta(s) de possível duplicidade.`:''}`,()=>{
+    openImportPreview('assets',preview,errors,'Importar assets',`Revise e corrija os registros antes de importar.${warnings.length?` ${warnings.length} alerta(s) de possível duplicidade.`:''}`,()=>{
       validateAssetImportRows(preview);
       const ready=preview.filter(r=>r.valid);
       ready.forEach(item=>{
@@ -5453,14 +5464,14 @@ function saveBulkAssets(){
 
 function openAssetsImportModal(){const m=$('assetsImportModal');if(!m)return;m.classList.remove('hidden');m.classList.add('open');m.setAttribute('aria-hidden','false');m.style.zIndex='450';$('assetsImportMapping').classList.add('hidden');$('assetsImportFileInfo').classList.add('hidden');$('assetsImportContinue').disabled=true;}
 function closeAssetsImportModal(){const m=$('assetsImportModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
-function bindAssetsImportModal(){const templateBtn=$('assetsImportTemplate');templateBtn?.addEventListener('click',makeAssetsTemplate);const choose=$('assetsImportChoose'),input=$('assetsImportFile'),drop=$('assetsImportDrop');choose?.addEventListener('click',()=>input?.click());$('assetsImportClose')?.addEventListener('click',closeAssetsImportModal);$('assetsImportCancel')?.addEventListener('click',closeAssetsImportModal);input?.addEventListener('change',e=>{const f=e.target.files?.[0];if(f){closeAssetsImportModal();importAssetsWorkbook(f);}input.value='';});drop?.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('drag')});drop?.addEventListener('dragleave',()=>drop.classList.remove('drag'));drop?.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('drag');const f=e.dataTransfer.files?.[0];if(f){closeAssetsImportModal();importAssetsWorkbook(f);}});}
+function bindAssetsImportModal(){const templateBtn=$('assetsImportTemplate');templateBtn?.addEventListener('click',makeAssetsTemplate);const choose=$('assetsImportChoose'),input=$('assetsImportFile'),drop=$('assetsImportDrop');choose?.addEventListener('click',()=>input?.click());$('assetsImportClose')?.addEventListener('click',closeAssetsImportModal);$('assetsImportCancel')?.addEventListener('click',closeAssetsImportModal);$('assetsImportBack')?.addEventListener('click',()=>{closeAssetsImportModal();openBulkAssetsModal();});input?.addEventListener('change',e=>{const f=e.target.files?.[0];if(f){closeAssetsImportModal();importAssetsWorkbook(f);}input.value='';});drop?.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('drag')});drop?.addEventListener('dragleave',()=>drop.classList.remove('drag'));drop?.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('drag');const f=e.dataTransfer.files?.[0];if(f){closeAssetsImportModal();importAssetsWorkbook(f);}});}
 
 function bindImportUI(){
   bindAssetsImportModal();
   document.querySelectorAll('[data-catalog-template]').forEach(btn=>btn.addEventListener('click',()=>catalogSingleTemplate(btn.dataset.catalogTemplate)));
   document.querySelectorAll('[data-catalog-import]').forEach(btn=>btn.addEventListener('click',()=>openCatalogSingleImport(btn.dataset.catalogImport)));
   $('catalogImportFile')?.addEventListener('change',e=>{const f=e.target.files?.[0],kind=e.target.dataset.catalogKind;if(f&&kind)importCatalogSingleWorkbook(f,kind);e.target.value='';});
-$('importPreviewConfirm')?.addEventListener('click',()=>{if(pendingImport?.onConfirm){const fn=pendingImport.onConfirm;closeImportPreview();fn();}});$('importPreviewClose')?.addEventListener('click',closeImportPreview);$('importPreviewCancel')?.addEventListener('click',closeImportPreview);
+$('importPreviewErrors')?.addEventListener('click',e=>{if(!e.target.closest('.import-alert-close'))return;const el=$('importPreviewErrors');el.dataset.dismissed='1';el.classList.add('hidden');});$('importPreviewConfirm')?.addEventListener('click',()=>{if(pendingImport?.onConfirm){const fn=pendingImport.onConfirm;closeImportPreview();fn();}});$('importPreviewClose')?.addEventListener('click',closeImportPreview);$('importPreviewCancel')?.addEventListener('click',closeImportPreview);
 }
 function setupSidebarToggle(){
   if(window.__dccpSidebarBound)return;
