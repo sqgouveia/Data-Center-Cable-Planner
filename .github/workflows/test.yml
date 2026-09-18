@@ -1,0 +1,27 @@
+name: Testes
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verificar sintaxe dos módulos do navegador
+        run: |
+          for f in app.js js/*.js; do
+            node --input-type=module --check < "$f" || { echo "Erro de sintaxe em $f"; exit 1; }
+          done
+
+      - name: Rodar testes
+        run: node --test "js/test/*.test.mjs"
