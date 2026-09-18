@@ -13,7 +13,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="app.css?v=136" />
-    <link rel="stylesheet" href="macos.css?v=9" />
+    <link rel="stylesheet" href="macos.css?v=10" />
   </head>
   <body>
     <div id="authScreen" class="auth-screen" aria-hidden="false">
@@ -3436,24 +3436,29 @@
                 </li>
                 <li>
                   <b>Defina a estrutura.</b> No painel "Ambiente" (barra
-                  lateral), informe quantas fileiras e racks por fileira, e
-                  clique em "Aplicar estrutura". O sistema desenha e centraliza
-                  tudo automaticamente.
+                  lateral esquerda), informe quantas fileiras e racks por
+                  fileira, e clique em "Aplicar estrutura". O sistema desenha e
+                  centraliza tudo automaticamente. Depois, na seção "Fileiras",
+                  ajuste o nome, a quantidade de racks e a distância de cada
+                  fileira, ou use "+ Adicionar fileira".
                 </li>
                 <li>
-                  <b>Adicione calhas.</b> Botão "+ Calha" no topo, e arraste os
-                  pontos pra desenhar o caminho físico do cabeamento.
+                  <b>Adicione calhas.</b> Botão "+ Calha" na barra da planta, e
+                  arraste os pontos pra desenhar o caminho físico do
+                  cabeamento.
                 </li>
                 <li>
-                  <b>Cadastre os assets.</b> Botão "Assets" → "+ Novo asset".
-                  Escolha o rack e a posição (U). Modelo, portas e potência
-                  podem vir pré-preenchidos se você cadastrar o modelo primeiro
-                  em "Cadastros".
+                  <b>Cadastre os assets.</b> Botão "Assets" → "+ Novo asset"
+                  (ou "Ações em massa" para digitar vários de uma vez ou
+                  importar uma planilha). Escolha o rack e a posição (U).
+                  Modelo, portas e potência podem vir pré-preenchidos se você
+                  cadastrar o modelo primeiro em "Cadastros".
                 </li>
                 <li>
-                  <b>Crie os cabos.</b> Botão "+ Cabo", escolha origem e destino
-                  (rack, U e porta). O sistema calcula o comprimento pelo
-                  caminho das calhas automaticamente.
+                  <b>Crie os cabos.</b> Na seção "Cabos" (barra lateral
+                  direita), clique em "+ Adicionar" e escolha origem e destino
+                  (rack, U e porta) no painel "Propriedades". O sistema calcula
+                  o comprimento pelo caminho das calhas automaticamente.
                 </li>
               </ol>
             </section>
@@ -3490,8 +3495,9 @@
                 </dd>
                 <dt>Bayface</dt>
                 <dd>
-                  Visão do rack de frente, U por U, mostrando onde cada asset
-                  está instalado.
+                  Visão do rack U por U (frente ou traseira), mostrando onde
+                  cada asset está instalado. Clique numa U livre para
+                  adicionar um asset àquela posição.
                 </dd>
               </dl>
             </section>
@@ -3518,6 +3524,10 @@
                   <td>Fecha a janela aberta no momento</td>
                 </tr>
                 <tr>
+                  <td>Duplo clique num rack</td>
+                  <td>Abre o Bayface do rack</td>
+                </tr>
+                <tr>
                   <td>Roda do mouse</td>
                   <td>Zoom no canvas (centrado no cursor)</td>
                 </tr>
@@ -3536,28 +3546,42 @@
               <dl class="help-glossary">
                 <dt>Assets</dt>
                 <dd>
-                  Botão "Assets" na topbar — inventário completo, com
+                  Botão "Assets" na barra da planta — inventário completo, com
                   filtro/ordenação por coluna e edição em massa.
                 </dd>
                 <dt>Cadastros</dt>
                 <dd>
-                  Dentro de "Assets" → "Cadastros" — tipos, fabricantes e
-                  modelos (com portas, potência e peso padrão de cada modelo).
+                  Botão "Cadastros" na barra da planta — tipos de ativo,
+                  fabricantes, modelos (com portas, potência e peso padrão de
+                  cada modelo), status, substatus e tipos de cabo.
                 </dd>
                 <dt>Bayface</dt>
                 <dd>
-                  Clique num rack no canvas e use "Ver Bayface" no painel de
-                  propriedades.
+                  Dê dois cliques num rack no canvas, ou selecione o rack e
+                  use "Ver Bayface" no painel "Propriedades".
                 </dd>
-                <dt>Alertas da topbar</dt>
+                <dt>Alertas</dt>
                 <dd>
-                  Os ícones de aviso avisam sobre garantia/EOL vencendo e
-                  capacidade (energia, peso, refrigeração) perto do limite.
+                  O ícone de aviso na barra da planta (aparece quando há algo a
+                  avisar) mostra garantia/EOL vencendo e capacidade (energia,
+                  peso, refrigeração) perto do limite.
                 </dd>
                 <dt>Exportar/Importar projeto</dt>
                 <dd>
-                  Salva ou restaura o projeto inteiro como um arquivo — funciona
-                  mesmo sem estar logado (modo convidado).
+                  Botões "Exportar" e "Importar" no cabeçalho — salvam ou
+                  restauram o projeto inteiro como um arquivo, e funcionam mesmo
+                  sem estar logado (modo convidado).
+                </dd>
+                <dt>Importar/exportar cabos</dt>
+                <dd>
+                  Na seção "Cabos" da barra lateral direita: "Importar" lê uma
+                  planilha, "Modelo" baixa a planilha modelo e "Exportar" gera
+                  o Excel com o resumo de cabos.
+                </dd>
+                <dt>Conta e tema</dt>
+                <dd>
+                  Clique no avatar, no canto direito do cabeçalho, para ver a
+                  conta e sair. O botão "Tema" alterna entre claro e escuro.
                 </dd>
                 <dt>Mini mapa</dt>
                 <dd>

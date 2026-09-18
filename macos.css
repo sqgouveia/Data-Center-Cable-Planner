@@ -13,12 +13,12 @@
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter",
     "Segoe UI", system-ui, sans-serif;
   --font-display: var(--font-ui);
-  --bg: #0a1220;
-  --panel: #0f1a2e;
-  --panel2: #16233f;
-  --border: #24365a;
-  --text: #e9eefb;
-  --muted: #8b9cc0;
+  --bg: #0f1a2d;
+  --panel: #16233b;
+  --panel2: #1e2e4b;
+  --border: #2e4370;
+  --text: #ecf1fc;
+  --muted: #93a4c8;
   --blue: #2f7cff;
   --blue2: #2f7cff;
   --blue-ink: #7fb0ff;
@@ -29,7 +29,7 @@
   --red-ink: #ff9aa3;
   --yellow: #f5c542;
   --purple: #a78bfa;
-  --grid: #15233f;
+  --grid: #1a2a49;
   --shadow: 0 12px 40px rgba(2, 6, 16, 0.6), 0 0 0 0.5px rgba(120, 160, 255, 0.14);
   --r-xs: 4px;
   --r-sm: 6px;
@@ -782,4 +782,36 @@ label {
 .btn.danger-btn:not(#\9):hover:not(:disabled) {
   border-color: transparent;
   background: color-mix(in srgb, var(--red) 88%, #000);
+}
+
+/* =====================================================================
+   Ajuda
+   ===================================================================== */
+.help-nav-item {
+  font-weight: 500;
+  border-radius: var(--r-md);
+}
+.help-nav-item.active {
+  background: var(--blue);
+  color: #fff;
+}
+.help-content h4 {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.help-glossary dt {
+  font-weight: 600;
+}
+.help-shortcuts-table kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 2px 7px;
+  text-align: center;
+  font: 500 11.5px/1.4 var(--font-ui);
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--text) 22%, transparent);
+  border-radius: 5px;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 18%, transparent);
 }
