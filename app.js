@@ -3046,7 +3046,7 @@ function bayfaceMarkup(rackId){
     const name=String(a.name||a.assetTag||a.type||'Equipamento');
     const model=String(a.model||'');
     const manufacturer=String(a.manufacturer||'');
-    const subtitle=[a.assetTag?`Tag: ${a.assetTag}`:'',a.serial?`SN: ${a.serial}`:''].filter(Boolean).join(' · ');
+    const subtitle=[a.assetTag?`Tag: ${a.assetTag}`:'',a.serial?`SN: ${a.serial}`:''].filter(Boolean).join(' • ');
     const identity=[name,model,manufacturer].filter(Boolean).join(' — ');
     const tooltip=[identity,a.assetTag,a.serial].filter(Boolean).join(' · ');
     const heightLabel=span===1?'1U':`${span}U`;
@@ -3054,6 +3054,7 @@ function bayfaceMarkup(rackId){
     return `<button type="button" class="bayface-asset ${compact?'is-compact':''}" style="top:${top}px;height:${h}px;--type-color:${esc(color)}" data-bay-edit="${esc(a.id)}" title="${esc(tooltip)} · U${clampedStart}${span>1?`–U${end}`:''}">
       <span class="bayface-asset-body"><span class="bayface-asset-name-row"><span class="bayface-asset-dot"></span><b>${esc(name)}</b></span>${subtitle?`<small>${esc(subtitle)}</small>`:''}</span>
       <span class="bayface-asset-u">${heightLabel}</span>
+      <span class="bayface-asset-more" aria-hidden="true">⋮</span>
     </button>`;
   };
   const assetLayer=assets.map(a=>chipFor(a)).join('');
@@ -3062,21 +3063,22 @@ function bayfaceMarkup(rackId){
   return `<div class="bayface-wrap">
     <div class="bayface-head">
       <div class="bayface-title-block">
-        <input type="text" class="bayface-rack-name-input" id="bayfaceRackNameInput" value="${esc(r.name)}" list="bayfaceRackNamesList" autocomplete="off" spellcheck="false" aria-label="Nome do rack">
-        <datalist id="bayfaceRackNamesList">${orderedRackList().map(x=>`<option value="${esc(x.name)}"></option>`).join('')}</datalist>
         <div class="bayface-stats">
-          <span class="bayface-stat">${units}U</span>
-          <span class="bayface-stat">${assets.length} asset${assets.length===1?'':'s'}</span>
-          <span class="bayface-stat ok">${usedUnits}U ocupadas</span>
-          <span class="bayface-stat off">${freeUnits}U livres</span>
+          <div class="bayface-stat"><b>${units}U</b><small>Total</small></div>
+          <div class="bayface-stat"><b>${assets.length} asset${assets.length===1?'':'s'}</b><small>Utilizados</small></div>
+          <div class="bayface-stat ok"><b>${usedUnits}U ocupadas</b><small>Em uso</small></div>
+          <div class="bayface-stat off"><b>${freeUnits}U livres</b><small>Disponíveis</small></div>
         </div>
-        <div class="bayface-usage-bar" title="${usagePct}% ocupado"><span style="width:${usagePct}%"></span></div>
+        <div class="bayface-usage">
+          <div class="bayface-usage-bar" title="${usagePct}% ocupado"><span style="width:${usagePct}%"></span></div>
+          <em class="bayface-usage-pct">${usagePct}%</em>
+        </div>
       </div>
     </div>
     <div class="bayface-stage">
       <button type="button" class="bayface-nav prev" id="bayfaceNavPrev" aria-label="Rack anterior" title="Rack anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4l-8 8 8 8"/></svg></button>
       <div class="bayface-rack" data-units="${units}" style="--bayface-row-h:${rowH}px;--bayface-grid-h:${gridH}px">
-        <div class="bayface-topbar"><span class="bayface-brand">${esc(r.name)}</span><button type="button" class="bayface-rack-state" id="bayfaceFaceToggle" title="Alternar entre frente e traseira do rack">${bayfaceFace==='front'?'FRONT':'REAR'}</button></div>
+        <div class="bayface-topbar"><input type="text" class="bayface-rack-name-input" id="bayfaceRackNameInput" value="${esc(r.name)}" list="bayfaceRackNamesList" autocomplete="off" spellcheck="false" aria-label="Nome do rack"><datalist id="bayfaceRackNamesList">${orderedRackList().map(x=>`<option value="${esc(x.name)}"></option>`).join('')}</datalist><button type="button" class="bayface-rack-state" id="bayfaceFaceToggle" title="Alternar entre frente e traseira do rack">${bayfaceFace==='front'?'FRONT':'REAR'}</button></div>
         <div class="bayface-frame">
           <div class="bayface-rail rail-left"></div><div class="bayface-rail rail-right"></div>
           <div class="bayface-mount-rails">${rail}</div>
@@ -3101,7 +3103,7 @@ function fitBayfaceHeight(m){
   const oldRowH=parseFloat(cs.getPropertyValue('--bayface-row-h'))||20;
   const overflow=card.scrollHeight-card.clientHeight;
   if(overflow>1){
-    const newRowH=Math.max(10,oldRowH-Math.ceil(overflow/units));
+    const newRowH=Math.max(12,oldRowH-Math.ceil(overflow/units));
     const scale=newRowH/oldRowH;
     rack.style.setProperty('--bayface-row-h',newRowH+'px');
     rack.style.setProperty('--bayface-grid-h',(newRowH*units)+'px');
@@ -3114,6 +3116,8 @@ function fitBayfaceHeight(m){
       const height=parseFloat(chip.style.height)||0;
       chip.style.top=(top*scale)+'px';
       chip.style.height=(height*scale)+'px';
+      // Chip baixo demais pra duas linhas de texto: cai pro layout compacto (só o nome).
+      if(height*scale<32)chip.classList.add('is-compact');
     });
   }
 }
@@ -3121,7 +3125,7 @@ function openBayface(rackId){
   const r=assetRack(rackId);if(!r)return;
   const m=$('bayfaceModal');if(!m)return;
   m.style.zIndex='1100';
-  $('bayfaceTitle').textContent=`Bayface — ${r.name}`;
+  $('bayfaceTitle').textContent=`Rack ${r.name}`;
   $('bayfaceContent').innerHTML=bayfaceMarkup(rackId);
   m.dataset.rackId=rackId;
   m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');
