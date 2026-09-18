@@ -295,7 +295,7 @@ function closeAssetHistory(){const m=$('assetHistoryModal');if(!m)return;m.class
 let currentAssetHistoryAssetId=null;
 let currentAssetHistoryRows=[];
 async function exportCurrentAssetHistory(){
-  if(!currentAssetHistoryAssetId || !currentAssetHistoryRows.length){showToast?.('Nenhum histórico disponível para exportar.');return;}
+  if(!currentAssetHistoryAssetId || !currentAssetHistoryRows.length){toast('Nenhum histórico disponível para exportar.');return;}
   const a=state.assets.find(x=>String(x.id)===String(currentAssetHistoryAssetId));
   if(!a)return;
   const rows=[];
@@ -329,7 +329,7 @@ async function exportCurrentAssetHistory(){
       const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
       const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=`Historico_${safeName}.csv`;document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
     }
-  }catch(err){console.error('Exportar histórico:',err);showToast?.('Não foi possível exportar o histórico.');}
+  }catch(err){console.error('Exportar histórico:',err);toast('Não foi possível exportar o histórico.');}
 }
 function markCloudDirty(){
   const snap=projectSnapshotForCloud();
@@ -3396,7 +3396,7 @@ function renderProperties(){
         t.x2=num(t.x1)+(dx/px)*targetPx;
         t.y2=num(t.y1)+(dy/px)*targetPx;
       }
-      autoJoinIntersectingTrays(t.id);save();renderAll();
+      connectCrossingsForTray(t.id);save();renderAll();
     };
     $('delTray').onclick=()=>{if(structureBlocked())return;state.trays=state.trays.filter(x=>x.id!==t.id);state.selected=null;save();renderAll();toast('Calha removida');};
     return;
