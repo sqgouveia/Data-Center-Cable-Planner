@@ -526,7 +526,7 @@ function projectStats(project){
 }
 function formatProjectDate(v){
   if(!v)return 'Sem data';
-  try{return new Intl.DateTimeFormat('pt-BR',{dateStyle:'medium',timeStyle:'short'}).format(new Date(v));}catch(_){return v;}
+  try{const d=new Date(v);return `${new Intl.DateTimeFormat('pt-BR',{dateStyle:'medium'}).format(d)}, ${new Intl.DateTimeFormat('pt-BR',{timeStyle:'short'}).format(d)}`;}catch(_){return v;}
 }
 function closeProjectMenus(){document.querySelectorAll('.project-menu-panel').forEach(x=>x.remove());}
 function showDashboard(){
@@ -541,45 +541,76 @@ function hideDashboard(){
   $('dashboardScreen')?.classList.add('hidden'); $('dashboardScreen')?.setAttribute('aria-hidden','true');
   $('mainTopbar')?.classList.remove('hidden'); document.querySelector('.app')?.classList.remove('hidden'); $('minimapToggle')?.classList.remove('hidden');
 }
+let dashboardProjects=[], projectsQuery='', projectsSort='recent';
+let projectsView=(()=>{try{return localStorage.getItem('dccp_projects_view')==='grid'?'grid':'list';}catch(_){return 'list';}})();
+const PROJECT_STAT_ICONS={
+  rooms:'<path d="M4 21V5.5L12 3l8 2.5V21"/><path d="M9 21v-5h6v5M8 9h.01M12 9h.01M16 9h.01M8 13h.01M12 13h.01M16 13h.01"/>',
+  rows:'<path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 13 9 5 9-5"/>',
+  racks:'<rect x="3" y="3" width="18" height="5" rx="1.2"/><rect x="3" y="9.5" width="18" height="5" rx="1.2"/><rect x="3" y="16" width="18" height="5" rx="1.2"/><path d="M7 5.5h.01M7 12h.01M7 18.5h.01"/>',
+  cables:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  trays:'<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 11h18"/>'
+};
+function projectStatChip(kind,n,one,many){return `<span class="project-stat"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${PROJECT_STAT_ICONS[kind]}</svg><span class="project-stat-text"><b>${n}</b><small>${n===1?one:many}</small></span></span>`;}
+function visibleDashboardProjects(){
+  const q=projectsQuery.trim().toLowerCase();
+  const list=q?dashboardProjects.filter(p=>String(p.name||'').toLowerCase().includes(q)):dashboardProjects.slice();
+  const time=p=>new Date(p.updated_at||p.created_at||0).getTime()||0;
+  const byName=(a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pt-BR',{numeric:true,sensitivity:'base'});
+  const sorters={recent:(a,b)=>time(b)-time(a),oldest:(a,b)=>time(a)-time(b),name:byName,nameDesc:(a,b)=>byName(b,a)};
+  return list.sort(sorters[projectsSort]||sorters.recent);
+}
+function syncDashboardControls(){
+  $('projectsViewList')?.classList.toggle('is-active',projectsView==='list');
+  $('projectsViewGrid')?.classList.toggle('is-active',projectsView==='grid');
+  syncSelectButton('projectsSort','projectsSortBtn');
+}
+function paintDashboardProjects(){
+  const grid=$('projectsGrid'); if(!grid||!dashboardProjects.length)return;
+  grid.classList.toggle('is-grid',projectsView==='grid');
+  const projects=visibleDashboardProjects();
+  if(!projects.length){grid.innerHTML='<div class="dashboard-loading">Nenhum projeto encontrado.</div>';return;}
+  grid.innerHTML=projects.map(project=>{
+    const st=projectStats(project);
+    return `<article class="project-card" data-project-card="${esc(project.id)}">
+      <div class="project-card-head"><div class="project-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg></div><div class="project-title-block"><h3 class="project-name">${esc(project.name||'Projeto sem nome')}</h3><div class="project-date">${project.updated_at?`Atualizado em ${esc(formatProjectDate(project.updated_at))}`:'Sem data de atualização'}</div></div></div>
+      <div class="project-stats">${projectStatChip('rooms',st.rooms,'sala','salas')}${projectStatChip('rows',st.rows,'fileira','fileiras')}${projectStatChip('racks',st.racks,'rack','racks')}${projectStatChip('cables',st.cables,'cabo','cabos')}${projectStatChip('trays',st.trays,'calha','calhas')}</div>
+      <div class="project-menu"><button class="btn ghost" data-project-menu="${esc(project.id)}" title="Mais opções" aria-label="Mais opções">⋮</button></div>
+      <div class="project-actions"><button class="btn primary" data-project-open="${esc(project.id)}">Abrir</button></div>
+    </article>`;
+  }).join('');
+  grid.querySelectorAll('[data-project-open]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openCloudProject(b.dataset.projectOpen);}));
+  grid.querySelectorAll('[data-project-menu]').forEach(b=>b.addEventListener('click',e=>{
+    e.preventDefault(); e.stopPropagation(); closeProjectMenus();
+    const project=dashboardProjects.find(x=>String(x.id)===String(b.dataset.projectMenu));
+    if(!project)return;
+    const panel=document.createElement('div'); panel.className='project-menu-panel';
+    panel.innerHTML='<button type="button" data-action="rename"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Renomear</button>'
+      +'<button type="button" data-action="duplicate"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Duplicar</button>'
+      +'<button type="button" data-action="export"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg>Exportar projeto</button>'
+      +'<div class="menu-divider"></div>'
+      +'<button type="button" class="danger" data-action="delete"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Excluir</button>';
+    document.body.appendChild(panel);
+    const r=b.getBoundingClientRect();
+    const pw=panel.offsetWidth||190;
+    panel.style.left=Math.max(8,Math.min(window.innerWidth-pw-8,r.right-pw))+'px';
+    panel.style.top=(r.bottom+6)+'px';
+    requestAnimationFrame(()=>panel.classList.add('open'));
+    const bindAction=(selector,fn)=>panel.querySelector(selector).addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();fn(project);});
+    bindAction('[data-action="rename"]',renameCloudProject);
+    bindAction('[data-action="duplicate"]',duplicateCloudProject);
+    bindAction('[data-action="export"]',exportCloudProject);
+    bindAction('[data-action="delete"]',deleteCloudProject);
+  }));
+}
 async function renderDashboardProjects(){
   const grid=$('projectsGrid'),empty=$('projectsEmpty');
   if(!grid)return;
   grid.innerHTML='<div class="dashboard-loading">Carregando projetos...</div>'; empty?.classList.add('hidden');
+  syncDashboardControls();
   try{
-    const projects=await fetchCloudProjects();
-    if(!projects.length){grid.innerHTML='';empty?.classList.remove('hidden');return;}
-    grid.innerHTML=projects.map(project=>{
-      const st=projectStats(project);
-      return `<article class="project-card" data-project-card="${esc(project.id)}">
-        <div class="project-card-head"><div class="project-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg></div><div><h3 class="project-name">${esc(project.name||'Projeto sem nome')}</h3><div class="project-date">Atualizado ${esc(formatProjectDate(project.updated_at))}</div></div></div>
-        <div class="project-stats"><span><b>${st.rooms}</b> sala${st.rooms===1?'':'s'}</span><span><b>${st.rows}</b> fileira${st.rows===1?'':'s'}</span><span><b>${st.racks}</b> rack${st.racks===1?'':'s'}</span><span><b>${st.cables}</b> cabo${st.cables===1?'':'s'}</span><span><b>${st.trays}</b> calha${st.trays===1?'':'s'}</span></div>
-        <div class="project-menu"><button class="btn ghost" data-project-menu="${esc(project.id)}" title="Mais opções">⋮</button></div>
-        <div class="project-actions"><button class="btn primary" data-project-open="${esc(project.id)}">Abrir</button></div>
-      </article>`;
-    }).join('');
-    grid.querySelectorAll('[data-project-open]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openCloudProject(b.dataset.projectOpen);}));
-    grid.querySelectorAll('[data-project-menu]').forEach(b=>b.addEventListener('click',e=>{
-      e.preventDefault(); e.stopPropagation(); closeProjectMenus();
-      const project=projects.find(x=>String(x.id)===String(b.dataset.projectMenu));
-      if(!project)return;
-      const panel=document.createElement('div'); panel.className='project-menu-panel';
-      panel.innerHTML='<button type="button" data-action="rename"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Renomear</button>'
-        +'<button type="button" data-action="duplicate"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Duplicar</button>'
-        +'<button type="button" data-action="export"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg>Exportar projeto</button>'
-        +'<div class="menu-divider"></div>'
-        +'<button type="button" class="danger" data-action="delete"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Excluir</button>';
-      document.body.appendChild(panel);
-      const r=b.getBoundingClientRect();
-      const pw=panel.offsetWidth||190;
-      panel.style.left=Math.max(8,Math.min(window.innerWidth-pw-8,r.right-pw))+'px';
-      panel.style.top=(r.bottom+6)+'px';
-      requestAnimationFrame(()=>panel.classList.add('open'));
-      const bindAction=(selector,fn)=>panel.querySelector(selector).addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();fn(project);});
-      bindAction('[data-action="rename"]',renameCloudProject);
-      bindAction('[data-action="duplicate"]',duplicateCloudProject);
-      bindAction('[data-action="export"]',exportCloudProject);
-      bindAction('[data-action="delete"]',deleteCloudProject);
-    }));
+    dashboardProjects=await fetchCloudProjects();
+    if(!dashboardProjects.length){grid.innerHTML='';empty?.classList.remove('hidden');return;}
+    paintDashboardProjects();
   }catch(err){console.error('Dashboard projects:',err);grid.innerHTML='<div class="dashboard-error">Não foi possível carregar seus projetos. Verifique sua conexão e tente novamente.</div>';}
 }
 function centerCanvasOnContent(){
@@ -721,6 +752,11 @@ async function startAuth(){
   $('btnGuestMode')?.addEventListener('click',enterGuestMode);
   bindPasswordToggles();
   $('dashboardNewProject').onclick=createNewCloudProject; $('dashboardNewProjectEmpty').onclick=createNewCloudProject; $('dashboardLogout').onclick=async()=>{await supabaseClient.auth.signOut();};
+  bindStyledSelect('projectsSort','projectsSortBtn');
+  $('projectsSort')?.addEventListener('change',()=>{projectsSort=$('projectsSort').value;syncDashboardControls();paintDashboardProjects();});
+  $('projectsSearch')?.addEventListener('input',()=>{projectsQuery=$('projectsSearch').value;paintDashboardProjects();});
+  [['projectsViewList','list'],['projectsViewGrid','grid']].forEach(([id,v])=>$(id)?.addEventListener('click',()=>{projectsView=v;try{localStorage.setItem('dccp_projects_view',v);}catch(_){}syncDashboardControls();paintDashboardProjects();}));
+  syncDashboardControls();
   $('dashboardTheme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';applyTheme();localStorage.setItem(THEME_STORAGE,state.theme);toast(state.theme==='light'?'Tema claro':'Tema escuro');};
   $('authTheme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';localStorage.setItem(THEME_STORAGE,state.theme);applyTheme();};
   document.addEventListener('click',e=>{if(!e.target.closest('.project-menu')&&!e.target.closest('.project-menu-panel'))closeProjectMenus();});

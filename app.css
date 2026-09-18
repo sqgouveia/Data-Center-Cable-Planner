@@ -9456,3 +9456,307 @@ button.bayface-rack-state {
 .bayface-picker-table-head {
   min-width: 1200px;
 }
+
+/* ===== Tela "Meus projetos" ===== */
+.dashboard-shell {
+  max-width: 1320px;
+}
+.dashboard-head {
+  padding-bottom: 18px;
+}
+.dashboard-brand h1 {
+  font-size: 22px;
+}
+.dashboard-brand span {
+  font-size: 14px;
+  margin-top: 1px;
+}
+.dashboard-user {
+  gap: 14px;
+  font-size: 14px;
+}
+.dashboard-user #dashboardUserEmail {
+  padding-right: 18px;
+  border-right: 1px solid var(--border);
+  line-height: 32px;
+}
+.dashboard-user .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--r-md);
+}
+.dashboard-user .btn .ic {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dashboard-toolbar {
+  padding: 30px 0 22px;
+}
+.dashboard-toolbar h2 {
+  font-size: 32px;
+  letter-spacing: -0.02em;
+}
+.dashboard-toolbar p {
+  margin: 8px 0 0;
+  font-size: 16px;
+}
+.dashboard-toolbar .btn.primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 28px;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: var(--r-lg);
+}
+.dashboard-controls {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.dashboard-search {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  padding: 0 16px;
+  border: 1px solid color-mix(in srgb, var(--blue) 28%, var(--border));
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--panel2) 55%, var(--panel));
+}
+.dashboard-search:focus-within {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 16%, transparent);
+}
+.dashboard-search .ic,
+.dashboard-sort-btn .ic {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--muted);
+}
+.dashboard-search input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 16px;
+}
+.dashboard-sort-btn {
+  flex: none;
+  min-width: 210px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  font-size: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--panel2) 55%, var(--panel));
+}
+.dashboard-sort-btn .dc-select-label {
+  flex: 1;
+  text-align: left;
+}
+.dashboard-view-toggle {
+  flex: none;
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--panel2) 55%, var(--panel));
+}
+.dashboard-view-toggle button {
+  width: 52px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.dashboard-view-toggle button .ic {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dashboard-view-toggle button.is-active {
+  background: color-mix(in srgb, var(--blue) 24%, var(--panel));
+  color: var(--text);
+}
+.projects-grid {
+  gap: 12px;
+  border-top: 0;
+}
+.project-card {
+  gap: 20px;
+  padding: 16px 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--panel2) 45%, var(--panel)),
+    var(--panel)
+  );
+}
+.project-card:hover {
+  border-color: color-mix(in srgb, var(--blue) 45%, var(--border));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--blue) 6%, var(--panel2)),
+    var(--panel)
+  );
+}
+.project-card::before {
+  display: none;
+}
+.project-card-head {
+  gap: 16px;
+}
+.project-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--blue) 16%, var(--panel2));
+  border-color: color-mix(in srgb, var(--blue) 28%, var(--border));
+  color: var(--blue-ink);
+}
+.project-icon svg {
+  width: 24px;
+  height: 24px;
+}
+.project-name {
+  font-size: 18px;
+  margin: 0 0 3px;
+}
+.project-date {
+  font-size: 13.5px;
+}
+.project-stats {
+  gap: 10px;
+  flex-wrap: nowrap;
+  font-family: inherit;
+  font-size: 13px;
+}
+.project-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 108px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--bg) 35%, var(--panel));
+}
+.project-stat .ic {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.project-stat-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.project-stat-text b {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.project-stat-text small {
+  font-size: 13px;
+  color: var(--muted);
+}
+.project-menu > button {
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  font-size: 18px;
+  border-radius: var(--r-md);
+}
+.project-actions .btn {
+  padding: 13px 30px;
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: var(--r-md);
+}
+/* grade: cartões com nome + ações em cima e os números embaixo */
+.projects-grid.is-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 14px;
+}
+.projects-grid.is-grid .project-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "head menu actions"
+    "stats stats stats";
+  align-items: center;
+  gap: 14px 12px;
+}
+.projects-grid.is-grid .project-card-head {
+  grid-area: head;
+}
+.projects-grid.is-grid .project-stats {
+  grid-area: stats;
+  flex-wrap: wrap;
+}
+.projects-grid.is-grid .project-menu {
+  grid-area: menu;
+}
+.projects-grid.is-grid .project-actions {
+  grid-area: actions;
+}
+@media (max-width: 1100px) {
+  .project-card {
+    flex-wrap: wrap;
+  }
+  .project-stats {
+    flex-wrap: wrap;
+    order: 3;
+    flex-basis: 100%;
+  }
+}
+@media (max-width: 800px) {
+  .dashboard-controls {
+    flex-wrap: wrap;
+  }
+  .dashboard-search {
+    flex-basis: 100%;
+  }
+  .dashboard-sort-btn {
+    flex: 1;
+  }
+}

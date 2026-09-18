@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=131" />
+    <link rel="stylesheet" href="app.css?v=132" />
   </head>
   <body>
     <div id="authScreen" class="auth-screen" aria-hidden="false">
@@ -258,7 +258,12 @@
               title="Alternar tema"
             >
               ☾ Tema</button
-            ><button id="dashboardLogout" class="btn ghost">↪ Sair</button>
+            ><button id="dashboardLogout" class="btn ghost">
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+              </svg>
+              Sair
+            </button>
           </div>
         </div>
         <div class="dashboard-toolbar">
@@ -267,8 +272,78 @@
             <p>Abra, duplique, renomeie ou exclua seus projetos.</p>
           </div>
           <button id="dashboardNewProject" class="btn primary">
-            ＋ Novo projeto
+            <span class="ui-plus">+</span> Novo projeto
           </button>
+        </div>
+        <div class="dashboard-controls">
+          <div class="dashboard-search">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input
+              id="projectsSearch"
+              type="search"
+              placeholder="Buscar projetos..."
+              autocomplete="off"
+            />
+          </div>
+          <select
+            id="projectsSort"
+            aria-hidden="true"
+            tabindex="-1"
+            class="visually-hidden-select"
+          >
+            <option value="recent">Mais recente</option>
+            <option value="oldest">Mais antigo</option>
+            <option value="name">Nome (A–Z)</option>
+            <option value="nameDesc">Nome (Z–A)</option>
+          </select>
+          <button
+            type="button"
+            id="projectsSortBtn"
+            class="dc-select-btn dashboard-sort-btn"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-label="Ordenar projetos"
+          >
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4" />
+            </svg>
+            <span class="dc-select-label">Mais recente</span
+            ><svg class="ic-chevron" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+          <div
+            class="dashboard-view-toggle"
+            role="group"
+            aria-label="Modo de exibição"
+          >
+            <button
+              type="button"
+              id="projectsViewList"
+              class="is-active"
+              title="Lista"
+              aria-label="Exibir em lista"
+            >
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" />
+              </svg></button
+            ><button
+              type="button"
+              id="projectsViewGrid"
+              title="Grade"
+              aria-label="Exibir em grade"
+            >
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="4" y="4" width="7" height="7" rx="1.5" />
+                <rect x="13" y="4" width="7" height="7" rx="1.5" />
+                <rect x="4" y="13" width="7" height="7" rx="1.5" />
+                <rect x="13" y="13" width="7" height="7" rx="1.5" />
+              </svg>
+            </button>
+          </div>
         </div>
         <div id="projectsGrid" class="projects-grid"></div>
         <div id="projectsEmpty" class="dashboard-empty hidden">
@@ -3603,6 +3678,6 @@
         </div>
       </div>
     </div>
-    <script type="module" src="app.js?v=115"></script>
+    <script type="module" src="app.js?v=116"></script>
   </body>
 </html>
