@@ -28,6 +28,7 @@ import { runtime } from './js/runtime.js';
 import { importSession, configureInventoryImport, assetStatusValues, makeAssetsTemplate, validateAssetImportRows, renderEditableAssetImportPreview, updateImportPreviewSummary, closeImportPreview, catalogSingleTemplate, openCatalogSingleImport, validateCatalogImportRows, renderCatalogSinglePreviewRows, importCatalogSingleWorkbook, importAssetsWorkbook } from './js/inventory-import.js';
 import { cloud, configureCloudSync, setCloudStatus, updatePlannerProjectName, assetLogDiff, recordAssetAudit, openAssetHistory, closeAssetHistory, exportCurrentAssetHistory, scheduleCloudSave, updateAutosaveUI, setAutosaveEnabled, saveProjectToCloud, importProject, showDashboard, createNewCloudProject, startAuth } from './js/cloud-sync.js';
 import { configureBulkAssets, addBulkRow, openBulkAssetsModal, closeBulkAssetsModal, saveBulkAssets, openAssetsImportModal, bindImportUI } from './js/bulk-assets.js';
+import { cables, configureCables, addCable, downloadCableTemplate, importCablesXLSX, closeCableTypeReviewModal, processCableImportRows, cableSummaryRows, cableEndpointLabel, compactPortLabels, cablesByRoom, exportCablesXLSX, cableSearchHaystack, renderCables, deleteCablesBulk } from './js/cables.js';
 configurePdfReport({ syncActiveRoom, toast, assetWarrantyLevel, assetEndOfLifeLevel, assetsNeedingAttention, allProjectRacks, capacityIssues, bayfaceTypeColor, cableSummaryRows });
 
 const ROOM_KEYS=['rackUnits','rackWidth','rackGap','rackDepth','defaultRowGap','lastUToTray','defaultSlack','rows','racks','cables','trays','trayLinks','trayRackLinks','structureLocked','snapToEdges'];
@@ -2791,328 +2792,7 @@ function renderManualRouteUI(c){
 }
 function refreshVisuals(){normalizeState();render();renderCables();updateAlertsCenterBadge();updateRoomThermalBadge();save();}
 
-function addCable(){if(state.racks.length<2){toast('Crie pelo menos 2 racks');return;}const c={id:uid('cable'),name:`Cabo-${String(state.cables.length+1).padStart(3,'0')}`,originRack:state.racks[0].id,originU:state.racks[0].units,originFace:'front',destRack:state.racks[1].id,destU:state.racks[1].units,destFace:'front',slack:state.defaultSlack,type:defaultCableType(),via:[]};state.cables.push(c);state.multiSelected=[];state.selected={type:'cable',id:c.id};renderAll();toast('Cabo adicionado');}
-
-function cableRouteLabel(c,res){
-  if(!res?.reachable) return '';
-
-  // Show only meaningful infrastructure waypoints:
-  // origin -> rack where the route leaves one tray -> rack where it enters
-  // the next tray -> ... -> destination. Do NOT list every rack simply
-  // crossed by a horizontal tray.
-  const graph=buildRouteGraph(c);
-  if(!graph) return '';
-  const path=res.path||[];
-  if(path.length<2) return '';
-
-  const route=[];
-  const seen=new Set();
-  const addRack=r=>{
-    if(!r||seen.has(r.id))return;
-    seen.add(r.id);
-    route.push(r.name||r.id||'');
-  };
-
-  const origin=state.racks.find(r=>r.id===c.originRack);
-  const dest=state.racks.find(r=>r.id===c.destRack);
-  addRack(origin);
-
-  // Find the rack whose physical access point is closest to a tray
-  // transition. A transition is where the shortest path moves from one tray
-  // to another (crossing or explicit tray-to-tray connection).
-  function rackAtTrayPoint(tray,t){
-    let best=null,bestErr=Infinity;
-    state.racks.forEach(r=>{
-      const row=rowForRack(r);
-      if(!row)return;
-      const rr=rackRect(r,geometry());
-      const cx=rr.x+rr.w/2,cy=rr.y+rr.h/2;
-      const dx=num(tray.x2)-num(tray.x1),dy=num(tray.y2)-num(tray.y1);
-      const denom=dx*dx+dy*dy;
-      if(denom<1e-12)return;
-      const rt=((cx-num(tray.x1))*dx+(cy-num(tray.y1))*dy)/denom;
-      if(rt<-0.000001||rt>1.000001)return;
-      const pp=trayPointAt(tray,rt);
-      const dist=Math.hypot(pp.x-cx,pp.y-cy);
-      const err=Math.abs(rt-num(t));
-      // The rack must actually sit on/near this tray access point. The
-      // generous physical tolerance handles different rack widths and zoom.
-      const tolerance=Math.max(14,geometry().scale*0.16);
-      if(dist>tolerance)return;
-      if(err<bestErr){bestErr=err;best=r;}
-    });
-    return best;
-  }
-
-  for(let i=1;i<path.length-1;i++){
-    const prev=graph.nodes.get(path[i-1]);
-    const cur=graph.nodes.get(path[i]);
-    const next=graph.nodes.get(path[i+1]);
-    if(!prev||!cur||!next)continue;
-
-    const prevTray=prev.tray?.id;
-    const curTray=cur.tray?.id;
-    const nextTray=next.tray?.id;
-
-    // The path can contain zero-cost alias/access nodes. What matters is the
-    // actual tray change between consecutive meaningful tray nodes.
-    if(cur.kind==='tray' && next.kind==='tray' && curTray && nextTray && curTray!==nextTray){
-      const ra=rackAtTrayPoint(cur.tray,cur.t);
-      const rb=rackAtTrayPoint(next.tray,next.t);
-      addRack(ra);
-      addRack(rb);
-    }
-
-    // Also catch a tray transition where the current node is an alias and the
-    // next node is the first node on another tray.
-    if(curTray && nextTray && curTray!==nextTray){
-      const ra=rackAtTrayPoint(cur.tray,cur.t);
-      const rb=rackAtTrayPoint(next.tray,next.t);
-      addRack(ra);
-      addRack(rb);
-    }
-  }
-
-  addRack(dest);
-  return route.filter(Boolean).join(' > ');
-}
-function applyTypeValidation(ws, range='B2:B1000'){
-  if(!ws)return;
-  const formula=`"${cableTypeNames().join(',')}"`;
-  for(let row=2;row<=1000;row++){
-    const cell=ws.getCell(`B${row}`);
-    cell.dataValidation={type:'list',allowBlank:false,formulae:[formula]};
-  }
-}
-async function downloadCableTemplate(){
-  try{
-    if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
-    const wb=new ExcelJS.Workbook();
-    const ws=wb.addWorksheet('Cabos');
-    const headers=['Nome','Tipo','Rack Origem','U Origem','Face Origem','Nome Asset Origem','Porta Origem','Rack Destino','U Destino','Face Destino','Nome Asset Destino','Porta Destino'];
-    ws.addRow(headers);
-    ws.addRow(['FIB-001',defaultCableType(),'Row-1-01',40,'Frente','SWITCH01','G0/0/1','Row-2-01',40,'Frente','ROUTER01','G0/0/2']);
-    ws.freezePanes={xSplit:0,ySplit:1};
-    ws.autoFilter={from:'A1',to:'L2'};
-    ws.getRow(1).font={bold:true};
-    ws.columns=[{width:20},{width:24},{width:20},{width:12},{width:14},{width:20},{width:16},{width:20},{width:12},{width:14},{width:20},{width:16}];
-    const note=ws.getCell('N1'); note.value='Porta Origem e Porta Destino são opcionais. Se o modelo do asset já tiver portas cadastradas, o nome precisa ser idêntico a uma delas. Se o modelo não tiver portas cadastradas, o texto informado é aceito livremente, sem validação. Nome Asset Origem/Destino é opcional: se já existir um asset cadastrado naquele rack/U/face, o sistema usa o nome dele automaticamente; se não existir, o texto informado é aceito livremente, sem criar nenhum asset novo. Face Origem/Destino: Frente ou Traseira (deixado em branco vira Frente).'; note.font={italic:true,color:{argb:'FF8B96AC'}};
-    applyTypeValidation(ws);
-
-    // Lista suspensa de racks (origem e destino) e de face, igual à de Tipo —
-    // usa uma aba de referência oculta em vez de lista inline, pra não esbarrar
-    // no limite de caracteres do Excel quando há muitos racks no projeto.
-    const refWs=wb.addWorksheet('NÃO EDITAR - Referência');
-    // Cabos são por sala — a lista só traz racks da sala ativa, não do projeto
-    // inteiro, senão apareceria rack de outra sala pra escolher aqui.
-    const allRacks=[...new Set(state.racks.map(r=>r.name).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    refWs.getColumn(1).values=['Racks',...allRacks];
-    refWs.getColumn(2).values=['Face','Frente','Traseira'];
-    refWs.state='hidden';
-    const rackRange=`'NÃO EDITAR - Referência'!$A$2:$A$${Math.max(2,allRacks.length+1)}`;
-    const faceRange=`'NÃO EDITAR - Referência'!$B$2:$B$3`;
-    for(let row=2;row<=1000;row++){
-      ws.getCell(`C${row}`).dataValidation={type:'list',allowBlank:true,formulae:[rackRange]};
-      ws.getCell(`E${row}`).dataValidation={type:'list',allowBlank:true,formulae:[faceRange]};
-      ws.getCell(`H${row}`).dataValidation={type:'list',allowBlank:true,formulae:[rackRange]};
-      ws.getCell(`J${row}`).dataValidation={type:'list',allowBlank:true,formulae:[faceRange]};
-    }
-
-    const buf=await wb.xlsx.writeBuffer();
-    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='template-importacao-cabos.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-    toast('Template XLSX baixado');
-  }catch(err){toast(err.message||'Erro ao baixar template');}
-}
-let pendingCableImportRows=null;
-const CABLE_TYPE_AUTO_COLORS=['#f472b6','#a78bfa','#fb923c','#34d399','#60a5fa','#f87171','#c084fc','#38bdf8'];
-function importCablesXLSX(file){
-  try{
-    const reader=new FileReader();
-    reader.onload=()=>{
-      try{
-        const wb=XLSX.read(new Uint8Array(reader.result),{type:'array'});
-        const ws=wb.Sheets[wb.SheetNames[0]];
-        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-        if(!rows.length)throw new Error('O arquivo Excel está vazio.');
-        const headers=rows[0].map(v=>String(v??'').trim());
-        const map={};headers.forEach((h,i)=>map[h]=i);
-        const required=['Nome','Tipo','Rack Origem','U Origem','Rack Destino','U Destino'];
-        const missing=required.filter(h=>!(h in map));
-        if(missing.length)throw new Error('Colunas obrigatórias ausentes: '+missing.join(', '));
-        const dataRows=rows.slice(1).filter(row=>row.some(v=>v!==null&&String(v).trim()));
-
-        // Detecta tipos usados na planilha que não batem (ignorando maiúscula/
-        // minúscula e acentos) com nenhum tipo já cadastrado no catálogo.
-        normalizeCableCatalogs();
-        const existingTypes=cableTypeNames();
-        const existingNorm=new Map(existingTypes.map(t=>[catalogNormalize(t),t]));
-        const newTypesSeen=new Map(); // normalizado -> {label, count}
-        dataRows.forEach(row=>{
-          const raw=String(map['Tipo']!=null?(row[map['Tipo']]??''):'').trim();
-          if(!raw)return;
-          const norm=catalogNormalize(raw);
-          if(existingNorm.has(norm))return;
-          if(!newTypesSeen.has(norm))newTypesSeen.set(norm,{label:raw,count:0});
-          newTypesSeen.get(norm).count++;
-        });
-
-        pendingCableImportRows={map,dataRows};
-        if(newTypesSeen.size){
-          openCableTypeReviewModal([...newTypesSeen.values()],existingTypes);
-        }else{
-          processCableImportRows();
-        }
-      }catch(err){toast(err.message||'Erro ao importar Excel');}
-    };
-    reader.readAsArrayBuffer(file);
-  }catch(err){toast(err.message||'Erro ao importar Excel');}
-}
-function openCableTypeReviewModal(newTypes,existingTypes){
-  const list=$('cableTypeReviewList');
-  if(list){
-    list.innerHTML=newTypes.map(t=>{
-      const similar=catalogSimilar(t.label,existingTypes);
-      return `<label class="cable-type-review-item"><input type="checkbox" data-cable-type-review="${esc(t.label)}" checked><span class="cable-type-review-name">${esc(t.label)}</span><span class="cable-type-review-count">${t.count}× na planilha</span></label>${similar.length?`<div class="cable-type-review-warning">⚠ Parecido com "${esc(similar[0])}", já cadastrado — pode ser o mesmo tipo escrito diferente.</div>`:''}`;
-    }).join('');
-  }
-  const m=$('cableTypeReviewModal'); if(!m)return;
-  m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');
-}
-function closeCableTypeReviewModal(){
-  const m=$('cableTypeReviewModal'); if(!m)return;
-  m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');
-}
-function processCableImportRows(selectedNewTypes=[]){
-  if(!pendingCableImportRows)return;
-  const {map,dataRows}=pendingCableImportRows;
-  pendingCableImportRows=null;
-  // Cadastra no catálogo só os tipos marcados na revisão — os demais ainda
-  // são usados nos cabos importados, só não ficam salvos pra uso futuro.
-  if(selectedNewTypes.length){
-    normalizeCableCatalogs();
-    let colorIdx=state.cableCatalogs.types.length;
-    selectedNewTypes.forEach(label=>{
-      if(!cableTypeNames().some(t=>catalogNormalize(t)===catalogNormalize(label))){
-        state.cableCatalogs.types.push({name:label,color:CABLE_TYPE_AUTO_COLORS[colorIdx%CABLE_TYPE_AUTO_COLORS.length]});
-        colorIdx++;
-      }
-    });
-  }
-  const val=(row,name,def='')=>{const i=map[name];return i==null||i>=row.length||row[i]===''||row[i]==null?def:row[i];};
-  let added=0,skipped=0,portsUnmatched=0;
-  for(const row of dataRows){
-    const origin=state.racks.find(r=>r.name===String(val(row,'Rack Origem','')).trim());
-    const dest=state.racks.find(r=>r.name===String(val(row,'Rack Destino','')).trim());
-    if(!origin||!dest){skipped++;continue;}
-    const typeRaw=String(val(row,'Tipo',defaultCableType())).trim();
-    // Usa o tipo já cadastrado com a grafia oficial dele (ignora diferença de
-    // maiúscula/minúscula), ou o texto da planilha se for um tipo não marcado
-    // pra cadastro (segue existindo só naquele cabo).
-    const matched=cableTypeNames().find(t=>catalogNormalize(t)===catalogNormalize(typeRaw));
-    const type=matched||typeRaw||defaultCableType();
-    const originU=Math.floor(num(val(row,'U Origem',origin.units),origin.units));
-    const destU=Math.floor(num(val(row,'U Destino',dest.units),dest.units));
-    const originFace=String(val(row,'Face Origem','')).trim().toLowerCase()==='traseira'?'rear':'front';
-    const destFace=String(val(row,'Face Destino','')).trim().toLowerCase()==='traseira'?'rear':'front';
-    const originAssets=[assetAtRackU(state.assets,origin.id,originU,originFace)].filter(Boolean);
-    const destAssets=[assetAtRackU(state.assets,dest.id,destU,destFace)].filter(Boolean);
-    const findPortByLabel=(list,label)=>{
-      for(const a of list){
-        const port=(a.ports||[]).find(p=>p.label===label);
-        if(port)return {asset:a,port};
-      }
-      return null;
-    };
-    let originPortId=null, destPortId=null, originPortLabelFree='', destPortLabelFree='';
-    const originPortLabel=String(val(row,'Porta Origem','')).trim();
-    const destPortLabel=String(val(row,'Porta Destino','')).trim();
-    const originHit=originPortLabel?findPortByLabel(originAssets,originPortLabel):null;
-    const destHit=destPortLabel?findPortByLabel(destAssets,destPortLabel):null;
-    if(originPortLabel){
-      if(originHit)originPortId=originHit.port.id;
-      else if(originAssets.some(a=>a.ports?.length))portsUnmatched++;
-      else originPortLabelFree=originPortLabel; // sem portas cadastradas no modelo: aceita o texto livre sem validar
-    }
-    if(destPortLabel){
-      if(destHit)destPortId=destHit.port.id;
-      else if(destAssets.some(a=>a.ports?.length))portsUnmatched++;
-      else destPortLabelFree=destPortLabel;
-    }
-    // Se já existe um asset instalado nessa U, o nome vem sempre dele;
-    // senão, aceita o texto informado livremente, sem criar asset.
-    const originAsset=originHit?.asset||(originAssets.length===1?originAssets[0]:null);
-    const destAsset=destHit?.asset||(destAssets.length===1?destAssets[0]:null);
-    const originAssetName=originAsset?originAsset.name:String(val(row,'Nome Asset Origem','')).trim();
-    const destAssetName=destAsset?destAsset.name:String(val(row,'Nome Asset Destino','')).trim();
-    state.cables.push({id:uid('cable'),name:String(val(row,'Nome',`Cabo-${String(state.cables.length+1).padStart(3,'0')}`)).trim(),type,originRack:origin.id,originU,originFace,originPortId,originPortLabel:originPortLabelFree,originAssetName,destRack:dest.id,destU,destFace,destPortId,destPortLabel:destPortLabelFree,destAssetName,slack:state.defaultSlack,via:[]});
-    added++;
-  }
-  renderAll();
-  const parts=[`${added} cabo(s) importado(s).`];
-  if(skipped)parts.push(`${skipped} ignorado(s).`);
-  if(portsUnmatched)parts.push(`${portsUnmatched} porta(s) não encontrada(s) e deixada(s) em branco.`);
-  toast(parts.join(' '));
-}
-function cableSummaryRows(){
-  const groups=new Map();
-  let invalid=0,unreachable=0;
-  for(const c of state.cables){
-    const v=cableUnitValidation(c);
-    if(!v.valid){invalid++;continue;}
-    const res=calcCable(c);
-    if(!res.reachable){unreachable++;continue;}
-    const length=Math.ceil(res.total);
-    const type=c.type||defaultCableType();
-    const key=type+'|'+length;
-    groups.set(key,(groups.get(key)||0)+1);
-  }
-  const order=new Map(cableTypeNames().map((t,i)=>[t,i]));
-  return [...groups.entries()].map(([key,qty])=>{const [type,length]=key.split('|');return {type,length:Number(length),qty};})
-    .sort((a,b)=>(order.get(a.type)-order.get(b.type))||a.length-b.length);
-}
-function cablePortAt(rackId,u,portId,face='front'){
-  if(!portId)return null;
-  const asset=assetOwningPort(state.assets,portId)||assetAtRackU(state.assets,rackId,u,face);
-  const p=asset?.ports?.find(p=>p.id===portId);
-  return p||null;
-}
-function cableEndpointLabel(rackId,u,portId,freeformLabel='',assetNameFallback='',face='front'){
-  const rack=state.racks.find(r=>r.id===rackId);
-  const asset=assetOwningPort(state.assets,portId)||assetAtRackU(state.assets,rackId,u,face);
-  const port=cablePortAt(rackId,u,portId,face);
-  return [rack?.name||'—',`${u}U`,asset?.name||assetNameFallback||'—',port?.label||freeformLabel||'—'].join(' - ');
-}
-function compactPortLabels(labels){
-  if(!labels.length)return '';
-  const groups=new Map();
-  const singles=[];
-  labels.forEach(label=>{
-    const t=parsePortTemplate(label);
-    if(!t){singles.push(label);return;}
-    const key=t.prefix+'\u0000'+t.suffix;
-    if(!groups.has(key))groups.set(key,[]);
-    groups.get(key).push({num:t.num,label});
-  });
-  const segments=[];
-  groups.forEach(arr=>{
-    arr.sort((a,b)=>a.num-b.num);
-    let i=0;
-    while(i<arr.length){
-      let j=i;
-      while(j+1<arr.length && arr[j+1].num===arr[j].num+1) j++;
-      segments.push(j>i?`${arr[i].label} - ${arr[j].label}`:arr[i].label);
-      i=j+1;
-    }
-  });
-  return [...segments,...singles].join(', ');
-}
-function cablesByRoom(){
-  syncActiveRoom();
-  const map=new Map();
-  (state.rooms||[]).forEach(r=>map.set(r.id,r.data?.cables||[]));
-  return map;
-}
+configureCables({ syncActiveRoom, normalizeCableCatalogs, cableTypeNames, defaultCableType, cableTypeColor, toast, cableUnitValidation, renderAll });
 async function exportAssetsXLSX(){
   try{
     if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
@@ -3145,147 +2825,6 @@ async function exportAssetsXLSX(){
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(state.projectName||'data-center')}-assets.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     toast('Assets exportados');
   }catch(err){toast(err.message||'Erro ao exportar Excel');}
-}
-async function exportCablesXLSX(){
-  try{
-    if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
-    const headers=['Nome','Tipo','Rack Origem','U Origem','Face Origem','Nome Asset Origem','Porta Origem','Rack Destino','U Destino','Face Destino','Nome Asset Destino','Porta Destino','Vertical Origem (m)','Trecho Calhas (m)','Vertical Destino (m)','Conexões (m)','Base (m)','Folga (m)','Total (m)','Total Arredondado (m)','Rota','Etiqueta'];
-    const labelCol=headers.indexOf('Etiqueta')+1;
-    const rows=state.cables.map(c=>{
-      const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack),res=calcCable(c);
-      const originFace=c.originFace==='rear'?'rear':'front', destFace=c.destFace==='rear'?'rear':'front';
-      const oPort=cablePortAt(c.originRack,c.originU,c.originPortId,originFace), dPort=cablePortAt(c.destRack,c.destU,c.destPortId,destFace);
-      const label=`${cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName,originFace)}\n${cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName,destFace)}`;
-      return [c.name,c.type||defaultCableType(),o?.name||'',c.originU,originFace==='rear'?'Traseira':'Frente',c.originAssetName||'',oPort?.label||c.originPortLabel||'',d?.name||'',c.destU,destFace==='rear'?'Traseira':'Frente',c.destAssetName||'',dPort?.label||c.destPortLabel||'',res.v1,res.tray,res.v2,res.connection,res.base,res.slack,res.total,res.reachable?Math.ceil(res.total):'',cableRouteLabel(c,res),label];
-    });
-    const wb=new ExcelJS.Workbook();
-    const ws=wb.addWorksheet('Cabos');
-    ws.addRow(headers); rows.forEach(r=>ws.addRow(r));
-    ws.freezePanes={xSplit:0,ySplit:1}; ws.autoFilter={from:'A1',to:`${excelColumnLetter(headers.length)}${Math.max(1,rows.length+1)}`}; ws.getRow(1).font={bold:true};
-    ws.columns=headers.map((h,i)=>i+1===labelCol?{width:44}:{width:Math.min(60,Math.max(12,Math.max(h.length,...rows.map(r=>String(r[i]??'').length))+2))});
-    for(let i=2;i<=rows.length+1;i++){
-      ws.getCell(`B${i}`).dataValidation={type:'list',allowBlank:false,formulae:[`"${cableTypeNames().join(',')}"`]};
-      const cell=ws.getCell(i,labelCol); cell.alignment={wrapText:true,vertical:'top'};
-      ws.getRow(i).height=30;
-    }
-    const summary=wb.addWorksheet('Resumo');
-    summary.addRow(['RESUMO DE CABOS']); summary.getRow(1).font={bold:true,size:14};
-    summary.addRow([]); summary.addRow(['Tipo','Metragem (m)','Quantidade']);
-    summary.getRow(3).font={bold:true};
-    const summaryRows=cableSummaryRows();
-    summaryRows.forEach(r=>summary.addRow([r.type,r.length,r.qty]));
-    const totalQty=summaryRows.reduce((s,r)=>s+r.qty,0);
-    const totalMeters=summaryRows.reduce((s,r)=>s+r.length*r.qty,0);
-    summary.addRow([]); summary.addRow(['TOTAL','',totalQty]);
-    summary.addRow(['Metragem total arredondada (m)',totalMeters,'']);
-    const invalid=state.cables.filter(c=>!cableUnitValidation(c).valid).length;
-    const unreachable=state.cables.filter(c=>cableUnitValidation(c).valid&&!calcCable(c).reachable).length;
-    summary.addRow([]); summary.addRow(['Cabos inválidos',invalid]); summary.addRow(['Cabos sem rota',unreachable]);
-    summary.columns=[{width:26},{width:18},{width:16}];
-    const buf=await wb.xlsx.writeBuffer();
-    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(state.projectName||'data-center')}-cabos.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-    toast('Cabos exportados com resumo');
-  }catch(err){toast(err.message||'Erro ao exportar Excel');}
-}
-
-let cablesSearchQuery='';
-let cableMultiSelected=[];
-function cableSearchHaystack(c){
-  const o=state.racks.find(r=>r.id===c.originRack), d=state.racks.find(r=>r.id===c.destRack);
-  const originLabel=cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName,c.originFace);
-  const destLabel=cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName,c.destFace);
-  return [c.name,c.type,o?.name,d?.name,c.originU,c.destU,c.originPortLabel,c.destPortLabel,c.originAssetName,c.destAssetName,originLabel,destLabel].filter(Boolean).join(' ').toLowerCase();
-}
-let cablesFilterMode='all';
-const CABLE_ICONS={
-  plug:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v9l-3 3H8l-3-3Z"/><path d="M9 6v4M12 6v4M15 6v4"/></svg>',
-  ruler:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 12-12 4 4L8 20z"/><path d="m8 12 2 2M11 9l2 2M14 6l2 2"/></svg>'
-};
-function cableEndpointParts(rackId,u,portId,freeformLabel='',assetNameFallback='',face='front'){
-  const rack=state.racks.find(r=>r.id===rackId);
-  const asset=assetOwningPort(state.assets,portId)||assetAtRackU(state.assets,rackId,u,face);
-  const port=cablePortAt(rackId,u,portId,face);
-  return {rack:rack?.name||'',u,asset:asset?.name||assetNameFallback||'',port:port?.label||freeformLabel||''};
-}
-function cableStatusInfo(c){
-  if(!cableUnitValidation(c).valid)return {key:'bad',text:'Cabo inválido',total:0,reachable:false};
-  const res=calcCable(c);
-  const o=cableEndpointParts(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName,c.originFace);
-  const d=cableEndpointParts(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName,c.destFace);
-  const oOk=!!(o.asset&&o.port), dOk=!!(d.asset&&d.port);
-  const base={total:res.total,reachable:res.reachable};
-  if(!oOk&&!dOk)return {...base,key:'warn',text:'Portas não definidas'};
-  if(!oOk)return {...base,key:'warn',text:'Origem não definida'};
-  if(!dOk)return {...base,key:'warn',text:'Destino não definido'};
-  if(!res.reachable)return {...base,key:'warn',text:'Sem rota'};
-  return {...base,key:'ok',text:'Conectado'};
-}
-function renderCables(){
-  const el=$('cablesList'); if(!el)return;
-  $('cableCount').textContent=`${state.cables.length} cabo${state.cables.length===1?'':'s'}`;
-  cableMultiSelected=cableMultiSelected.filter(id=>state.cables.some(c=>c.id===id));
-  const q=cablesSearchQuery.trim().toLowerCase();
-  const infoOf=new Map(state.cables.map(c=>[c.id,cableStatusInfo(c)]));
-  const filtered=state.cables.filter(c=>(!q||cableSearchHaystack(c).includes(q))&&(cablesFilterMode==='all'||(cablesFilterMode==='ok')===(infoOf.get(c.id).key==='ok')));
-  if(!filtered.length){el.innerHTML=`<div class="empty">${(q||cablesFilterMode!=='all')?'Nenhum cabo encontrado.':'Nenhum cabo cadastrado.'}</div>`;}
-  else{
-    el.innerHTML=filtered.map(c=>{
-      const invalid=!cableUnitValidation(c).valid;
-      const info=infoOf.get(c.id);
-      const o=cableEndpointParts(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName,c.originFace);
-      const d=cableEndpointParts(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName,c.destFace);
-      const checked=cableMultiSelected.includes(c.id);
-      const isSelected=state.selected?.type==='cable'&&state.selected.id===c.id;
-      const color=cableTypeColor(c.type);
-      const length=info.reachable?`${Math.ceil(info.total)} m`:'—';
-      const endBox=(kind,e)=>{const text=[e.rack||'—',e.u?`U${e.u}`:'—',e.asset||'—',e.port||'—'].join(' - ');return `<div class="cable-end ${kind}" title="${esc(text)}"><i></i><span class="cable-end-text">${esc(text)}</span></div>`;};
-      return `<div class="cable-item ${isSelected?'selected':''} ${invalid?'invalid':''} ${checked?'is-checked':''}" style="--cable-color:${esc(color)};${isSelected?'':`border-left-color:${esc(color)}`}" data-cable="${c.id}">
-        <label class="cable-item-check" onclick="event.stopPropagation()"><input type="checkbox" data-cable-check="${c.id}" ${checked?'checked':''}></label>
-        <div class="cable-item-main">
-          <div class="cable-item-top">
-            <span class="cable-item-icon">${CABLE_ICONS.plug}</span>
-            <div class="cable-item-title"><div class="cable-name-row"><span class="cable-name">${esc(c.name)}</span><span class="cable-len" title="Comprimento arredondado">${CABLE_ICONS.ruler}${length}</span></div></div>
-            <span class="cable-type-tag">${esc(c.type||'')}</span>
-          </div>
-          <div class="cable-route">
-            ${endBox('origin',o)}
-            ${endBox('dest',d)}
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-  }
-  el.querySelectorAll('[data-cable]').forEach(x=>x.onclick=e=>{e.stopPropagation();state.multiSelected=[];state.selected={type:'cable',id:x.dataset.cable};renderAll();});
-  el.querySelectorAll('[data-cable-check]').forEach(cb=>cb.onchange=()=>{
-    const id=cb.dataset.cableCheck;
-    if(cb.checked){if(!cableMultiSelected.includes(id))cableMultiSelected.push(id);}
-    else cableMultiSelected=cableMultiSelected.filter(x=>x!==id);
-    renderCables();
-  });
-  const selectAll=$('cablesSelectAll');
-  if(selectAll){
-    const visibleIds=filtered.map(c=>c.id);
-    const selectedVisible=visibleIds.filter(id=>cableMultiSelected.includes(id)).length;
-    selectAll.checked=visibleIds.length>0&&selectedVisible===visibleIds.length;
-    selectAll.indeterminate=selectedVisible>0&&selectedVisible<visibleIds.length;
-  }
-  updateCablesBulkBar();
-}
-function updateCablesBulkBar(){
-  const bar=$('cablesBulkBar'); if(!bar)return;
-  bar.classList.toggle('hidden',cableMultiSelected.length===0);
-  if($('cablesBulkCount'))$('cablesBulkCount').textContent=String(cableMultiSelected.length);
-}
-async function deleteCablesBulk(){
-  const ids=[...cableMultiSelected];
-  if(!ids.length)return;
-  const ok=await uiConfirm('',{title:`Excluir ${ids.length} cabo(s) selecionado(s)?`,confirmText:'Excluir cabos',danger:true});
-  if(!ok)return;
-  state.cables=state.cables.filter(c=>!ids.includes(c.id));
-  if(state.selected?.type==='cable' && ids.includes(state.selected.id))state.selected=null;
-  cableMultiSelected=[];
-  renderAll();toast(`${ids.length} cabo(s) excluído(s)`);
 }
 function ensureFields(){$('projectName').value=state.projectName;$('rowCount').value=state.rows.length;$('defaultRacks').value=state.rows[0]?.rackCount??0;$('rackUnits').value=state.rackUnits;$('rackWidth').value=state.rackWidth;$('rackDepth').value=state.rackDepth;$('rackGap').value=state.rackGap;$('rackPowerCapacity').value=state.rackPowerCapacityW>0?state.rackPowerCapacityW:'';$('rackWeightCapacity').value=state.rackWeightCapacityKg>0?state.rackWeightCapacityKg:'';$('defaultRowGap').value=state.defaultRowGap;$('lastUToTray').value=state.lastUToTray;$('defaultSlack').value=state.defaultSlack;}
 function updateCanvasEmptyHint(){
@@ -3884,7 +3423,7 @@ function bind(){
   
   $('quickSearchInput')?.addEventListener('input',e=>{quickSearchIndex=0;renderQuickSearchResults(e.target.value);});
   $('quickSearchInput')?.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();if(quickSearchItems.length){quickSearchIndex=(quickSearchIndex+1)%quickSearchItems.length;renderQuickSearchResults(e.target.value);}}else if(e.key==='ArrowUp'){e.preventDefault();if(quickSearchItems.length){quickSearchIndex=(quickSearchIndex-1+quickSearchItems.length)%quickSearchItems.length;renderQuickSearchResults(e.target.value);}}else if(e.key==='Enter'&&quickSearchItems[quickSearchIndex]){e.preventDefault();activateSearchResult(quickSearchItems[quickSearchIndex].type,quickSearchItems[quickSearchIndex].id);}});
-  window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openQuickSearch();}else if(e.key==='Escape'){if(document.querySelector('.dc-select-panel'))closeStyledSelectPanels();else if($('cableTypeReviewModal')?.classList.contains('open')){pendingCableImportRows=null;closeCableTypeReviewModal();}else if($('pdfReportOptionsModal')?.classList.contains('open'))closePdfReportOptions();else if($('helpModal')?.classList.contains('open'))closeHelpModal();else if($('quickSearchModal')?.classList.contains('open'))closeQuickSearch();else if($('projectSummaryModal')?.classList.contains('open'))closeProjectSummary();else if($('catalogEditorModal')?.classList.contains('open'))closeCatalogEditor();else if($('assetCatalogModal')?.classList.contains('open'))closeAssetCatalogModal();else if($('assetsModal')?.classList.contains('open'))closeAssetsModal();else if($('assetEditModal')?.classList.contains('open'))closeAssetModal();else if($('bayfaceAssetPickerModal')?.classList.contains('open'))closeBayfaceAssetPicker();else if($('bayfaceModal')?.classList.contains('open'))closeBayface();}});
+  window.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openQuickSearch();}else if(e.key==='Escape'){if(document.querySelector('.dc-select-panel'))closeStyledSelectPanels();else if($('cableTypeReviewModal')?.classList.contains('open')){cables.pendingCableImportRows=null;closeCableTypeReviewModal();}else if($('pdfReportOptionsModal')?.classList.contains('open'))closePdfReportOptions();else if($('helpModal')?.classList.contains('open'))closeHelpModal();else if($('quickSearchModal')?.classList.contains('open'))closeQuickSearch();else if($('projectSummaryModal')?.classList.contains('open'))closeProjectSummary();else if($('catalogEditorModal')?.classList.contains('open'))closeCatalogEditor();else if($('assetCatalogModal')?.classList.contains('open'))closeAssetCatalogModal();else if($('assetsModal')?.classList.contains('open'))closeAssetsModal();else if($('assetEditModal')?.classList.contains('open'))closeAssetModal();else if($('bayfaceAssetPickerModal')?.classList.contains('open'))closeBayfaceAssetPicker();else if($('bayfaceModal')?.classList.contains('open'))closeBayface();}});
   // Cadeado já foi inicializado por setupStructureLockControl().
   updateStructureControls();
   if($('btnProjects'))$('btnProjects').onclick=async()=>{
@@ -3907,22 +3446,22 @@ function bind(){
   };
   $('btnAddTray').onclick=()=>{ if(structureBlocked())return; const g=geometry(); const y=g.rows.length?g.rows[0].y-80:VIEW_PAD; createIndependentTray(g,g.x0,y,g.x0+Math.max(240,g.scale*3),y); };
   $('btnAddCablePanel')?.addEventListener('click',addCable);$('btnImport').onclick=()=>$('excelInput').click();
-  bindStyledSelect('cablesFilter','cablesFilterBtn');$('cablesFilter')?.addEventListener('change',()=>{cablesFilterMode=$('cablesFilter').value;syncSelectButton('cablesFilter','cablesFilterBtn');renderCables();});
-  $('cablesSearch')?.addEventListener('input',()=>{cablesSearchQuery=$('cablesSearch').value;renderCables();});
+  bindStyledSelect('cablesFilter','cablesFilterBtn');$('cablesFilter')?.addEventListener('change',()=>{cables.cablesFilterMode=$('cablesFilter').value;syncSelectButton('cablesFilter','cablesFilterBtn');renderCables();});
+  $('cablesSearch')?.addEventListener('input',()=>{cables.cablesSearchQuery=$('cablesSearch').value;renderCables();});
   $('cablesBulkDelete')?.addEventListener('click',deleteCablesBulk);
-  $('cablesBulkClear')?.addEventListener('click',()=>{cableMultiSelected=[];renderCables();});
-  $('cableTypeReviewClose')?.addEventListener('click',()=>{pendingCableImportRows=null;closeCableTypeReviewModal();});
-  $('cableTypeReviewCancel')?.addEventListener('click',()=>{pendingCableImportRows=null;closeCableTypeReviewModal();toast('Importação cancelada');});
+  $('cablesBulkClear')?.addEventListener('click',()=>{cables.cableMultiSelected=[];renderCables();});
+  $('cableTypeReviewClose')?.addEventListener('click',()=>{cables.pendingCableImportRows=null;closeCableTypeReviewModal();});
+  $('cableTypeReviewCancel')?.addEventListener('click',()=>{cables.pendingCableImportRows=null;closeCableTypeReviewModal();toast('Importação cancelada');});
   $('cableTypeReviewConfirm')?.addEventListener('click',()=>{
     const selected=[...document.querySelectorAll('#cableTypeReviewList [data-cable-type-review]:checked')].map(cb=>cb.dataset.cableTypeReview);
     closeCableTypeReviewModal();
     processCableImportRows(selected);
   });
   $('cablesSelectAll')?.addEventListener('change',e=>{
-    const q=cablesSearchQuery.trim().toLowerCase();
+    const q=cables.cablesSearchQuery.trim().toLowerCase();
     const visible=q?state.cables.filter(c=>cableSearchHaystack(c).includes(q)):state.cables;
-    if(e.target.checked){visible.forEach(c=>{if(!cableMultiSelected.includes(c.id))cableMultiSelected.push(c.id);});}
-    else{const visibleIds=new Set(visible.map(c=>c.id));cableMultiSelected=cableMultiSelected.filter(id=>!visibleIds.has(id));}
+    if(e.target.checked){visible.forEach(c=>{if(!cables.cableMultiSelected.includes(c.id))cables.cableMultiSelected.push(c.id);});}
+    else{const visibleIds=new Set(visible.map(c=>c.id));cables.cableMultiSelected=cables.cableMultiSelected.filter(id=>!visibleIds.has(id));}
     renderCables();
   });
   $('btnTemplate').onclick=downloadCableTemplate;
