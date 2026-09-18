@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=136" />
+    <link rel="stylesheet" href="app.css?v=141" />
     <link rel="stylesheet" href="macos.css?v=10" />
   </head>
   <body>
@@ -783,6 +783,23 @@
           <div id="canvasStage">
             <svg id="layout" xmlns="http://www.w3.org/2000/svg"></svg>
           </div>
+          <div
+            id="heatControl"
+            class="heat-control"
+            role="group"
+            aria-label="Colorir racks por"
+          >
+            <div class="heat-modes">
+              <span class="heat-label">Colorir por</span>
+              <button type="button" data-heat="off" class="active" aria-pressed="true">Normal</button>
+              <button type="button" data-heat="u" aria-pressed="false">Ocupação</button>
+              <button type="button" data-heat="power" aria-pressed="false">Energia</button>
+              <button type="button" data-heat="weight" aria-pressed="false">Peso</button>
+              <button type="button" data-heat="alerts" aria-pressed="false">Alertas</button>
+            </div>
+            <div id="heatLegend" class="heat-legend hidden"></div>
+          </div>
+          <div id="rackTooltip" class="rack-tooltip hidden" role="tooltip"></div>
           <div id="canvasEmptyHint" class="canvas-empty-hint hidden">
             <button
               type="button"
@@ -3729,6 +3746,6 @@
         </div>
       </div>
     </div>
-    <script type="module" src="app.js?v=121"></script>
+    <script type="module" src="app.js?v=125"></script>
   </body>
 </html>

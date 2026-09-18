@@ -29,6 +29,7 @@ import { importSession, configureInventoryImport, assetStatusValues, makeAssetsT
 import { cloud, configureCloudSync, setCloudStatus, updatePlannerProjectName, assetLogDiff, recordAssetAudit, openAssetHistory, closeAssetHistory, exportCurrentAssetHistory, scheduleCloudSave, updateAutosaveUI, setAutosaveEnabled, saveProjectToCloud, importProject, showDashboard, createNewCloudProject, startAuth } from './js/cloud-sync.js';
 import { configureBulkAssets, addBulkRow, openBulkAssetsModal, closeBulkAssetsModal, saveBulkAssets, openAssetsImportModal, bindImportUI } from './js/bulk-assets.js';
 import { cables, configureCables, addCable, downloadCableTemplate, importCablesXLSX, closeCableTypeReviewModal, processCableImportRows, cableSummaryRows, cableEndpointLabel, compactPortLabels, cablesByRoom, exportCablesXLSX, cableSearchHaystack, renderCables, deleteCablesBulk } from './js/cables.js';
+import { HEAT_MODES, levelForRatio, computeRackMetrics, heatLevel, summarizeRackMetrics } from './js/rack-metrics.js';
 import { catalogs, configureCatalogs, DEFAULT_ASSET_TYPES, DEFAULT_ASSET_STATUSES, DEFAULT_ASSET_SUBSTATUSES, normalizeAssetCatalogs, bayfaceTypeColor, renderCableTypesCatalog, renderAssetCatalogs, roomThermalLoad, openRoomEditor, closeRoomEditor, saveRoomEditor, addAssetLocation, openAssetCatalogModal, openLocationsModal, closeAssetCatalogModal, renderAssetCatalogManufacturerSelect, renderAssetCatalogTypeSelect, renderCatalogPortDefsEditor, openCatalogEditor, closeCatalogEditor, saveCatalogEditor, renderAssetCatalogSelects } from './js/catalogs.js';
 configurePdfReport({ syncActiveRoom, toast, assetWarrantyLevel, assetEndOfLifeLevel, assetsNeedingAttention, allProjectRacks, capacityIssues, bayfaceTypeColor, cableSummaryRows });
 
@@ -656,8 +657,127 @@ function createIndependentTray(g,x1,y1,x2,y2){
   state.trays.push(t);state.multiSelected=[];state.trayMultiSelected=[t.id];state.selected={type:'tray',id:t.id};renderAll();toast('Calha independente criada');
 }
 
+// --- Camadas de calor, dica do rack e resumo da sala --------------------------
+const HEAT_STORAGE='dc-planner-heat-mode';
+let heatMode=(()=>{try{const v=localStorage.getItem(HEAT_STORAGE);return HEAT_MODES.includes(v)?v:'off';}catch{return 'off';}})();
+let rackStats=new Map();
+function assetLifecycleLevel(a){const w=assetWarrantyLevel(a),e=assetEndOfLifeLevel(a);return (w==='expired'||e==='expired')?'expired':(w==='soon'||e==='soon')?'soon':'ok';}
+function computeStats(){return computeRackMetrics(state.racks,state.assets,{defaultUnits:state.rackUnits,lifecycleLevel:assetLifecycleLevel});}
+const HEAT_LEGEND_CAP=[['l1','< 50%'],['l2','50–80%'],['l3','80–100%'],['l4','> 100%'],['none','Sem capacidade']];
+const HEAT_LEGENDS={
+  u:[['l1','< 50%'],['l2','50–80%'],['l3','80–100%']],
+  power:HEAT_LEGEND_CAP,
+  weight:HEAT_LEGEND_CAP,
+  alerts:[['l1','Sem alerta'],['l3','Atenção'],['l4','Crítico']]
+};
+function updateHeatControl(){
+  const box=$('heatControl'); if(!box)return;
+  box.querySelectorAll('[data-heat]').forEach(b=>{const on=b.dataset.heat===heatMode;b.classList.toggle('active',on);b.setAttribute('aria-pressed',on?'true':'false');});
+  const legend=$('heatLegend'); if(!legend)return;
+  const items=HEAT_LEGENDS[heatMode];
+  legend.classList.toggle('hidden',!items);
+  legend.innerHTML=items?items.map(([lv,label])=>`<span class="heat-legend-item"><i class="heat-swatch heat-${lv}"></i>${esc(label)}</span>`).join(''):'';
+}
+function setupHeatControl(){
+  $('heatControl')?.addEventListener('click',e=>{
+    const b=e.target.closest('[data-heat]'); if(!b||b.dataset.heat===heatMode)return;
+    heatMode=b.dataset.heat;
+    try{localStorage.setItem(HEAT_STORAGE,heatMode);}catch{}
+    updateHeatControl(); render();
+  });
+  updateHeatControl();
+}
+const pctText=v=>`${Math.round(v*100)}%`;
+const kgText=v=>String(Math.round(v*10)/10);
+function rackTooltipHtml(r,m){
+  const cap=(label,used,unit,capacity,ratio)=>capacity>0
+    ?`<div>${label} <b>${used} ${unit}</b> de ${capacity} ${unit} (${pctText(ratio)})</div>`
+    :`<div>${label} <b>${used} ${unit}</b> <span class="muted">sem capacidade definida</span></div>`;
+  const alerts=[m.expired?`${m.expired} com prazo vencido`:'',m.soon?`${m.soon} vencendo em breve`:''].filter(Boolean).join(' · ');
+  return `<div class="rack-tip-title"><b>${esc(r.name)}</b><span>${m.totalU}U</span></div>`
+    +`<div>U ocupadas <b>${m.usedU}/${m.totalU}</b> (${pctText(m.uRatio)}) · ${m.freeU} livres</div>`
+    +`<div class="muted">Frente ${m.frontU} · Traseira ${m.rearU}</div>`
+    +cap('Energia',m.powerW,'W',m.powerCap,m.powerRatio)
+    +cap('Peso',kgText(m.weightKg),'kg',m.weightCap,m.weightRatio)
+    +`<div>Assets <b>${m.assetCount}</b></div>`
+    +(alerts?`<div class="rack-tip-alert alert-${m.alertLevel}">${esc(alerts)}</div>`:'');
+}
+function setupRackTooltip(){
+  const svg=$('layout'), tip=$('rackTooltip'), wrap=$('canvasWrap'); if(!svg||!tip||!wrap)return;
+  const hide=()=>tip.classList.add('hidden');
+  svg.addEventListener('mousemove',e=>{
+    if(e.buttons){hide();return;}
+    const id=document.elementsFromPoint(e.clientX,e.clientY).map(el=>el.closest('[data-rack]')).find(Boolean)?.dataset.rack;
+    const m=id&&rackStats.get(id), r=id&&state.racks.find(x=>x.id===id);
+    if(!m||!r){hide();return;}
+    tip.innerHTML=rackTooltipHtml(r,m); tip.classList.remove('hidden');
+    const box=wrap.getBoundingClientRect();
+    let x=e.clientX-box.left+16, y=e.clientY-box.top+16;
+    if(x+tip.offsetWidth>box.width-8)x=e.clientX-box.left-tip.offsetWidth-16;
+    if(y+tip.offsetHeight>box.height-8)y=e.clientY-box.top-tip.offsetHeight-16;
+    tip.style.left=`${Math.max(8,x)}px`; tip.style.top=`${Math.max(8,y)}px`;
+  });
+  svg.addEventListener('mouseleave',hide);
+  svg.addEventListener('mousedown',hide);
+}
+function summaryMeter(label,valueText,ratio,note=''){
+  const lv=levelForRatio(ratio);
+  const width=ratio===null?0:Math.min(100,Math.round(ratio*100));
+  return `<div class="rs-meter"><div class="rs-meter-head"><span>${label}</span><b>${valueText}</b></div>`
+    +`<div class="rs-bar"><i class="heat-${lv}" style="width:${width}%"></i></div>${note?`<small class="rs-note">${note}</small>`:''}</div>`;
+}
+function renderRoomSummary(p){
+  const room=state.rooms.find(r=>r.id===state.activeRoomId);
+  const stats=computeStats();
+  const s=summarizeRackMetrics([...stats.values()]);
+  const thermal=roomThermalLoad(room);
+  setPropTitleSticky(room?`Resumo · ${room.name}`:'Resumo da sala');
+  const meters=[
+    summaryMeter('Ocupação de U',`${s.usedU} de ${s.totalU} U · ${pctText(s.uRatio)}`,s.uRatio,`${s.freeU} U livres em ${s.racks} ${s.racks===1?'rack':'racks'}`),
+    s.powerCap>0
+      ?summaryMeter('Energia',`${s.powerW} de ${s.powerCap} W · ${pctText(s.powerRatio)}`,s.powerRatio)
+      :summaryMeter('Energia',`${s.powerW} W`,null,'Defina a capacidade elétrica dos racks para acompanhar o limite.'),
+    s.weightCap>0
+      ?summaryMeter('Peso no piso',`${kgText(s.weightKg)} de ${s.weightCap} kg · ${pctText(s.weightRatio)}`,s.weightRatio)
+      :summaryMeter('Peso no piso',`${kgText(s.weightKg)} kg`,null),
+    thermal.capacity>0
+      ?summaryMeter('Refrigeração',`${thermal.watts} de ${thermal.capacity} W · ${thermal.pct}%`,thermal.watts/thermal.capacity)
+      :summaryMeter('Refrigeração',`${thermal.watts} W`,null,'Defina a capacidade de refrigeração da sala em Cadastros.')
+  ].join('');
+  const byType=new Map();
+  state.cables.forEach(c=>{const t=c.type||'Sem tipo';byType.set(t,(byType.get(t)||0)+1);});
+  const typeChips=[...byType.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([t,n])=>`<span class="rs-chip">${esc(t)} <b>${n}</b></span>`).join('');
+  const roomId=state.activeRoomId;
+  const items=[
+    ...capacityIssues().filter(i=>i.roomId===roomId).map(i=>({level:i.level,title:i.name,detail:`${i.label} · ${Math.round(i.current)}/${Math.round(i.capacity)} ${i.unit}`,attr:i.kind==='cooling'?'data-rs-room':`data-rs-rack="${esc(i.rackId)}"`,value:i.kind==='cooling'?roomId:i.rackId})),
+    ...assetsNeedingAttention().filter(a=>a.roomId===roomId).map(a=>{
+      const w=assetWarrantyLevel(a),e=assetEndOfLifeLevel(a);
+      const reason=[w==='expired'?'Garantia vencida':w==='soon'?'Garantia vence em breve':null,e==='expired'?'EOL vencido':e==='soon'?'EOL vence em breve':null].filter(Boolean).join(' · ');
+      return {level:(w==='expired'||e==='expired')?'high':'mid',title:a.name||a.assetTag||'Asset',detail:reason,attr:'data-rs-asset',value:a.id};
+    })
+  ];
+  const shown=items.slice(0,6);
+  const alerts=items.length
+    ?shown.map((it,i)=>`<button type="button" class="capacity-alert-item level-${it.level}" data-rs-i="${i}"><span>${esc(it.title)}</span><small>${esc(it.detail)}</small></button>`).join('')
+      +(items.length>shown.length?`<button type="button" class="alerts-center-viewall" id="rsAllAlerts">Mais ${items.length-shown.length} na Central de alertas →</button>`:'')
+    :'<div class="rs-ok">Nenhum alerta nesta sala.</div>';
+  p.innerHTML=`<div class="room-summary">${meters}`
+    +`<div class="rs-group-label">Alertas da sala</div><div class="rs-alerts">${alerts}</div>`
+    +`<div class="rs-stats"><div><b>${s.assetCount}</b><span>assets em racks</span></div><div><b>${state.cables.length}</b><span>cabos</span></div><div><b>${state.trays.length}</b><span>calhas</span></div></div>`
+    +(typeChips?`<div class="rs-group-label">Cabos por tipo</div><div class="rs-chips">${typeChips}</div>`:'')
+    +`<div class="help">Clique em um rack, calha ou cabo para ver os detalhes.</div></div>`;
+  p.querySelectorAll('[data-rs-i]').forEach(btn=>btn.onclick=()=>{
+    const it=shown[Number(btn.dataset.rsI)];
+    if(it.attr==='data-rs-asset'){openAssetModal(it.value);return;}
+    if(it.attr==='data-rs-room'){openRoomEditor(it.value);return;}
+    state.multiSelected=[]; state.selected={type:'rack',id:it.value}; renderAll(false); renderProperties();
+  });
+  $('rsAllAlerts')?.addEventListener('click',()=>openAlertsCenterPanel($('btnAlertsCenter')||$('properties')));
+}
+
 function render(){
   const svg=$('layout'),stage=$('canvasStage'),g=geometry();
+  rackStats=computeStats();
   migrateLegacyTrays(g);
   syncAttachedTrayEndpoints(g);
   cleanupAutoCrossingLinks();
@@ -704,23 +824,24 @@ function render(){
     const vx=q.x+inset, vy=q.y+inset, vw=Math.max(1,q.w-inset*2), vh=Math.max(1,q.h-inset*2);
     const faceX=vx+5, faceY=vy+5, faceW=Math.max(1,vw-10), faceH=Math.max(1,vh-10);
     const lineY=vy+22;
-    const totalU=Math.max(1,Math.floor(num(r.units,state.rackUnits)));
-    const usedU=state.assets.filter(a=>a.rackId===r.id).reduce((sum,a)=>sum+Math.max(1,Math.floor(num(a.uHeight,1))),0);
-    const pct=Math.min(1,usedU/totalU);
+    const m=rackStats.get(r.id);
+    const usedU=m.usedU, pct=m.uRatio;
+    const heatLvl=heatLevel(m,heatMode), heatClass=heatLvl?`heat-${heatLvl}`:'';
+    const alertBadge=m.alertLevel==='l1'?'':`<g class="rack-alert alert-${m.alertLevel}"><circle cx="${vx+vw-11}" cy="${vy+11}" r="6.5"/><text x="${vx+vw-11}" y="${vy+14.5}" text-anchor="middle">!</text></g>`;
     const utilLevel=pct>=0.85?'high':pct>=0.5?'mid':'low';
     const barX=vx+6, barY=vy+vh-7, barTrackW=Math.max(0,vw-12), barFillW=Math.max(0,barTrackW*pct);
     // As bolinhas de status seguem o consumo elétrico quando o rack tem
     // capacidade cadastrada; sem capacidade definida, caem de volta pro
     // sinal simples de "tem equipamento instalado".
-    const powerCapacity=num(r.powerCapacityW,0);
-    const rackPowerW=state.assets.filter(a=>a.rackId===r.id).reduce((sum,a)=>sum+Math.max(0,num(a.powerW,0)),0);
+    const powerCapacity=m.powerCap;
+    const rackPowerW=m.powerW;
     let ledClass='';
     if(powerCapacity>0){
       ledClass=rackPowerW>powerCapacity?'is-power-high':(rackPowerW/powerCapacity>=0.8?'is-power-mid':'is-on');
     }else if(usedU>0){
       ledClass='is-on';
     }
-    svg.insertAdjacentHTML('beforeend',`<g data-rack="${r.id}" class="rackg"><rect class="rack-hit" x="${q.x}" y="${q.y}" width="${q.w}" height="${q.h}" rx="8"/><rect class="rack-body ${selected?'selected':''}" x="${vx}" y="${vy}" width="${vw}" height="${vh}" rx="7"/><rect class="rack-face" x="${faceX}" y="${faceY}" width="${faceW}" height="${faceH}" rx="5"/><line class="rack-topline" x1="${vx+8}" y1="${lineY}" x2="${vx+vw-8}" y2="${lineY}"/><circle class="rack-led ${ledClass}" cx="${vx+14}" cy="${vy+13}" r="2"/><circle class="rack-led ${ledClass}" cx="${vx+21}" cy="${vy+13}" r="2"/><rect class="rack-util-track" x="${barX}" y="${barY}" width="${barTrackW}" height="3" rx="1.5"/><rect class="rack-util-fill util-${utilLevel}" x="${barX}" y="${barY}" width="${barFillW}" height="3" rx="1.5"/></g>`);
+    svg.insertAdjacentHTML('beforeend',`<g data-rack="${r.id}" class="rackg"><rect class="rack-hit" x="${q.x}" y="${q.y}" width="${q.w}" height="${q.h}" rx="8"/><rect class="rack-body ${selected?'selected':''} ${heatClass}" x="${vx}" y="${vy}" width="${vw}" height="${vh}" rx="7"/><rect class="rack-face" x="${faceX}" y="${faceY}" width="${faceW}" height="${faceH}" rx="5"/><line class="rack-topline" x1="${vx+8}" y1="${lineY}" x2="${vx+vw-8}" y2="${lineY}"/><circle class="rack-led ${ledClass}" cx="${vx+14}" cy="${vy+13}" r="2"/><circle class="rack-led ${ledClass}" cx="${vx+21}" cy="${vy+13}" r="2"/><rect class="rack-util-track" x="${barX}" y="${barY}" width="${barTrackW}" height="3" rx="1.5"/><rect class="rack-util-fill util-${utilLevel}" x="${barX}" y="${barY}" width="${barFillW}" height="3" rx="1.5"/>${alertBadge}</g>`);
   });
 
   // Camada 2: informações dimensionais dos racks.
@@ -2133,7 +2254,10 @@ function renderProperties(){
     $('clearSelectedRacks').onclick=()=>{state.multiSelected=[];state.selected=null;renderAll();};
     return;
   }
-  if(!state.selected){setPropTitleSticky('');p.innerHTML='<div class="empty">Selecione um rack, calha ou cabo.</div>';return;}
+  if(!state.selected){
+    if(state.racks.length){renderRoomSummary(p);return;}
+    setPropTitleSticky('');p.innerHTML='<div class="empty">Selecione um rack, calha ou cabo.</div>';return;
+  }
   if(state.selected.type==='rack'){
     const r=state.racks.find(x=>x.id===state.selected.id); if(!r){state.selected=null;return renderProperties();}
     const row=rowForRack(r);
@@ -2991,6 +3115,7 @@ function bind(){
   // Bindar os controles do canvas ANTES da renderização do projeto.
   // Isso garante que um erro em renderAll() não deixe os controles mudos.
   setupMinimap();
+  setupHeatControl();setupRackTooltip();
   setupSidebarToggle();
   setupStructureLockControl();
 
