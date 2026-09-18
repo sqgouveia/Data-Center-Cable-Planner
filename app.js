@@ -2953,14 +2953,45 @@ function bayfacePickerAssets(rackId,uStart){
   const q=String($('bayfaceAssetPickerSearch')?.value||'').trim().toLowerCase();
   return assets.filter(a=>[a.name,a.assetTag,a.type,a.manufacturer,a.model,a.serial,a.locationName].join(' ').toLowerCase().includes(q));
 }
+let bayfacePickerSort={key:'name',dir:1}, bayfacePickerPage=1;
+const BAYFACE_PICKER_PAGE_SIZE=8;
+const BAYFACE_PICKER_EMPTY_ICON='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="5" rx="1.2"/><rect x="3" y="9.5" width="18" height="5" rx="1.2"/><rect x="3" y="16" width="18" height="5" rx="1.2"/><path d="M7 5.5h.01M7 12h.01M7 18.5h.01M12 5.5h5M12 12h5M12 18.5h5"/></svg>';
+function bayfacePickerSortValue(a,key){
+  switch(key){
+    case 'tag': return a.assetTag||'';
+    case 'name': return a.name||'';
+    case 'type': return a.type||'';
+    case 'manufacturer': return a.manufacturer||'';
+    case 'model': return a.model||'';
+    case 'serial': return a.serial||'';
+    case 'location': return assetLocationLabel(a)||'';
+    case 'status': return a.status||'';
+    case 'substatus': return a.substatus||'';
+    case 'units': return Math.max(1,Math.floor(num(a.uHeight,1)));
+  }
+  return '';
+}
 function renderBayfaceAssetPicker(){
   const modal=$('bayfaceAssetPickerModal'); if(!modal)return;
   const rackId=modal.dataset.rackId; const uStart=Math.max(1,Math.floor(Number(modal.dataset.uStart||1)));
   const rack=assetRack(rackId); const list=$('bayfaceAssetPickerList'); if(!list||!rack)return;
   const items=bayfacePickerAssets(rackId,uStart);
+  const {key,dir}=bayfacePickerSort;
+  items.sort((a,b)=>{const va=bayfacePickerSortValue(a,key), vb=bayfacePickerSortValue(b,key);const c=(typeof va==='number'&&typeof vb==='number')?va-vb:String(va).localeCompare(String(vb),'pt-BR',{numeric:true,sensitivity:'base'});return c*dir;});
+  const totalPages=Math.max(1,Math.ceil(items.length/BAYFACE_PICKER_PAGE_SIZE));
+  bayfacePickerPage=Math.min(Math.max(1,bayfacePickerPage),totalPages);
+  const pageItems=items.slice((bayfacePickerPage-1)*BAYFACE_PICKER_PAGE_SIZE,bayfacePickerPage*BAYFACE_PICKER_PAGE_SIZE);
   const count=$('bayfaceAssetPickerCount'); if(count)count.textContent=`${items.length} asset${items.length===1?'':'s'}`;
-  if(!items.length){list.innerHTML='<div class="empty bayface-picker-empty">Nenhum asset cadastrado disponível para esta U.</div>';return;}
-  list.innerHTML=items.map(a=>{
+  const range=$('bayfaceAssetPickerRange'); if(range)range.textContent=`${pageItems.length} de ${items.length} asset${items.length===1?'':'s'}`;
+  const pageLabel=$('bayfaceAssetPickerPage'); if(pageLabel)pageLabel.textContent=`Página ${bayfacePickerPage} de ${totalPages}`;
+  const prev=$('bayfaceAssetPickerPrev'), next=$('bayfaceAssetPickerNext'); if(prev)prev.disabled=bayfacePickerPage<=1; if(next)next.disabled=bayfacePickerPage>=totalPages;
+  modal.querySelectorAll('[data-bay-sort]').forEach(th=>{const on=th.dataset.baySort===key;th.classList.toggle('is-sorted',on);th.dataset.dir=on?(dir>0?'asc':'desc'):'';});
+  if(!items.length){
+    list.innerHTML=`<div class="bayface-picker-empty"><span class="bayface-picker-empty-icon">${BAYFACE_PICKER_EMPTY_ICON}</span><strong>Nenhum asset disponível</strong><p>Não há assets cadastrados para esta U ou nenhum asset atende à busca realizada.</p><button type="button" class="btn primary bayface-picker-new" data-bay-new><span class="ui-plus">+</span> Cadastrar novo asset</button></div>`;
+    list.querySelector('[data-bay-new]')?.addEventListener('click',()=>{closeBayfaceAssetPicker();openAssetModal(null,rackId,uStart);});
+    return;
+  }
+  list.innerHTML=pageItems.map(a=>{
     const loc=assetLocationLabel(a)||'—';
     const room=assetRoom(a)?.name || '—';
     const qty=Math.max(1,Math.floor(num(a.uHeight,1)));
@@ -2982,7 +3013,6 @@ function renderBayfaceAssetPicker(){
       <span class="bayface-picker-cell"><span class="asset-status ${status==='Arquivado'?'archived':''}">${esc(status)}</span></span>
       <span class="bayface-picker-cell">${esc(substatus)}</span>
       <span class="bayface-picker-cell units">${qty}U</span>
-      <span class="bayface-picker-action"><span class="btn small primary">Selecionar</span></span>
     </button>`;
   }).join('');
   list.querySelectorAll('[data-bay-pick-asset]').forEach(b=>b.addEventListener('click',()=>assignBayfaceAsset(b.dataset.bayPickAsset,rackId,uStart)));
@@ -2992,6 +3022,7 @@ function openBayfaceAssetPicker(rackId,uStart){
   m.dataset.rackId=rackId; m.dataset.uStart=String(uStart||1);
   m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');
   const input=$('bayfaceAssetPickerSearch'); if(input){input.value=''; input.focus();}
+  bayfacePickerPage=1;
   renderBayfaceAssetPicker();
 }
 function closeBayfaceAssetPicker(){const m=$('bayfaceAssetPickerModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
@@ -5739,7 +5770,13 @@ function bind(){
   
   $('bayfaceClose')?.addEventListener('click',closeBayface);
   $('bayfaceAssetPickerClose')?.addEventListener('click',closeBayfaceAssetPicker);
-  $('bayfaceAssetPickerSearch')?.addEventListener('input',renderBayfaceAssetPicker);
+  $('bayfaceAssetPickerSearch')?.addEventListener('input',()=>{bayfacePickerPage=1;renderBayfaceAssetPicker();});
+  $('bayfaceAssetPickerModal')?.addEventListener('click',e=>{
+    const th=e.target.closest('[data-bay-sort]');
+    if(th){const k=th.dataset.baySort;bayfacePickerSort=bayfacePickerSort.key===k?{key:k,dir:-bayfacePickerSort.dir}:{key:k,dir:1};bayfacePickerPage=1;renderBayfaceAssetPicker();return;}
+    if(e.target.closest('#bayfaceAssetPickerPrev')){bayfacePickerPage--;renderBayfaceAssetPicker();}
+    else if(e.target.closest('#bayfaceAssetPickerNext')){bayfacePickerPage++;renderBayfaceAssetPicker();}
+  });
   document.addEventListener('click',e=>{
     if(!e.target.closest('#bayfaceFaceToggle'))return;
     bayfaceFace=bayfaceFace==='front'?'rear':'front';

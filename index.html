@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=129" />
+    <link rel="stylesheet" href="app.css?v=131" />
   </head>
   <body>
     <div id="authScreen" class="auth-screen" aria-hidden="false">
@@ -3021,8 +3021,10 @@
         <div class="modal-head">
           <div class="modal-icon">
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 20V7l8-4 8 4v13" />
-              <path d="M9 20v-5h6v5" />
+              <rect x="3" y="3" width="18" height="5" rx="1.2" />
+              <rect x="3" y="9.5" width="18" height="5" rx="1.2" />
+              <rect x="3" y="16" width="18" height="5" rx="1.2" />
+              <path d="M7 5.5h.01M7 12h.01M7 18.5h.01" />
             </svg>
           </div>
           <div>
@@ -3042,7 +3044,9 @@
         </div>
         <div class="bayface-picker-toolbar">
           <div class="bayface-picker-search">
-            <span>⌕</span
+            <svg class="bayface-picker-search-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m21 21-4.3-4.3" /></svg
             ><input
               id="bayfaceAssetPickerSearch"
               type="search"
@@ -3056,12 +3060,40 @@
         </div>
         <div class="bayface-picker-table-wrap">
           <div class="bayface-picker-table-head">
-            <span>Asset Tag</span><span>Nome</span><span>Tipo</span
-            ><span>Fabricante</span><span>Modelo</span><span>Serial Number</span
-            ><span>Localização</span><span>Status</span><span>Substatus</span
-            ><span>Qtd. U</span><span></span>
+            <button type="button" class="bayface-picker-th" data-bay-sort="tag">Asset Tag<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 9 4-4 4 4M8 15l4 4 4-4" /></svg></button>
+            <button type="button" class="bayface-picker-th" data-bay-sort="name">Nome<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 9 4-4 4 4M8 15l4 4 4-4" /></svg></button>
+            <button type="button" class="bayface-picker-th" data-bay-sort="type">Tipo<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 9 4-4 4 4M8 15l4 4 4-4" /></svg></button>
+            <button type="button" class="bayface-picker-th" data-bay-sort="manufacturer">Fabricante<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 9 4-4 4 4M8 15l4 4 4-4" /></svg></button>
+            <button type="button" class="bayface-picker-th" data-bay-sort="model">Modelo<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 9 4-4 4 4M8 15l4 4 4-4" /></svg></button>
+            <button type="button" class="bayface-picker-th" data-bay-sort="serial">Serial Number<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 9 4-4 4 4M8 15l4 4 4-4" /></svg></button>
+            <button type="button" class="bayface-picker-th" data-bay-sort="location">Localização<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 9 4-4 4 4M8 15l4 4 4-4" /></svg></button>
+            <button type="button" class="bayface-picker-th" data-bay-sort="status">Status<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 9 4-4 4 4M8 15l4 4 4-4" /></svg></button>
+            <button type="button" class="bayface-picker-th" data-bay-sort="substatus">Substatus<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 9 4-4 4 4M8 15l4 4 4-4" /></svg></button>
+            <button type="button" class="bayface-picker-th" data-bay-sort="units">Qtd. U<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 9 4-4 4 4M8 15l4 4 4-4" /></svg></button>
           </div>
           <div id="bayfaceAssetPickerList" class="bayface-picker-list"></div>
+        </div>
+        <div class="bayface-picker-footer">
+          <span id="bayfaceAssetPickerRange">0 de 0 assets</span>
+          <div class="bayface-picker-pager">
+            <button
+              id="bayfaceAssetPickerPrev"
+              type="button"
+              class="bayface-picker-page-btn"
+              aria-label="Página anterior"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+            </button>
+            <span id="bayfaceAssetPickerPage">Página 1 de 1</span>
+            <button
+              id="bayfaceAssetPickerNext"
+              type="button"
+              class="bayface-picker-page-btn"
+              aria-label="Próxima página"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -3571,6 +3603,6 @@
         </div>
       </div>
     </div>
-    <script type="module" src="app.js?v=114"></script>
+    <script type="module" src="app.js?v=115"></script>
   </body>
 </html>
