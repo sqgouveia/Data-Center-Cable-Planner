@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=116" />
+    <link rel="stylesheet" href="app.css?v=126" />
   </head>
   <body>
     <div id="authScreen" class="auth-screen" aria-hidden="false">
@@ -617,8 +617,6 @@
           <div class="toolbar-actions">
             <button id="btnAddTray" class="btn">
               <span class="ui-plus">+</span> Calha</button
-            ><button id="btnAddCable" class="btn">
-              <span class="ui-plus">+</span> Cabo</button
             ><button
               id="btnAssets"
               class="btn ghost ui-icon-label"
@@ -653,28 +651,6 @@
                 <line x1="12" y1="17" x2="12.01" y2="17" /></svg
               ><span id="alertsCenterCount">0</span>
             </button>
-            <button id="btnImport" class="btn ui-icon-label">
-              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 3v12M7 10l5 5 5-5M5 20h14" /></svg
-              ><span>Importar cabos</span>
-            </button>
-            <button id="btnTemplate" class="btn ghost ui-icon-label">
-              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M6 3h9l3 3v15H6z" />
-                <path d="M9 11h6M9 15h6M9 7h4" /></svg
-              ><span>Template Cabos</span>
-            </button>
-            <button id="btnExportCables" class="btn ui-icon-label">
-              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 21V9M7 12l5-5 5 5M5 4h14" /></svg
-              ><span>Exportar cabos</span>
-            </button>
-            <input
-              id="excelInput"
-              type="file"
-              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              hidden
-            />
           </div>
         </div>
         <div id="canvasWrap">
@@ -800,22 +776,105 @@
           title="Arraste para redimensionar"
         ></div>
         <section class="cables-section">
-          <div class="section-head">
-            <h2>Cabos</h2>
-            <span id="cableCount" class="badge">0</span>
+          <div class="cables-head">
+            <span class="cables-head-icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 4h6a3 3 0 0 1 0 6H8a3 3 0 0 0 0 6h9" />
+                <path d="M3 4h2v3H3zM19 14h2v4h-2z" />
+                <path d="M3 5.5H1.5M21 16h1.5" />
+              </svg>
+            </span>
+            <div class="cables-head-text">
+              <h2>Cabos</h2>
+            </div>
+            <span id="cableCount" class="cables-count">0 cabos</span>
+            <button
+              id="btnAddCablePanel"
+              class="btn primary cables-add"
+              type="button"
+              title="Adicionar cabo"
+            >
+              <span class="ui-plus">+</span> Adicionar
+            </button>
           </div>
-          <div class="cables-search">
-            <label
-              class="cables-select-all-check"
-              title="Selecionar todos os cabos visíveis"
-              ><input type="checkbox" id="cablesSelectAll" /></label
-            ><span>⌕</span
-            ><input
-              id="cablesSearch"
-              type="search"
-              placeholder="Buscar por nome, tipo, rack, U, porta, asset..."
-              autocomplete="off"
+          <div class="cables-io">
+            <button
+              id="btnImport"
+              class="btn ghost small ui-icon-label"
+              type="button"
+              title="Importar cabos de uma planilha Excel"
+            >
+              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3v12M7 10l5 5 5-5M5 20h14" /></svg
+              ><span>Importar</span>
+            </button>
+            <button
+              id="btnTemplate"
+              class="btn ghost small ui-icon-label"
+              type="button"
+              title="Baixar o modelo de planilha de cabos"
+            >
+              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 3h9l3 3v15H6z" />
+                <path d="M9 11h6M9 15h6M9 7h4" /></svg
+              ><span>Modelo</span>
+            </button>
+            <button
+              id="btnExportCables"
+              class="btn ghost small ui-icon-label"
+              type="button"
+              title="Exportar cabos para Excel"
+            >
+              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 21V9M7 12l5-5 5 5M5 4h14" /></svg
+              ><span>Exportar</span>
+            </button>
+            <input
+              id="excelInput"
+              type="file"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              hidden
             />
+          </div>
+          <div class="cables-toolbar">
+            <div class="cables-search">
+              <label
+                class="cables-select-all-check"
+                title="Selecionar todos os cabos visíveis"
+                ><input type="checkbox" id="cablesSelectAll" /></label
+              ><svg class="cables-search-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.3-4.3" /></svg
+              ><input
+                id="cablesSearch"
+                type="search"
+                placeholder="Buscar por nome, tipo, rack, U, porta, equipamento..."
+                autocomplete="off"
+              />
+            </div>
+            <select
+              id="cablesFilter"
+              aria-hidden="true"
+              tabindex="-1"
+              class="visually-hidden-select"
+            >
+              <option value="all">Todos</option>
+              <option value="ok">Conectados</option>
+              <option value="pending">Com pendência</option>
+            </select>
+            <button
+              type="button"
+              id="cablesFilterBtn"
+              class="dc-select-btn cables-filter-btn"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-label="Filtrar cabos"
+            >
+              <span class="dc-select-label">Todos</span
+              ><svg class="ic-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
           </div>
           <div id="cablesBulkBar" class="cables-bulk-bar hidden">
             <span><b id="cablesBulkCount">0</b> selecionado(s)</span
@@ -3488,6 +3547,6 @@
         </div>
       </div>
     </div>
-    <script type="module" src="app.js?v=106"></script>
+    <script type="module" src="app.js?v=113"></script>
   </body>
 </html>

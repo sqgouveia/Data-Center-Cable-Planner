@@ -3854,25 +3854,61 @@ function cableSearchHaystack(c){
   const destLabel=cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName,c.destFace);
   return [c.name,c.type,o?.name,d?.name,c.originU,c.destU,c.originPortLabel,c.destPortLabel,c.originAssetName,c.destAssetName,originLabel,destLabel].filter(Boolean).join(' ').toLowerCase();
 }
+let cablesFilterMode='all';
+const CABLE_ICONS={
+  plug:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v9l-3 3H8l-3-3Z"/><path d="M9 6v4M12 6v4M15 6v4"/></svg>',
+  ruler:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 12-12 4 4L8 20z"/><path d="m8 12 2 2M11 9l2 2M14 6l2 2"/></svg>'
+};
+function cableEndpointParts(rackId,u,portId,freeformLabel='',assetNameFallback='',face='front'){
+  const rack=state.racks.find(r=>r.id===rackId);
+  const asset=assetOwningPort(state.assets,portId)||assetAtRackU(state.assets,rackId,u,face);
+  const port=cablePortAt(rackId,u,portId,face);
+  return {rack:rack?.name||'',u,asset:asset?.name||assetNameFallback||'',port:port?.label||freeformLabel||''};
+}
+function cableStatusInfo(c){
+  if(!cableUnitValidation(c).valid)return {key:'bad',text:'Cabo inválido',total:0,reachable:false};
+  const res=calcCable(c);
+  const o=cableEndpointParts(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName,c.originFace);
+  const d=cableEndpointParts(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName,c.destFace);
+  const oOk=!!(o.asset&&o.port), dOk=!!(d.asset&&d.port);
+  const base={total:res.total,reachable:res.reachable};
+  if(!oOk&&!dOk)return {...base,key:'warn',text:'Portas não definidas'};
+  if(!oOk)return {...base,key:'warn',text:'Origem não definida'};
+  if(!dOk)return {...base,key:'warn',text:'Destino não definido'};
+  if(!res.reachable)return {...base,key:'warn',text:'Sem rota'};
+  return {...base,key:'ok',text:'Conectado'};
+}
 function renderCables(){
   const el=$('cablesList'); if(!el)return;
-  $('cableCount').textContent=state.cables.length;
+  $('cableCount').textContent=`${state.cables.length} cabo${state.cables.length===1?'':'s'}`;
   cableMultiSelected=cableMultiSelected.filter(id=>state.cables.some(c=>c.id===id));
   const q=cablesSearchQuery.trim().toLowerCase();
-  const filtered=q?state.cables.filter(c=>cableSearchHaystack(c).includes(q)):state.cables;
-  if(!filtered.length){el.innerHTML=`<div class="empty">${q?'Nenhum cabo encontrado.':'Nenhum cabo cadastrado.'}</div>`;}
+  const infoOf=new Map(state.cables.map(c=>[c.id,cableStatusInfo(c)]));
+  const filtered=state.cables.filter(c=>(!q||cableSearchHaystack(c).includes(q))&&(cablesFilterMode==='all'||(cablesFilterMode==='ok')===(infoOf.get(c.id).key==='ok')));
+  if(!filtered.length){el.innerHTML=`<div class="empty">${(q||cablesFilterMode!=='all')?'Nenhum cabo encontrado.':'Nenhum cabo cadastrado.'}</div>`;}
   else{
     el.innerHTML=filtered.map(c=>{
       const invalid=!cableUnitValidation(c).valid;
-      const originLabel=cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName,c.originFace);
-      const destLabel=cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName,c.destFace);
+      const info=infoOf.get(c.id);
+      const o=cableEndpointParts(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName,c.originFace);
+      const d=cableEndpointParts(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName,c.destFace);
       const checked=cableMultiSelected.includes(c.id);
       const isSelected=state.selected?.type==='cable'&&state.selected.id===c.id;
-      return `<div class="cable-item ${isSelected?'selected':''} ${invalid?'invalid':''} ${checked?'is-checked':''}" style="${isSelected?'':`border-left-color:${cableTypeColor(c.type)}`}" data-cable="${c.id}">
+      const color=cableTypeColor(c.type);
+      const length=info.reachable?`${Math.ceil(info.total)} m`:'—';
+      const endBox=(kind,e)=>{const text=[e.rack||'—',e.u?`U${e.u}`:'—',e.asset||'—',e.port||'—'].join(' - ');return `<div class="cable-end ${kind}" title="${esc(text)}"><i></i><span class="cable-end-text">${esc(text)}</span></div>`;};
+      return `<div class="cable-item ${isSelected?'selected':''} ${invalid?'invalid':''} ${checked?'is-checked':''}" style="--cable-color:${esc(color)};${isSelected?'':`border-left-color:${esc(color)}`}" data-cable="${c.id}">
         <label class="cable-item-check" onclick="event.stopPropagation()"><input type="checkbox" data-cable-check="${c.id}" ${checked?'checked':''}></label>
-        <div class="cable-item-body">
-          <div class="cable-name-row"><span class="cable-name">${invalid?'⚠ ':''}${esc(c.name)}</span><span class="cable-type-tag" style="color:${cableTypeColor(c.type)}">${esc(c.type||'')}</span></div>
-          <div class="cable-meta"><span>${esc(originLabel)}</span><span>${esc(destLabel)}</span></div>
+        <div class="cable-item-main">
+          <div class="cable-item-top">
+            <span class="cable-item-icon">${CABLE_ICONS.plug}</span>
+            <div class="cable-item-title"><div class="cable-name-row"><span class="cable-name">${esc(c.name)}</span><span class="cable-len" title="Comprimento arredondado">${CABLE_ICONS.ruler}${length}</span></div></div>
+            <span class="cable-type-tag">${esc(c.type||'')}</span>
+          </div>
+          <div class="cable-route">
+            ${endBox('origin',o)}
+            ${endBox('dest',d)}
+          </div>
         </div>
       </div>`;
     }).join('');
@@ -5739,7 +5775,8 @@ function bind(){
     toast(`Fileira ${state.rows.length} adicionada`);
   };
   $('btnAddTray').onclick=()=>{ if(structureBlocked())return; const g=geometry(); const y=g.rows.length?g.rows[0].y-80:VIEW_PAD; createIndependentTray(g,g.x0,y,g.x0+Math.max(240,g.scale*3),y); };
-  $('btnAddCable').onclick=addCable;$('btnImport').onclick=()=>$('excelInput').click();
+  $('btnAddCablePanel')?.addEventListener('click',addCable);$('btnImport').onclick=()=>$('excelInput').click();
+  bindStyledSelect('cablesFilter','cablesFilterBtn');$('cablesFilter')?.addEventListener('change',()=>{cablesFilterMode=$('cablesFilter').value;syncSelectButton('cablesFilter','cablesFilterBtn');renderCables();});
   $('cablesSearch')?.addEventListener('input',()=>{cablesSearchQuery=$('cablesSearch').value;renderCables();});
   $('cablesBulkDelete')?.addEventListener('click',deleteCablesBulk);
   $('cablesBulkClear')?.addEventListener('click',()=>{cableMultiSelected=[];renderCables();});
