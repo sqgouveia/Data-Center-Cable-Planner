@@ -13,7 +13,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="app.css?v=136" />
-    <link rel="stylesheet" href="macos.css?v=5" />
+    <link rel="stylesheet" href="macos.css?v=9" />
   </head>
   <body>
     <div id="authScreen" class="auth-screen" aria-hidden="false">
@@ -413,6 +413,7 @@
           ><span>Projetos</span>
         </button>
         <div class="room-control" title="Localização e sala">
+          <div class="room-pick">
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M4 20V7l8-4 8 4v13" />
             <path d="M9 20v-5h6v5" />
@@ -456,6 +457,7 @@
               <path d="M6 9l6 6 6-6" />
             </svg>
           </button>
+          </div>
           <button
             id="btnLocations"
             class="btn ghost topbar-location-btn"
@@ -493,7 +495,7 @@
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M5 4h11l3 3v13H5z" />
             <path d="M8 4v6h8V4M8 20v-6h8v6" /></svg
-          ><span>Salvar na nuvem</span>
+          ><span>Salvar</span>
         </button>
         <button
           id="btnImportProject"
@@ -502,7 +504,7 @@
         >
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 3v12M7 10l5 5 5-5M5 20h14" /></svg
-          ><span>Importar projeto</span>
+          ><span>Importar</span>
         </button>
         <button
           id="btnExport"
@@ -511,7 +513,7 @@
         >
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 21V9M7 12l5-5 5 5M5 4h14" /></svg
-          ><span>Exportar projeto</span>
+          ><span>Exportar</span>
         </button>
         <button
           id="btnPdfReport"
@@ -524,11 +526,24 @@
             <path d="M9 13h6M9 17h4" /></svg
           ><span>Relatório PDF</span>
         </button>
-        <span id="authUserEmail" class="auth-user-email"></span>
         <button id="btnHelp" class="btn ghost" type="button" title="Ajuda">
           ?
         </button>
         <button
+          id="userMenuBtn"
+          class="user-menu-btn"
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded="false"
+          title="Conta"
+        >
+          <span id="userAvatar" class="user-avatar"></span>
+          <svg class="ic-chevron" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+        <span id="authUserEmail" class="auth-user-email" hidden></span>
+        <button hidden
           id="btnLogout"
           class="btn ghost ui-icon-label"
           title="Sair da conta"
@@ -726,7 +741,7 @@
             >
           </div>
           <div class="toolbar-actions">
-            <button id="btnAddTray" class="btn">
+            <button id="btnAddTray" class="btn primary">
               <span class="ui-plus">+</span> Calha</button
             ><button
               id="btnAssets"
@@ -735,8 +750,8 @@
               title="Abrir inventário de assets"
             >
               <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="4" y="4" width="16" height="16" rx="2" />
-                <path d="M8 8h8M8 12h8M8 16h5" /></svg
+                <path d="M21 8 12 3 3 8v8l9 5 9-5Z" /><path d="M3 8l9 5 9-5M12 13v8" />
+              </svg
               ><span>Assets</span></button
             ><button
               id="btnCatalogs"
@@ -745,8 +760,8 @@
               title="Gerenciar cadastros do sistema"
             >
               <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="m9 2 1.5 1.5L14 6l-8 8-4 1 1-4 8-8Z" />
-                <path d="M13 5.5 16 2l4.5 4.5L17 10" /></svg
+                <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.3-.6-.6-2.3Z" />
+              </svg
               ><span>Cadastros</span></button
             ><button
               id="btnAlertsCenter"
@@ -3690,6 +3705,6 @@
         </div>
       </div>
     </div>
-    <script type="module" src="app.js?v=119"></script>
+    <script type="module" src="app.js?v=121"></script>
   </body>
 </html>

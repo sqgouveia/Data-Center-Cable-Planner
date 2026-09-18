@@ -721,7 +721,7 @@ function unlockApp(user, forceDashboard=false){
   // o botão "Salvar na nuvem" ficaria preso desativado mesmo estando logado.
   document.body.classList.remove('guest-mode');
   const saveBtn=$('btnSave'); if(saveBtn){saveBtn.disabled=false;saveBtn.removeAttribute('title');}
-  const e=$("authUserEmail"); if(e)e.textContent=user?.email||"";
+  const e=$("authUserEmail"); if(e){e.textContent=user?.email||"";} const av=$("userAvatar"); if(av)av.textContent=(user?.email||"").charAt(0).toUpperCase();
   $("dashboardUserEmail").textContent=user?.email||"";
   updatePlannerProjectName();
   if(forceDashboard || !appView) showDashboard();
@@ -796,6 +796,24 @@ async function startAuth(){
   };
   $('btnLogout').onclick=async()=>{await supabaseClient.auth.signOut();};
   $('btnHelp')?.addEventListener('click',openHelpModal);
+  // Menu da conta: avatar + seta; o painel (e-mail + Sair) é criado no body, como os menus de projeto.
+  $('userMenuBtn')?.addEventListener('click',e=>{
+    e.preventDefault();e.stopPropagation();
+    const btn=$('userMenuBtn'), wasOpen=!!document.querySelector('.user-menu-panel');
+    closeProjectMenus(); btn.setAttribute('aria-expanded','false');
+    if(wasOpen)return;
+    const panel=document.createElement('div'); panel.className='project-menu-panel user-menu-panel'; panel.setAttribute('role','menu');
+    panel.innerHTML=`<div class="user-menu-email">${esc($('authUserEmail')?.textContent||'Modo convidado')}</div><div class="menu-divider"></div><button type="button" role="menuitem" data-action="logout"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sair</button>`;
+    document.body.appendChild(panel);
+    const r=btn.getBoundingClientRect(), pw=panel.offsetWidth||200;
+    panel.style.left=Math.max(8,Math.min(window.innerWidth-pw-8,r.right-pw))+'px';
+    panel.style.top=(r.bottom+6)+'px';
+    requestAnimationFrame(()=>panel.classList.add('open'));
+    btn.setAttribute('aria-expanded','true');
+    panel.querySelector('[data-action="logout"]').addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();closeProjectMenus();btn.setAttribute('aria-expanded','false');$('btnLogout')?.click();});
+  });
+  document.addEventListener('click',()=>{if(!document.querySelector('.user-menu-panel'))$('userMenuBtn')?.setAttribute('aria-expanded','false');});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.querySelector('.user-menu-panel')){closeProjectMenus();$('userMenuBtn')?.setAttribute('aria-expanded','false');}});
   $('helpClose')?.addEventListener('click',closeHelpModal);
   document.querySelectorAll('[data-help-section]').forEach(b=>b.onclick=()=>switchHelpSection(b.dataset.helpSection));
   $('canvasEmptyHintClose')?.addEventListener('click',()=>{localStorage.setItem('dccp_hint_dismissed','1');$('canvasEmptyHint')?.classList.add('hidden');});
