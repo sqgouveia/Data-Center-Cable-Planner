@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=132" />
+    <link rel="stylesheet" href="app.css?v=136" />
   </head>
   <body>
     <div id="authScreen" class="auth-screen" aria-hidden="false">
@@ -661,12 +661,23 @@
           </button>
         </section>
         <section>
-          <div class="section-head">
-            <h2>Fileiras</h2>
-            <button id="btnAddRow" class="btn primary small" type="button">
-              ＋ Adicionar fileira
-            </button>
+          <div class="rows-head">
+            <div class="modal-icon rows-head-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <rect x="3" y="3" width="18" height="5" rx="1.2" />
+                <rect x="3" y="9.5" width="18" height="5" rx="1.2" />
+                <rect x="3" y="16" width="18" height="5" rx="1.2" />
+                <path d="M7 5.5h.01M7 12h.01M7 18.5h.01" />
+              </svg>
+            </div>
+            <div class="rows-head-text">
+              <h2>Fileiras</h2>
+              <span>Configure as fileiras do seu data center.</span>
+            </div>
           </div>
+          <button id="btnAddRow" class="btn primary rows-add" type="button">
+            <span class="ui-plus">+</span> Adicionar fileira
+          </button>
           <div id="rowsPanel"></div>
         </section>
       </aside>
@@ -3678,6 +3689,6 @@
         </div>
       </div>
     </div>
-    <script type="module" src="app.js?v=116"></script>
+    <script type="module" src="app.js?v=119"></script>
   </body>
 </html>

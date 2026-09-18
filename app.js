@@ -1270,11 +1270,16 @@ function buildRowsPanel(){
   if(!state.rows.length){ p.innerHTML='<div class="empty">Nenhuma fileira. Você pode criar 0 fileiras e adicionar depois.</div>'; return; }
   state.rows.forEach(row=>{
     const d=document.createElement('div'); d.className='row-card';
-    const displayName = row.name ? esc(row.name) : '<span class="mini">(sem nome)</span>';
-    d.innerHTML=`<div class="row-title"><span>${displayName}</span><div class="row-actions"><button class="iconbtn" data-del-row="${row.id}" title="Excluir fileira">×</button></div></div>
-      <div class="grid2"><label>Nome<input data-row-name="${row.id}" value="${esc(row.name)}"></label><label>Racks<input data-row-count="${row.id}" type="number" min="0" max="100" value="${row.rackCount}"></label></div>
-      <button class="btn small full" data-rename-row="${row.id}">✎ Renomear racks</button>
-      ${state.rows.indexOf(row)>0?`<label>Distância para a fileira anterior (m)<input data-row-gap="${row.id}" type="number" min="0" step="0.01" value="${row.gap||0}"></label>`:''}`;
+    const chev=(path)=>`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg>`;
+    d.innerHTML=`<div class="row-line">
+        <label class="row-field row-field-name"><span>Nome da fileira</span><input data-row-name="${row.id}" value="${esc(row.name)}"></label>
+        <label class="row-field row-field-count" title="Quantidade de racks"><span>Racks</span><div class="row-spinner"><input data-row-count="${row.id}" type="number" min="0" max="100" value="${row.rackCount}"><span class="row-spinner-btns"><button type="button" data-step-up="${row.id}" aria-label="Aumentar racks" tabindex="-1">${chev('m6 15 6-6 6 6')}</button><button type="button" data-step-down="${row.id}" aria-label="Diminuir racks" tabindex="-1">${chev('m6 9 6 6 6-6')}</button></span></div></label>
+        ${state.rows.indexOf(row)>0?`<label class="row-field row-field-gap" title="Distância para a fileira anterior (m)"><span>Dist. (m)</span><input data-row-gap="${row.id}" type="number" min="0" step="0.01" value="${row.gap||0}"></label>`:''}
+      </div>
+      <div class="row-line row-line-actions">
+        <button type="button" class="btn small row-rename-btn" data-rename-row="${row.id}" title="Renomear os racks desta fileira automaticamente" aria-label="Renomear racks automaticamente"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9-9-9Z"/><path d="M7.5 7.5h.01"/></svg>Renomear</button>
+        <button type="button" class="iconbtn row-delete" data-del-row="${row.id}" title="Excluir fileira" aria-label="Excluir fileira"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/></svg></button>
+      </div>`;
     p.appendChild(d);
   });
   p.querySelectorAll('[data-row-name]').forEach(e=>e.onchange=()=>{if(structureBlocked())return;
@@ -1295,6 +1300,13 @@ function buildRowsPanel(){
     renderAll();
   });
   p.querySelectorAll('[data-row-count]').forEach(e=>e.onchange=()=>{if(structureBlocked())return;resizeRow(e.dataset.rowCount,num(e.value,0));});
+  p.querySelectorAll('[data-step-up],[data-step-down]').forEach(btn=>btn.onclick=ev=>{
+    ev.preventDefault();ev.stopPropagation();
+    if(structureBlocked())return;
+    const inp=p.querySelector(`[data-row-count="${btn.dataset.stepUp||btn.dataset.stepDown}"]`); if(!inp)return;
+    if(btn.dataset.stepUp)inp.stepUp(); else inp.stepDown();
+    inp.dispatchEvent(new Event('change'));
+  });
   p.querySelectorAll('[data-row-gap]').forEach(e=>e.onchange=()=>{if(structureBlocked())return;const r=state.rows.find(x=>x.id===e.dataset.rowGap);if(!r)return;r.gap=Math.max(0,num(e.value,0));renderAll();});
   p.querySelectorAll('[data-rename-row]').forEach(e=>e.onclick=ev=>{if(structureBlocked())return;ev.stopPropagation();openRenameRowModal(e.dataset.renameRow);});
   p.querySelectorAll('[data-del-row]').forEach(e=>e.onclick=ev=>{if(structureBlocked())return;ev.stopPropagation();deleteRow(e.dataset.delRow);});
