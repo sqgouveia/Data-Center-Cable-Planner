@@ -851,3 +851,66 @@ label {
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
+
+/* ---------- Barra inferior da planta: zoom, camadas e exportar ----------
+   Zoom, "Colorir por" e "Exportar planta" têm a mesma altura. Camadas e exportar
+   ficam centralizados na parte visível da planta (entre a barra lateral esquerda,
+   que cobre parte do canvas, e a direita); o zoom continua no canto esquerdo. */
+.app {
+  --sb-left: 295px;
+  --bar-h: 36px;
+}
+.app.sidebar-collapsed {
+  --sb-left: 0px;
+}
+@media (max-width: 900px) {
+  .app {
+    --sb-left: 260px;
+  }
+}
+.canvas-zoom-bar {
+  height: var(--bar-h);
+  padding: 0 12px;
+  box-sizing: border-box;
+}
+.heat-control {
+  left: calc(50% + var(--sb-left) / 2);
+  transform: translateX(-50%);
+  align-items: center;
+  max-width: calc(100% - var(--sb-left) - 24px);
+}
+.heat-row {
+  justify-content: center;
+}
+.heat-modes,
+.plant-export-btn {
+  height: var(--bar-h);
+  box-sizing: border-box;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.heat-modes button {
+  height: calc(var(--bar-h) - 8px);
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.plant-export-menu {
+  left: auto;
+  right: 0;
+}
+/* Quando a janela é estreita demais para os dois lados da barra, camadas sobem uma linha. */
+@media (max-width: 1700px) {
+  .heat-control {
+    bottom: calc(18px + var(--bar-h) + 12px);
+  }
+}
+
+/* ---------- Tema claro: racks um pouco mais escuros ---------- */
+:root.light .rack-body:not([class*="heat-"]),
+:root[data-theme="light"] .rack-body:not([class*="heat-"]) {
+  fill: color-mix(in srgb, var(--panel2) 80%, #6f7893);
+}
+:root.light .rack-body:not([class*="heat-"]):not(.selected),
+:root[data-theme="light"] .rack-body:not([class*="heat-"]):not(.selected) {
+  stroke: color-mix(in srgb, var(--border) 55%, #4a5168);
+}
