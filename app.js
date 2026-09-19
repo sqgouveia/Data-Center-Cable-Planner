@@ -2355,6 +2355,59 @@ function setPropHead(kind,title,subtitle){
   if(t)t.textContent=title||'Propriedades';
   if(s)s.textContent=subtitle||'Selecione um rack, calha ou cabo.';
 }
+// Painel do rack: cada campo tem um rótulo com ícone e uma caixa própria.
+const RACK_FIELD_ICONS={
+  name:'<path d="M11.2 3H4v7.2l9.4 9.4a1.8 1.8 0 0 0 2.5 0l4.7-4.7a1.8 1.8 0 0 0 0-2.5L11.2 3Z"/><path d="M7.6 7.6h.01"/>',
+  units:'<rect x="3" y="4.5" width="18" height="15" rx="2.2"/><path d="M3 9.5h18M3 14.5h18"/>',
+  width:'<path d="M15.8 2.6 21.4 8.2 8.2 21.4 2.6 15.8 15.8 2.6Z"/><path d="M7.3 11.5l1.8 1.8M10.4 8.4l1.8 1.8M13.5 5.3l1.8 1.8"/>',
+  depth:'<path d="M12 3 20.2 7.4v9.2L12 21 3.8 16.6V7.4L12 3Z"/><path d="M3.8 7.4 12 11.8l8.2-4.4M12 11.8V21"/>',
+  gap:'<path d="M5 6.5v11M19 6.5v11M7.5 12h9M10 9.4 7.5 12l2.5 2.6M14 9.4l2.5 2.6-2.5 2.6"/>',
+  rise:'<path d="M12 3.6v16.8M8.8 6.8 12 3.6l3.2 3.2M8.8 17.2 12 20.4l3.2-3.2"/>',
+  power:'<path d="M13.2 2.5 4.6 13.6h5.9l-.7 7.9 8.6-11.1h-5.9l.7-7.9Z"/>',
+  weight:'<rect x="4.6" y="10.2" width="14.8" height="10.6" rx="2"/><path d="M8.4 10.2V7.6a3.6 3.6 0 0 1 7.2 0v2.6"/><path d="M12 14.4v2.4"/>',
+  infinite:'<path d="M6.5 8.5C4.2 8.5 2.6 9.9 2.6 12c0 2.1 1.6 3.5 3.9 3.5 2.6 0 3.9-2 5.5-3.5 1.6-1.5 2.9-3.5 5.5-3.5 2.3 0 3.9 1.4 3.9 3.5 0 2.1-1.6 3.5-3.9 3.5-2.6 0-3.9-2-5.5-3.5C10.4 10.5 9.1 8.5 6.5 8.5Z"/>',
+  info:'<circle cx="12" cy="12" r="9.2"/><path class="i" d="M12 11.2v5.3M12 7.6h.01"/>',
+  bayface:'<rect x="3" y="5" width="18" height="14" rx="1.8"/><path d="M3 9.6h18M3 14.4h18"/>',
+  bayfaceFrame:'<rect x="4" y="4" width="16" height="16" rx="3.6"/>',
+  chevronUp:'<path d="M6 14.5 12 8.5l6 6"/>',
+  chevronDown:'<path d="M6 9.5 12 15.5l6-6"/>',
+  trash:'<path d="M4.5 7h15M9.5 7V4.8h5V7M6.6 7l.8 11.9a1.7 1.7 0 0 0 1.7 1.6h5.8a1.7 1.7 0 0 0 1.7-1.6L17.4 7"/><path d="M10.3 10.8v6M13.7 10.8v6"/>'
+};
+function rackFieldIcon(name,extra){
+  return `<svg class="rack-ico ic-${name}${extra?' '+extra:''}" viewBox="0 0 24 24" aria-hidden="true">${RACK_FIELD_ICONS[name]||''}</svg>`;
+}
+// Coluna de setas própria: as setas nativas do input numérico não são
+// estilizáveis e aparecem como um bloco claro sobre a caixa escura.
+function rackSpinButtons(){
+  return `<span class="rack-spin"><button type="button" class="rack-spin-btn" data-step="up" tabindex="-1" aria-label="Aumentar">${rackFieldIcon('chevronUp')}</button><button type="button" class="rack-spin-btn" data-step="down" tabindex="-1" aria-label="Diminuir">${rackFieldIcon('chevronDown')}</button></span>`;
+}
+function bindRackPanel(root){
+  // O "∞" só faz sentido enquanto o campo está sem limite definido. Zero
+  // também é "sem limite" no resto do app (powerCapacity > 0).
+  root.querySelectorAll('.rack-field-box.has-trailing input').forEach(input=>{
+    const box=input.closest('.rack-field-box');
+    const sync=()=>{box.classList.toggle('is-filled',Math.max(0,num(input.value,0))>0);};
+    input.addEventListener('input',sync);
+    sync();
+  });
+  root.querySelectorAll('.rack-spin-btn').forEach(btn=>{
+    btn.onclick=()=>{
+      const box=btn.closest('.rack-field-box');
+      const input=box&&box.querySelector('input');
+      if(!input)return;
+      const before=input.value;
+      let fired=false;
+      const mark=()=>{fired=true;};
+      input.addEventListener('change',mark,{once:true});
+      try{ if(btn.dataset.step==='up')input.stepUp(); else input.stepDown(); }
+      catch(err){ input.removeEventListener('change',mark); return; }
+      input.removeEventListener('change',mark);
+      // stepUp/stepDown já disparam "change" no Chromium; garante o commit
+      // caso o navegador não dispare.
+      if(!fired&&input.value!==before)input.dispatchEvent(new Event('change'));
+    };
+  });
+}
 function renderProperties(){
   const p=$('properties');
   if(state.trayMultiSelected.length>1){
@@ -2419,17 +2472,33 @@ function renderProperties(){
     const weightLevel=weightCapacity<=0?'none':(rackWeightKg>weightCapacity?'high':weightPct>=80?'mid':'low');
     setPropTitleSticky(r.name);
     setPropHead('rack','Propriedades do rack','Configure nome, medidas e capacidade.');
-    p.innerHTML=`${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. Desbloqueie para alterar este rack.</div>':''}
-      <label>Nome<input id="prName" value="${esc(r.name)}"></label>
-      <div class="grid2"><label>Qtd. U<input id="prUnits" type="number" min="1" max="60" value="${r.units}"></label><label>Largura (m)<input id="prWidth" type="number" min="0.1" step="0.01" value="${r.width}"></label></div>
-      <div class="grid2"><label>Profundidade (m)<input id="prDepth" type="number" min="0.1" step="0.01" value="${r.depth??state.rackDepth}"></label><label>Distância próx. (m)<input id="prGapAfter" type="number" min="0" step="0.01" value="${r.gapAfter??state.rackGap}"></label></div>
-      <label>Altura da última U → calha (m)<input id="prRiseToTray" type="number" min="0" step="0.01" value="${num(r.riseToTray,state.lastUToTray).toFixed(2)}"></label>
-      <label>Capacidade elétrica (W) <small class="field-help-inline">(opcional)</small><input id="prPowerCapacity" type="number" min="0" step="1" placeholder="Sem limite definido" value="${powerCapacity>0?powerCapacity:''}"></label>
-      <div class="rack-power-readout power-${powerLevel}">Consumo estimado: <b>${rackPowerW}W</b>${powerCapacity>0?` de ${powerCapacity}W (${powerPct}%)`:''}</div>
-      <label>Capacidade de carga do piso (kg) <small class="field-help-inline">(opcional)</small><input id="prWeightCapacity" type="number" min="0" step="1" placeholder="Sem limite definido" value="${weightCapacity>0?weightCapacity:''}"></label>
-      <div class="rack-power-readout power-${weightLevel}">Peso estimado: <b>${rackWeightKg}kg</b>${weightCapacity>0?` de ${weightCapacity}kg (${weightPct}%)`:''}</div>
-      <button class="btn ghost full" id="openBayface">▦ Ver Bayface</button><button class="btn danger full" id="delRack">Excluir rack</button>
-      <div class="help autosave">As alterações do rack são salvas automaticamente.</div>`;
+    p.innerHTML=`<div class="rack-panel">
+      ${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. Desbloqueie para alterar este rack.</div>':''}
+      <label class="rack-field"><span class="rack-field-label">${rackFieldIcon('name')}<span class="rack-field-text">Nome</span></span><span class="rack-field-box"><input id="prName" value="${esc(r.name)}"></span></label>
+      <div class="grid2">
+        <label class="rack-field"><span class="rack-field-label">${rackFieldIcon('units')}<span class="rack-field-text">Qtd. U</span></span><span class="rack-field-box has-spin"><input id="prUnits" type="number" min="1" max="60" value="${r.units}">${rackSpinButtons()}</span></label>
+        <label class="rack-field"><span class="rack-field-label">${rackFieldIcon('width')}<span class="rack-field-text">Largura (m)</span></span><span class="rack-field-box has-spin"><input id="prWidth" type="number" min="0.1" step="0.01" value="${r.width}">${rackSpinButtons()}</span></label>
+      </div>
+      <div class="grid2">
+        <label class="rack-field"><span class="rack-field-label">${rackFieldIcon('depth')}<span class="rack-field-text">Profund. (m)</span></span><span class="rack-field-box has-spin"><input id="prDepth" type="number" min="0.1" step="0.01" value="${r.depth??state.rackDepth}">${rackSpinButtons()}</span></label>
+        <label class="rack-field"><span class="rack-field-label">${rackFieldIcon('gap')}<span class="rack-field-text">Dist. próx. (m)</span></span><span class="rack-field-box has-spin"><input id="prGapAfter" type="number" min="0" step="0.01" value="${r.gapAfter??state.rackGap}">${rackSpinButtons()}</span></label>
+      </div>
+      <label class="rack-field"><span class="rack-field-label">${rackFieldIcon('rise')}<span class="rack-field-text">Última U → calha (m)</span></span><span class="rack-field-box has-spin"><input id="prRiseToTray" type="number" min="0" step="0.01" value="${num(r.riseToTray,state.lastUToTray).toFixed(2)}">${rackSpinButtons()}</span></label>
+      <div class="rack-card-sub">
+        <span class="rack-field-label">${rackFieldIcon('power')}<span class="rack-field-text">Cap. elétrica (W) <span class="rack-field-opt">(opcional)</span></span></span>
+        <span class="rack-field-box has-trailing has-spin">${rackFieldIcon('infinite','rack-field-trailing')}<input id="prPowerCapacity" type="number" min="0" step="1" placeholder="Sem limite definido" aria-label="Capacidade elétrica (W) (opcional)" value="${powerCapacity>0?powerCapacity:''}">${rackSpinButtons()}</span>
+        <div class="rack-readout rack-power-readout power-${powerLevel}">${rackFieldIcon('info','rack-readout-icon')}<span>Consumo estimado: <b>${rackPowerW} W</b>${powerCapacity>0?` de ${powerCapacity} W (${powerPct}%)`:''}</span></div>
+      </div>
+      <div class="rack-card-sub">
+        <span class="rack-field-label">${rackFieldIcon('weight')}<span class="rack-field-text">Carga do piso (kg) <span class="rack-field-opt">(opcional)</span></span></span>
+        <span class="rack-field-box has-trailing has-spin">${rackFieldIcon('infinite','rack-field-trailing')}<input id="prWeightCapacity" type="number" min="0" step="1" placeholder="Sem limite definido" aria-label="Capacidade de carga do piso (kg) (opcional)" value="${weightCapacity>0?weightCapacity:''}">${rackSpinButtons()}</span>
+        <div class="rack-readout rack-power-readout power-${weightLevel}">${rackFieldIcon('info','rack-readout-icon')}<span>Peso estimado: <b>${rackWeightKg} kg</b>${weightCapacity>0?` de ${weightCapacity} kg (${weightPct}%)`:''}</span></div>
+      </div>
+      <button class="btn ghost full" id="openBayface">${rackFieldIcon('bayface')}${rackFieldIcon('bayfaceFrame')}Ver Bayface</button>
+      <button class="btn danger full" id="delRack">${rackFieldIcon('trash')}Excluir rack</button>
+      <div class="rack-footnote">${rackFieldIcon('info')}Alterações salvas automaticamente.</div>
+    </div>`;
+    bindRackPanel(p);
     if($('prName'))$('prName').onchange=()=>{if(structureBlocked())return;r.name=$('prName').value.trim();refreshVisuals();renderProperties();};
     if($('prUnits'))$('prUnits').onchange=()=>{if(structureBlocked())return;const next=Math.max(1,Math.min(60,Math.floor(num($('prUnits').value,state.rackUnits))));const top=highestOccupiedU(state.assets,r.id);if(next<top){toast(`Há equipamento até a U${top}. Mova-o ou remova-o antes de reduzir o rack para ${next}U.`);renderProperties();return;}r.units=next;refreshVisuals();renderProperties();};
     if($('prWidth'))$('prWidth').onchange=()=>{if(structureBlocked())return;

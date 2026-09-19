@@ -1977,6 +1977,283 @@ label {
   margin: 0;
 }
 
+/* =====================================================================
+   Aba Propriedades: painel do rack
+   Um cartão só, com rótulo e caixa de entrada por campo. Os campos
+   opcionais mostram "∞" à direita enquanto estão vazios (sem limite).
+   ===================================================================== */
+.rack-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--panel2);
+  box-shadow: inset 0 1px 0 var(--edge);
+}
+.rack-panel .grid2 {
+  gap: 8px;
+}
+.rack-panel .structure-lock-note {
+  margin: 0;
+}
+.rack-panel .rack-field {
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+.rack-panel .rack-field-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  color: var(--text);
+  white-space: nowrap;
+}
+.rack-panel .rack-field-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rack-panel .rack-ico {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin-top: 1.5px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--blue);
+}
+.rack-panel .rack-field-opt {
+  color: var(--muted);
+  font-weight: 550;
+}
+/* ícone de informação: disco cheio com o "i" recortado */
+.rack-panel .rack-ico.ic-info circle {
+  fill: currentColor;
+  stroke: none;
+}
+.rack-panel .rack-ico.ic-info .i {
+  stroke: #fff;
+  stroke-width: 2.6;
+}
+.rack-panel .rack-field-box {
+  position: relative;
+  display: block;
+  margin-top: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--bg) 85%, var(--panel));
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.rack-panel .rack-field-box:focus-within {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent);
+}
+.rack-panel .rack-field-box input {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  outline: 0;
+  box-shadow: none;
+}
+.rack-panel .rack-field-box input:focus {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.rack-panel .rack-field-box input::placeholder {
+  color: var(--muted);
+  opacity: 0.85;
+}
+/* as setas nativas do input numérico saem de cena: a coluna de setas do
+   painel é própria, com a divisória que o desenho mostra. */
+.rack-panel input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+  padding-right: 34px;
+}
+.rack-panel input[type="number"]::-webkit-outer-spin-button,
+.rack-panel input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+.rack-panel .rack-spin {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 26px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+}
+.rack-panel .rack-spin-btn {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+.rack-panel .rack-spin-btn:first-child {
+  border-radius: 0 calc(var(--r-md) - 1px) 0 0;
+}
+.rack-panel .rack-spin-btn:last-child {
+  border-radius: 0 0 calc(var(--r-md) - 1px) 0;
+}
+.rack-panel .rack-spin-btn:hover {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--text);
+}
+.rack-panel .rack-spin-btn:focus-visible {
+  outline: 0;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--blue) 55%, transparent);
+}
+.rack-panel .rack-spin-btn .rack-ico {
+  width: 11px;
+  height: 11px;
+  margin: 0;
+  color: inherit;
+  stroke-width: 2.2;
+}
+.rack-panel .rack-field-box.has-trailing input {
+  padding-right: 60px;
+}
+.rack-panel .rack-field-trailing {
+  position: absolute;
+  top: 50%;
+  right: 34px;
+  transform: translateY(-50%);
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  color: var(--text);
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+/* com limite definido o "∞" sai de cena */
+.rack-panel .rack-field-box.is-filled .rack-field-trailing {
+  opacity: 0;
+}
+.rack-panel .rack-card-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--panel2) 45%, var(--panel));
+}
+.rack-panel .rack-readout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--bg) 70%, var(--panel));
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+.rack-panel .rack-readout .rack-readout-icon {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+.rack-panel .rack-readout b {
+  color: var(--text);
+  font-family: inherit;
+  font-weight: 700;
+}
+.rack-panel .rack-readout.power-mid {
+  border-color: color-mix(in srgb, var(--orange) 45%, var(--border));
+  color: var(--orange);
+}
+.rack-panel .rack-readout.power-mid b {
+  color: var(--orange);
+}
+.rack-panel .rack-readout.power-high {
+  border-color: color-mix(in srgb, var(--red) 50%, var(--border));
+  color: var(--red);
+}
+.rack-panel .rack-readout.power-high b {
+  color: var(--red);
+}
+.rack-panel .btn.full {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  margin: 0;
+  border-radius: var(--r-md);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.rack-panel .btn.full .rack-ico {
+  width: 16px;
+  height: 16px;
+}
+.rack-panel .btn.ghost .rack-ico {
+  color: var(--blue);
+}
+.rack-panel .btn.ghost:hover:not(:disabled) .rack-ico {
+  color: var(--blue-ink);
+}
+.rack-panel .btn.danger {
+  border-color: color-mix(in srgb, var(--red) 45%, transparent);
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+}
+.rack-panel .btn.danger:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--red) 62%, transparent);
+  background: color-mix(in srgb, var(--red) 20%, transparent);
+}
+.rack-panel .btn.danger .rack-ico {
+  color: var(--red);
+}
+.rack-panel .rack-footnote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+.rack-panel .rack-footnote .rack-ico {
+  width: 16px;
+  height: 16px;
+}
+
 /* ---------- Movimento reduzido ---------- */
 @media (prefers-reduced-motion: reduce) {
   *,
