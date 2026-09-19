@@ -261,7 +261,14 @@ input[type="radio"] {
   border-right: 1px solid var(--border);
 }
 .sidebar.right {
+  /* Item de grid: z-index vale sem position. É o que faz a sombra ser
+     desenhada sobre a planta — sem isto, os filhos posicionados do canvas
+     pintam por cima dela. */
+  z-index: 130;
   border-left: 1px solid var(--border);
+  /* A barra esquerda projeta sombra sobre a planta; a direita projeta a
+     mesma, espelhada. */
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.1);
 }
 .sidebar .section-head,
 .section-head-sticky {
@@ -903,7 +910,9 @@ label {
   margin-top: -5px;
   border: 1px solid color-mix(in srgb, var(--blue) 60%, transparent);
   border-radius: 50%;
-  background: var(--text);
+  /* O polegar era --text: no tema claro isso vira quase preto. Mistura com
+     branco para ficar claro nos dois temas. */
+  background: color-mix(in srgb, #fff 88%, var(--panel));
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--blue) 22%, transparent),
     0 1px 3px rgba(0, 0, 0, 0.4);
@@ -923,7 +932,7 @@ label {
   height: 14px;
   border: 1px solid color-mix(in srgb, var(--blue) 60%, transparent);
   border-radius: 50%;
-  background: var(--text);
+  background: color-mix(in srgb, #fff 88%, var(--panel));
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--blue) 22%, transparent),
     0 1px 3px rgba(0, 0, 0, 0.4);
@@ -2025,11 +2034,17 @@ label {
   /* flex:none é obrigatório: sem ele o flex:1 herdado de .prop-head faz o
      cabeçalho esticar na vertical dentro da seção em coluna. */
   flex: none;
+  /* Mesma altura da barra central de ferramentas. */
+  height: 56px;
   margin: -15px -14px 9px;
   padding: 11px 14px 9px;
   background: linear-gradient(180deg, var(--chrome-1), var(--chrome-2));
   border-bottom: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
   box-shadow: inset 0 1px 0 var(--edge);
+}
+.sidebar.right > section:first-child .section-head-sticky {
+  /* Mesma altura da barra central de ferramentas. */
+  height: 56px;
 }
 .prop-head > .iconbtn,
 .prop-head > .cables-count,
