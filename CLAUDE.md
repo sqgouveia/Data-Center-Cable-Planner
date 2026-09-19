@@ -18,6 +18,15 @@ node --test js/test/routing.test.mjs
 ```
 There is no build step, bundler, package.json, linter, or dev server config — `index.html` loads `app.js` directly as an ES module (`<script type="module" src="app.js">`). To preview locally, serve the directory with any static file server (e.g. `npx serve .` or `python -m http.server`) and open `index.html`; opening the file directly (`file://`) will not work because it's an ES module.
 
+## Releasing (cache versions)
+
+The browser caches every file for a few minutes, so a new `app.js` can end up mixed with an old cached `js/*.js` module and fail to load (e.g. "does not provide an export named …"). `index.html` therefore carries a `<script type="importmap">` that makes every module request the same `?v=N` as `app.js`. Before publishing a change run:
+```
+node scripts/bump-version.mjs        # app.js + every js/ module (same N)
+node scripts/bump-version.mjs css    # also app.css and macos.css
+```
+`js/test/versions.test.mjs` fails if a module is missing from the map or its version differs from `app.js`, so adding a new file under `js/` requires running the script once.
+
 ## Architecture
 
 **No bundler, no framework.** `index.html` loads three CDN libraries (`@supabase/supabase-js`, SheetJS `xlsx`, `exceljs`) as globals, then `app.js` as a native ES module that imports from `js/*.js`. There is no compile/transpile step — what's on disk is what ships.
