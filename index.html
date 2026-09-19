@@ -12,27 +12,27 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=150" />
-    <link rel="stylesheet" href="macos.css?v=15" />
+    <link rel="stylesheet" href="app.css?v=153" />
+    <link rel="stylesheet" href="macos.css?v=18" />
     <script type="importmap">
       {
         "imports": {
-          "./js/bulk-assets.js": "./js/bulk-assets.js?v=148",
-          "./js/cables.js": "./js/cables.js?v=148",
-          "./js/catalogs.js": "./js/catalogs.js?v=148",
-          "./js/cloud-sync.js": "./js/cloud-sync.js?v=148",
-          "./js/dialogs.js": "./js/dialogs.js?v=148",
-          "./js/geometry.js": "./js/geometry.js?v=148",
-          "./js/inventory-import.js": "./js/inventory-import.js?v=148",
-          "./js/occupancy.js": "./js/occupancy.js?v=148",
-          "./js/pdf-report.js": "./js/pdf-report.js?v=148",
-          "./js/plant-export.js": "./js/plant-export.js?v=148",
-          "./js/rack-metrics.js": "./js/rack-metrics.js?v=148",
-          "./js/routing.js": "./js/routing.js?v=148",
-          "./js/runtime.js": "./js/runtime.js?v=148",
-          "./js/state.js": "./js/state.js?v=148",
-          "./js/styled-select.js": "./js/styled-select.js?v=148",
-          "./js/utils.js": "./js/utils.js?v=148"
+          "./js/bulk-assets.js": "./js/bulk-assets.js?v=152",
+          "./js/cables.js": "./js/cables.js?v=152",
+          "./js/catalogs.js": "./js/catalogs.js?v=152",
+          "./js/cloud-sync.js": "./js/cloud-sync.js?v=152",
+          "./js/dialogs.js": "./js/dialogs.js?v=152",
+          "./js/geometry.js": "./js/geometry.js?v=152",
+          "./js/inventory-import.js": "./js/inventory-import.js?v=152",
+          "./js/occupancy.js": "./js/occupancy.js?v=152",
+          "./js/pdf-report.js": "./js/pdf-report.js?v=152",
+          "./js/plant-export.js": "./js/plant-export.js?v=152",
+          "./js/rack-metrics.js": "./js/rack-metrics.js?v=152",
+          "./js/routing.js": "./js/routing.js?v=152",
+          "./js/runtime.js": "./js/runtime.js?v=152",
+          "./js/state.js": "./js/state.js?v=152",
+          "./js/styled-select.js": "./js/styled-select.js?v=152",
+          "./js/utils.js": "./js/utils.js?v=152"
         }
       }
     </script>
@@ -836,6 +836,24 @@
                   <button type="button" role="menuitem" data-plant-export="svg">Vetor SVG</button>
                 </div>
               </div>
+              <button
+            id="btnQuickSearch"
+            class="canvas-tool-toggle search-toggle"
+            type="button"
+            title="Buscar (Ctrl+K)"
+            aria-label="Buscar (Ctrl+K)"
+          >
+            ⌕
+          </button>
+              <button
+            id="structureLock"
+            class="structure-lock"
+            type="button"
+            title="Bloquear estrutura"
+            aria-label="Bloquear estrutura"
+          >
+            <span id="structureLockIcon">🔓</span>
+          </button>
             </div>
             <div id="heatLegend" class="heat-legend hidden"></div>
           </div>
@@ -862,33 +880,9 @@
               ? Ver guia completo
             </button>
           </div>
-          <button
-            id="btnQuickSearch"
-            class="canvas-tool-toggle search-toggle"
-            type="button"
-            title="Buscar (Ctrl+K)"
-            aria-label="Buscar (Ctrl+K)"
-          >
-            ⌕
-          </button>
-          <button
-            id="minimapToggle"
-            class="minimap-toggle"
-            type="button"
-            title="Mostrar mini mapa"
-            aria-label="Mostrar mini mapa"
-          >
-            ⌗
-          </button>
-          <button
-            id="structureLock"
-            class="structure-lock"
-            type="button"
-            title="Bloquear estrutura"
-            aria-label="Bloquear estrutura"
-          >
-            <span id="structureLockIcon">🔓</span>
-          </button>
+          <div id="minimap" class="minimap" aria-label="Visão geral da planta">
+            <svg id="minimapSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+          </div>
           <div
             id="canvasZoomBar"
             class="canvas-zoom-bar"
@@ -1157,21 +1151,6 @@
         </div>
         <div id="projectSummaryGrid" class="summary-grid"></div>
       </div>
-    </div>
-    <div id="minimap" class="minimap hidden" aria-label="Mini mapa da planta">
-      <div class="minimap-head">
-        <span>Mini mapa</span
-        ><button
-          id="minimapClose"
-          class="iconbtn"
-          type="button"
-          title="Fechar mini mapa"
-          aria-label="Fechar mini mapa"
-        >
-          ×
-        </button>
-      </div>
-      <svg id="minimapSvg" xmlns="http://www.w3.org/2000/svg"></svg>
     </div>
     <div id="toast"></div>
 
@@ -3791,6 +3770,6 @@
         </div>
       </div>
     </div>
-    <script type="module" src="app.js?v=148"></script>
+    <script type="module" src="app.js?v=152"></script>
   </body>
 </html>

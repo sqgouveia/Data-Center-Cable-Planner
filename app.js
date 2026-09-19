@@ -761,6 +761,7 @@ function setupPlantExport(){
   document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
 }
 function setupHeatControl(){
+  $('heatControl')?.addEventListener('pointerdown',e=>e.stopPropagation());
   $('heatControl')?.addEventListener('click',e=>{
     const b=e.target.closest('[data-heat]'); if(!b||b.dataset.heat===heatMode)return;
     heatMode=b.dataset.heat;
@@ -2986,10 +2987,11 @@ function switchHelpSection(section){
 function openQuickSearch(){const m=$('quickSearchModal');if(!m)return;m.classList.remove('hidden');m.classList.add('open');m.setAttribute('aria-hidden','false');const i=$('quickSearchInput');if(i){i.value='';renderQuickSearchResults('');requestAnimationFrame(()=>i.focus());}}
 function closeQuickSearch(){const m=$('quickSearchModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
 
-// Mini mapa: fixo no canto inferior direito, com tamanho fixo. Enquadra o desenho (racks e
-// calhas), colore os racks pela camada escolhida, e a área visível se move arrastando; a
-// roda do mouse dá zoom no canvas, como no próprio canvas.
-const MINIMAP_W=240, MINIMAP_H=130, MINIMAP_HEAD=30, MINIMAP_GAP=12;
+// Mini mapa: janela fixa, sempre aberta, no canto inferior direito da planta. Mostra o desenho
+// (racks e calhas) com as cores da camada escolhida e a área visível do canvas como uma moldura,
+// que acompanha o zoom e o arraste do canvas. Arrastar a moldura move o canvas; a roda do mouse
+// dá zoom, como no próprio canvas.
+const MINIMAP_W=260, MINIMAP_H=150;
 function minimapBox(g){
   // Caixa do desenho em coordenadas da planta.
   let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
@@ -2998,27 +3000,24 @@ function minimapBox(g){
   state.trays.forEach(t=>{add(t.x1,t.y1);add(t.x2,t.y2);});
   return {x1,y1,x2,y2};
 }
-function placeMinimap(){
-  const box=$('minimap'),wrap=$('canvasWrap'); if(!box||!wrap)return;
-  const wr=wrap.getBoundingClientRect();
-  box.style.right=`${Math.round(window.innerWidth-wr.right+18)}px`; box.style.bottom=`${Math.round(window.innerHeight-wr.bottom+18)}px`;
+// Parte do canvas que aparece de fato: a barra lateral esquerda cobre o começo do #canvasWrap.
+function canvasVisible(wrap){
+  const sb=document.querySelector('.sidebar.left'), wr=wrap.getBoundingClientRect(), sr=sb?.getBoundingClientRect();
+  const left=sr&&sr.width>0&&sr.right>wr.left?Math.min(wr.width-1,Math.max(0,sr.right-wr.left)):0;
+  return {left,width:wrap.clientWidth-left,height:wrap.clientHeight};
 }
 function updateMinimap(){
-  const box=$('minimap'),svg=$('minimapSvg'),wrap=$('canvasWrap'); if(!box||!svg||!wrap||box.classList.contains('hidden'))return;
-  const g=geometry();
-  placeMinimap();
-  const w=MINIMAP_W,h=MINIMAP_H;
+  const box=$('minimap'),svg=$('minimapSvg'),wrap=$('canvasWrap'); if(!box||!svg||!wrap||!box.offsetParent)return;
+  const g=geometry(), w=MINIMAP_W, h=MINIMAP_H;
   svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
   if(!state.racks.length){svg.innerHTML='<text x="50%" y="50%" text-anchor="middle" class="minimap-empty">Sem racks</text>';svg.dataset.scale='';return;}
   const c=minimapBox(g);
   const p=window.__canvasPan||{x:0,y:0,zoom:1},z=p.zoom||1;
-  const view={x:-p.x/z,y:-p.y/z,w:wrap.clientWidth/z,h:wrap.clientHeight/z};
-  // O mapa mostra o desenho; a área visível entra na conta só até 1/4 do desenho de distância,
-  // para o desenho continuar grande no mapa; além disso a área visível é recortada na borda.
-  const cw=c.x2-c.x1,ch=c.y2-c.y1,mx=cw*0.25,my=ch*0.25,pad=8;
-  const bx1=Math.min(c.x1,Math.max(view.x,c.x1-mx)),by1=Math.min(c.y1,Math.max(view.y,c.y1-my));
-  const bx2=Math.max(c.x2,Math.min(view.x+view.w,c.x2+mx)),by2=Math.max(c.y2,Math.min(view.y+view.h,c.y2+my));
-  const bw=Math.max(1,bx2-bx1),bh=Math.max(1,by2-by1);
+  const vis=canvasVisible(wrap), view={x:(vis.left-p.x)/z,y:-p.y/z,w:vis.width/z,h:vis.height/z};
+  // O mapa cobre o desenho com uma folga fixa (não depende de onde o canvas está), então a moldura
+  // da área visível cresce e encolhe com o zoom e anda com o arraste; fora do mapa ela é recortada.
+  const cw=c.x2-c.x1,ch=c.y2-c.y1,mx=cw*0.5,my=ch*0.5,pad=6;
+  const bx1=c.x1-mx,by1=c.y1-my,bw=cw+mx*2,bh=ch+my*2;
   const sc=Math.min((w-pad*2)/bw,(h-pad*2)/bh), ox=(w-bw*sc)/2-bx1*sc, oy=(h-bh*sc)/2-by1*sc;
   const X=x=>ox+x*sc,Y=y=>oy+y*sc;
   let out=`<rect class="minimap-bg" x="0" y="0" width="${w}" height="${h}"/>`;
@@ -3030,34 +3029,33 @@ function updateMinimap(){
     out+=`<rect class="minimap-rack ${lv?`heat-${lv}`:''} ${sel?'selected':''}" x="${rx}" y="${ry}" width="${rw}" height="${rh}" rx="1.5"/>`;
     if(m&&m.alertLevel!=='l1')out+=`<circle class="minimap-alert alert-${m.alertLevel}" cx="${rx+rw-1.5}" cy="${ry+1.5}" r="2.4"/>`;
   });
-  const minV=6/sc, vx1=Math.min(Math.max(view.x,bx1),bx2-minV), vy1=Math.min(Math.max(view.y,by1),by2-minV);
-  const vx2=Math.max(vx1+minV,Math.min(view.x+view.w,bx2)), vy2=Math.max(vy1+minV,Math.min(view.y+view.h,by2));
+  // Moldura da área visível, recortada nas bordas do mapa (sempre com pelo menos 6 px).
+  const minV=6/sc, ex1=bx1, ey1=by1, ex2=bx1+bw, ey2=by1+bh;
+  const vx1=Math.min(Math.max(view.x,ex1),ex2-minV), vy1=Math.min(Math.max(view.y,ey1),ey2-minV);
+  const vx2=Math.max(vx1+minV,Math.min(view.x+view.w,ex2)), vy2=Math.max(vy1+minV,Math.min(view.y+view.h,ey2));
   out+=`<rect class="minimap-viewport" x="${X(vx1)}" y="${Y(vy1)}" width="${(vx2-vx1)*sc}" height="${(vy2-vy1)*sc}"/>`;
   svg.innerHTML=out;svg.dataset.ox=ox;svg.dataset.oy=oy;svg.dataset.scale=sc;
 }
 function setupMinimap(){
-  const toggle=$('minimapToggle'),box=$('minimap'),svg=$('minimapSvg'); if(!toggle||!box||!svg)return;
-  const setOpen=open=>{
-    box.classList.toggle('hidden',!open); document.body.classList.toggle('minimap-open',open);
-    if(open)requestAnimationFrame(updateMinimap);
-  };
-  toggle.addEventListener('click',()=>setOpen(box.classList.contains('hidden')));$('minimapClose')?.addEventListener('click',()=>setOpen(false));
+  const box=$('minimap'),svg=$('minimapSvg'); if(!box||!svg)return;
   // Ponto da planta sob o ponteiro (o mapa é um SVG com viewBox fixo).
   const plantPoint=e=>{
     const rect=svg.getBoundingClientRect(),k=MINIMAP_W/rect.width;
     const sc=Number(svg.dataset.scale)||1,ox=Number(svg.dataset.ox)||0,oy=Number(svg.dataset.oy)||0;
     return {x:((e.clientX-rect.left)*k-ox)/sc,y:((e.clientY-rect.top)*k-oy)/sc};
   };
-  const viewNow=()=>{const wrap=$('canvasWrap'),p=window.__canvasPan;if(!wrap||!p)return null;const z=p.zoom||1;return {wrap,p,z,x:-p.x/z,y:-p.y/z,w:wrap.clientWidth/z,h:wrap.clientHeight/z};};
-  // Arrastar a área visível: se o clique cai dentro dela, ela acompanha o ponteiro sem pular;
+  const viewNow=()=>{const wrap=$('canvasWrap'),p=window.__canvasPan;if(!wrap||!p)return null;const z=p.zoom||1,vis=canvasVisible(wrap);return {wrap,p,z,vis,x:(vis.left-p.x)/z,y:-p.y/z,w:vis.width/z,h:vis.height/z};};
+  // Arrastar a moldura: se o clique cai dentro dela, ela acompanha o ponteiro sem pular;
   // se cai fora, ela se centraliza no ponto e segue o ponteiro.
   let drag=null;
   const moveTo=e=>{
     const v=viewNow(); if(!v||!drag)return;
     const pt=plantPoint(e);
-    v.p.x=v.wrap.clientWidth/2-(pt.x-drag.dx)*v.z; v.p.y=v.wrap.clientHeight/2-(pt.y-drag.dy)*v.z;
+    v.p.x=v.vis.left+v.vis.width/2-(pt.x-drag.dx)*v.z; v.p.y=v.vis.height/2-(pt.y-drag.dy)*v.z;
     window.__applyCanvasPan?.(); updateMinimap();
   };
+  // O canvas também escuta ponteiro e roda: aqui elas não podem passar adiante.
+  box.addEventListener('pointerdown',e=>e.stopPropagation());
   svg.addEventListener('pointerdown',e=>{
     if(e.button!==0||!Number(svg.dataset.scale))return;
     const v=viewNow(); if(!v)return;
@@ -3068,18 +3066,19 @@ function setupMinimap(){
   svg.addEventListener('pointermove',e=>{if(drag)moveTo(e);});
   const stop=e=>{drag=null;svg.classList.remove('is-dragging');try{if(svg.hasPointerCapture?.(e.pointerId))svg.releasePointerCapture(e.pointerId);}catch{}};
   svg.addEventListener('pointerup',stop); svg.addEventListener('pointercancel',stop);
-  // Roda do mouse: mesmo zoom do canvas. Se o ponteiro está sobre a área visível, o zoom
-  // mantém fixo o ponto sob ele; fora dela, o zoom é no centro da área visível.
-  svg.addEventListener('wheel',e=>{
+  // Roda do mouse: mesmo zoom do canvas. Se o ponteiro está sobre a moldura, o zoom mantém fixo o
+  // ponto sob ele; fora dela, o zoom é no centro da moldura.
+  box.addEventListener('wheel',e=>{
+    e.stopPropagation();
     const v=viewNow(); if(!v||!window.__zoomAt||!Number(svg.dataset.scale))return;
     e.preventDefault();
     const pt=plantPoint(e), sx=pt.x*v.z+v.p.x, sy=pt.y*v.z+v.p.y;
-    const inView=sx>=0&&sx<=v.wrap.clientWidth&&sy>=0&&sy<=v.wrap.clientHeight, r=v.wrap.getBoundingClientRect();
-    window.__zoomAt({clientX:r.left+(inView?sx:v.wrap.clientWidth/2),clientY:r.top+(inView?sy:v.wrap.clientHeight/2),deltaY:e.deltaY,ctrlKey:false,preventDefault(){}});
+    const inView=sx>=v.vis.left&&sx<=v.vis.left+v.vis.width&&sy>=0&&sy<=v.vis.height, r=v.wrap.getBoundingClientRect();
+    window.__zoomAt({clientX:r.left+(inView?sx:v.vis.left+v.vis.width/2),clientY:r.top+(inView?sy:v.vis.height/2),deltaY:e.deltaY,ctrlKey:false,preventDefault(){}});
     updateMinimap();
   },{passive:false});
   window.addEventListener('resize',()=>updateMinimap());
-  box.classList.add('hidden');
+  requestAnimationFrame(updateMinimap);
 }
 async function newProject(){
   const ok=await uiConfirm('O projeto atual continuará salvo na nuvem.',{title:'Criar um novo projeto?',confirmText:'Criar novo projeto'});

@@ -493,14 +493,14 @@ function closeProjectMenus(){document.querySelectorAll('.project-menu-panel').fo
 export function showDashboard(){
   appView='dashboard';
   $('dashboardScreen')?.classList.remove('hidden'); $('dashboardScreen')?.setAttribute('aria-hidden','false');
-  $('mainTopbar')?.classList.add('hidden'); document.querySelector('.app')?.classList.add('hidden'); $('minimap')?.classList.add('hidden'); $('minimapToggle')?.classList.add('hidden');
+  $('mainTopbar')?.classList.add('hidden'); document.querySelector('.app')?.classList.add('hidden');
   $('dashboardUserEmail').textContent=$('authUserEmail')?.textContent||'';
   renderDashboardProjects();
 }
 function hideDashboard(){
   appView='planner';
   $('dashboardScreen')?.classList.add('hidden'); $('dashboardScreen')?.setAttribute('aria-hidden','true');
-  $('mainTopbar')?.classList.remove('hidden'); document.querySelector('.app')?.classList.remove('hidden'); $('minimapToggle')?.classList.remove('hidden');
+  $('mainTopbar')?.classList.remove('hidden'); document.querySelector('.app')?.classList.remove('hidden');
 }
 let dashboardProjects=[], projectsQuery='', projectsSort='recent';
 let projectsView=(()=>{try{return localStorage.getItem('dccp_projects_view')==='grid'?'grid':'list';}catch(_){return 'list';}})();

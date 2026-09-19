@@ -898,10 +898,20 @@ label {
   left: auto;
   right: 0;
 }
-/* Quando a janela é estreita demais para os dois lados da barra, camadas sobem uma linha. */
-@media (max-width: 1700px) {
+/* Janelas menores: a barra central fica compacta (sem rótulo nem texto do exportar) para caber
+   entre o zoom e o mini mapa; abaixo disso ela sobe acima do mini mapa. */
+@media (max-width: 1909px) {
+  .heat-label,
+  .plant-export-btn span {
+    display: none;
+  }
+  .plant-export-btn {
+    padding: 0 10px;
+  }
+}
+@media (max-width: 1724px) {
   .heat-control {
-    bottom: calc(18px + var(--bar-h) + 12px);
+    bottom: calc(18px + 150px + 12px);
   }
 }
 
@@ -991,13 +1001,72 @@ label {
   pointer-events: none;
 }
 
-body.minimap-open .canvas-tool-toggle,
-body.minimap-open .minimap-toggle,
-body.minimap-open .structure-lock {
-  translate: 0 calc(-1 * (160px + 12px));
+/* ---------- Mini mapa: janela fixa e sempre aberta, sem título nem botões ---------- */
+.minimap {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  top: auto;
+  left: auto;
+  width: 260px;
+  height: 150px;
+  z-index: 101;
+  padding: 0;
 }
-.canvas-tool-toggle,
-.minimap-toggle,
-.structure-lock {
-  transition: translate 0.15s ease;
+.minimap svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- Buscar e bloquear: ao lado de "Exportar planta", na barra central ---------- */
+.heat-row .canvas-tool-toggle,
+.heat-row .structure-lock {
+  position: static !important;
+  inset: auto !important;
+  translate: none !important;
+  transform: none !important;
+  width: var(--bar-h) !important;
+  height: var(--bar-h) !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center;
+  flex: none;
+  border: 0.5px solid color-mix(in srgb, var(--border) 80%, transparent) !important;
+  border-radius: 999px !important;
+  background: color-mix(in srgb, var(--panel) 78%, transparent) !important;
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+}
+.heat-row .canvas-tool-toggle:hover,
+.heat-row .structure-lock:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--panel) 92%, transparent) !important;
+}
+.heat-row .structure-lock.locked {
+  color: var(--orange);
+  border-color: color-mix(in srgb, var(--orange) 55%, transparent) !important;
+}
+.heat-row .structure-lock span {
+  font-size: 14px;
+}
+
+/* A barra central não pode encolher até quebrar linha: largura do conteúdo, nunca menos. */
+.heat-control {
+  width: max-content;
+  max-width: none;
+}
+.heat-row,
+.heat-modes {
+  flex-wrap: nowrap;
+}
+.heat-modes,
+.plant-export {
+  flex: none;
 }
