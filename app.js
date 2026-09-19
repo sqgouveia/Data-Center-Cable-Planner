@@ -2871,6 +2871,7 @@ function setupPan(){
   wrap.addEventListener('pointerdown',begin,{passive:false});
   wrap.addEventListener('wheel',zoomAt,{passive:false});
   window.__applyCanvasPan=apply; window.__updateMinimap=()=>updateMinimap();
+  window.__zoomAt=zoomAt;
   window.__zoomIn=()=>{const evt={clientX:wrap.clientWidth/2,clientY:wrap.clientHeight/2,deltaY:-1,ctrlKey:false,preventDefault(){}};zoomAt(evt);};
 
   const zoomRange=$('zoomRange'), zoomValue=$('zoomReset');
@@ -2985,8 +2986,10 @@ function switchHelpSection(section){
 function openQuickSearch(){const m=$('quickSearchModal');if(!m)return;m.classList.remove('hidden');m.classList.add('open');m.setAttribute('aria-hidden','false');const i=$('quickSearchInput');if(i){i.value='';renderQuickSearchResults('');requestAnimationFrame(()=>i.focus());}}
 function closeQuickSearch(){const m=$('quickSearchModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
 
-// Mini mapa: enquadra o desenho (racks e calhas) e a área visível, colore os racks pela
-// camada escolhida e permite arrastar a área visível para navegar.
+// Mini mapa: fixo no canto inferior direito, com tamanho fixo. Enquadra o desenho (racks e
+// calhas), colore os racks pela camada escolhida, e a área visível se move arrastando; a
+// roda do mouse dá zoom no canvas, como no próprio canvas.
+const MINIMAP_W=240, MINIMAP_H=130, MINIMAP_HEAD=30, MINIMAP_GAP=12;
 function minimapBox(g){
   // Caixa do desenho em coordenadas da planta.
   let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
@@ -2995,24 +2998,27 @@ function minimapBox(g){
   state.trays.forEach(t=>{add(t.x1,t.y1);add(t.x2,t.y2);});
   return {x1,y1,x2,y2};
 }
+function placeMinimap(){
+  const box=$('minimap'),wrap=$('canvasWrap'); if(!box||!wrap)return;
+  const wr=wrap.getBoundingClientRect();
+  box.style.right=`${Math.round(window.innerWidth-wr.right+18)}px`; box.style.bottom=`${Math.round(window.innerHeight-wr.bottom+18)}px`;
+}
 function updateMinimap(){
   const box=$('minimap'),svg=$('minimapSvg'),wrap=$('canvasWrap'); if(!box||!svg||!wrap||box.classList.contains('hidden'))return;
   const g=geometry();
-  // Fica no canto superior direito da planta (o canto inferior direito é dos botões de ferramenta).
-  const wr=wrap.getBoundingClientRect();
-  box.style.top=`${Math.round(wr.top+12)}px`; box.style.right=`${Math.round(window.innerWidth-wr.right+18)}px`;
-  if(!state.racks.length){svg.innerHTML='<text x="50%" y="50%" text-anchor="middle" class="minimap-empty">Sem racks</text>';return;}
+  placeMinimap();
+  const w=MINIMAP_W,h=MINIMAP_H;
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  if(!state.racks.length){svg.innerHTML='<text x="50%" y="50%" text-anchor="middle" class="minimap-empty">Sem racks</text>';svg.dataset.scale='';return;}
   const c=minimapBox(g);
   const p=window.__canvasPan||{x:0,y:0,zoom:1},z=p.zoom||1;
   const view={x:-p.x/z,y:-p.y/z,w:wrap.clientWidth/z,h:wrap.clientHeight/z};
   // O mapa mostra o desenho; a área visível entra na conta só até 1/4 do desenho de distância,
   // para o desenho continuar grande no mapa; além disso a área visível é recortada na borda.
-  const cw=c.x2-c.x1,ch=c.y2-c.y1,mx=cw*0.25,my=ch*0.25;
+  const cw=c.x2-c.x1,ch=c.y2-c.y1,mx=cw*0.25,my=ch*0.25,pad=8;
   const bx1=Math.min(c.x1,Math.max(view.x,c.x1-mx)),by1=Math.min(c.y1,Math.max(view.y,c.y1-my));
   const bx2=Math.max(c.x2,Math.min(view.x+view.w,c.x2+mx)),by2=Math.max(c.y2,Math.min(view.y+view.h,c.y2+my));
-  const bw=Math.max(1,bx2-bx1),bh=Math.max(1,by2-by1),pad=8,head=30;
-  const w=240,h=Math.round(Math.max(90,Math.min(220,(w-pad*2)*bh/bw+pad*2)));
-  box.style.width=`${w}px`; box.style.height=`${h+head}px`;
+  const bw=Math.max(1,bx2-bx1),bh=Math.max(1,by2-by1);
   const sc=Math.min((w-pad*2)/bw,(h-pad*2)/bh), ox=(w-bw*sc)/2-bx1*sc, oy=(h-bh*sc)/2-by1*sc;
   const X=x=>ox+x*sc,Y=y=>oy+y*sc;
   let out=`<rect class="minimap-bg" x="0" y="0" width="${w}" height="${h}"/>`;
@@ -3027,26 +3033,51 @@ function updateMinimap(){
   const minV=6/sc, vx1=Math.min(Math.max(view.x,bx1),bx2-minV), vy1=Math.min(Math.max(view.y,by1),by2-minV);
   const vx2=Math.max(vx1+minV,Math.min(view.x+view.w,bx2)), vy2=Math.max(vy1+minV,Math.min(view.y+view.h,by2));
   out+=`<rect class="minimap-viewport" x="${X(vx1)}" y="${Y(vy1)}" width="${(vx2-vx1)*sc}" height="${(vy2-vy1)*sc}"/>`;
-  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.innerHTML=out;svg.dataset.ox=ox;svg.dataset.oy=oy;svg.dataset.scale=sc;
+  svg.innerHTML=out;svg.dataset.ox=ox;svg.dataset.oy=oy;svg.dataset.scale=sc;
 }
 function setupMinimap(){
   const toggle=$('minimapToggle'),box=$('minimap'),svg=$('minimapSvg'); if(!toggle||!box||!svg)return;
-  const setOpen=open=>{box.classList.toggle('hidden',!open);if(open)requestAnimationFrame(updateMinimap);};
+  const setOpen=open=>{
+    box.classList.toggle('hidden',!open); document.body.classList.toggle('minimap-open',open);
+    if(open)requestAnimationFrame(updateMinimap);
+  };
   toggle.addEventListener('click',()=>setOpen(box.classList.contains('hidden')));$('minimapClose')?.addEventListener('click',()=>setOpen(false));
-  // Clicar centraliza a área visível no ponto; arrastar move a área visível junto.
-  const goTo=e=>{
-    const rect=svg.getBoundingClientRect(),vb=svg.viewBox.baseVal,k=vb.width/rect.width;
+  // Ponto da planta sob o ponteiro (o mapa é um SVG com viewBox fixo).
+  const plantPoint=e=>{
+    const rect=svg.getBoundingClientRect(),k=MINIMAP_W/rect.width;
     const sc=Number(svg.dataset.scale)||1,ox=Number(svg.dataset.ox)||0,oy=Number(svg.dataset.oy)||0;
-    const pt={x:((e.clientX-rect.left)*k-ox)/sc,y:((e.clientY-rect.top)*k-oy)/sc};
-    const wrap=$('canvasWrap'),p=window.__canvasPan; if(!wrap||!p)return;
-    const z=p.zoom||1; p.x=wrap.clientWidth/2-pt.x*z; p.y=wrap.clientHeight/2-pt.y*z;
+    return {x:((e.clientX-rect.left)*k-ox)/sc,y:((e.clientY-rect.top)*k-oy)/sc};
+  };
+  const viewNow=()=>{const wrap=$('canvasWrap'),p=window.__canvasPan;if(!wrap||!p)return null;const z=p.zoom||1;return {wrap,p,z,x:-p.x/z,y:-p.y/z,w:wrap.clientWidth/z,h:wrap.clientHeight/z};};
+  // Arrastar a área visível: se o clique cai dentro dela, ela acompanha o ponteiro sem pular;
+  // se cai fora, ela se centraliza no ponto e segue o ponteiro.
+  let drag=null;
+  const moveTo=e=>{
+    const v=viewNow(); if(!v||!drag)return;
+    const pt=plantPoint(e);
+    v.p.x=v.wrap.clientWidth/2-(pt.x-drag.dx)*v.z; v.p.y=v.wrap.clientHeight/2-(pt.y-drag.dy)*v.z;
     window.__applyCanvasPan?.(); updateMinimap();
   };
-  let dragging=false;
-  svg.addEventListener('pointerdown',e=>{if(e.button!==0)return;dragging=true;svg.setPointerCapture(e.pointerId);svg.classList.add('is-dragging');goTo(e);e.preventDefault();});
-  svg.addEventListener('pointermove',e=>{if(dragging)goTo(e);});
-  const stop=e=>{dragging=false;svg.classList.remove('is-dragging');if(svg.hasPointerCapture?.(e.pointerId))svg.releasePointerCapture(e.pointerId);};
+  svg.addEventListener('pointerdown',e=>{
+    if(e.button!==0||!Number(svg.dataset.scale))return;
+    const v=viewNow(); if(!v)return;
+    const pt=plantPoint(e), inside=pt.x>=v.x&&pt.x<=v.x+v.w&&pt.y>=v.y&&pt.y<=v.y+v.h;
+    drag={dx:inside?pt.x-(v.x+v.w/2):0,dy:inside?pt.y-(v.y+v.h/2):0};
+    try{svg.setPointerCapture(e.pointerId);}catch{} svg.classList.add('is-dragging'); moveTo(e); e.preventDefault();
+  });
+  svg.addEventListener('pointermove',e=>{if(drag)moveTo(e);});
+  const stop=e=>{drag=null;svg.classList.remove('is-dragging');try{if(svg.hasPointerCapture?.(e.pointerId))svg.releasePointerCapture(e.pointerId);}catch{}};
   svg.addEventListener('pointerup',stop); svg.addEventListener('pointercancel',stop);
+  // Roda do mouse: mesmo zoom do canvas. Se o ponteiro está sobre a área visível, o zoom
+  // mantém fixo o ponto sob ele; fora dela, o zoom é no centro da área visível.
+  svg.addEventListener('wheel',e=>{
+    const v=viewNow(); if(!v||!window.__zoomAt||!Number(svg.dataset.scale))return;
+    e.preventDefault();
+    const pt=plantPoint(e), sx=pt.x*v.z+v.p.x, sy=pt.y*v.z+v.p.y;
+    const inView=sx>=0&&sx<=v.wrap.clientWidth&&sy>=0&&sy<=v.wrap.clientHeight, r=v.wrap.getBoundingClientRect();
+    window.__zoomAt({clientX:r.left+(inView?sx:v.wrap.clientWidth/2),clientY:r.top+(inView?sy:v.wrap.clientHeight/2),deltaY:e.deltaY,ctrlKey:false,preventDefault(){}});
+    updateMinimap();
+  },{passive:false});
   window.addEventListener('resize',()=>updateMinimap());
   box.classList.add('hidden');
 }

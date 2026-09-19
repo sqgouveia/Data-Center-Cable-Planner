@@ -922,11 +922,13 @@ label {
 }
 
 /* ---------- Mini mapa ----------
-   Enquadrado no desenho, no canto superior direito da planta (o inferior direito é
-   dos botões de ferramenta). Os racks usam as mesmas cores da camada escolhida. */
+   Tamanho fixo, no canto inferior direito da planta (posição em px vinda do app.js).
+   Enquadrado no desenho; os racks usam as cores da camada escolhida. Com o mapa
+   aberto, os botões de ferramenta sobem para não ficarem por baixo dele. */
 .minimap {
-  bottom: auto;
+  top: auto;
   width: 240px;
+  height: 160px;
   border-radius: var(--r-lg);
   background: color-mix(in srgb, var(--panel) 92%, transparent);
   backdrop-filter: blur(18px) saturate(1.6);
@@ -987,4 +989,15 @@ label {
   stroke-width: 1.5;
   stroke-dasharray: none;
   pointer-events: none;
+}
+
+body.minimap-open .canvas-tool-toggle,
+body.minimap-open .minimap-toggle,
+body.minimap-open .structure-lock {
+  translate: 0 calc(-1 * (160px + 12px));
+}
+.canvas-tool-toggle,
+.minimap-toggle,
+.structure-lock {
+  transition: translate 0.15s ease;
 }
