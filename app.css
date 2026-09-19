@@ -10155,15 +10155,16 @@ button.bayface-rack-state {
 .room-summary {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 2px 2px 8px;
+  gap: 8px;
+  padding: 2px 2px 6px;
 }
 .rs-meter-head {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 5px;
+  margin-bottom: 3px;
   font-size: 12px;
+  line-height: 1.3;
 }
 .rs-meter-head span {
   color: var(--muted);
@@ -10174,65 +10175,64 @@ button.bayface-rack-state {
   text-align: right;
 }
 .rs-bar {
-  height: 6px;
-  border-radius: 3px;
+  height: 4px;
+  border-radius: 2px;
   background: color-mix(in srgb, var(--text) 10%, transparent);
   overflow: hidden;
 }
 .rs-bar i {
   display: block;
   height: 100%;
-  border-radius: 3px;
+  border-radius: 2px;
   border: 0;
 }
-.rs-note {
-  display: block;
-  margin-top: 4px;
+.rs-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  padding-top: 2px;
   font-size: 11px;
   color: var(--muted);
 }
-.rs-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-.rs-stats div {
-  padding: 6px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  text-align: center;
-}
-.rs-stats b {
-  display: block;
-  font-size: 16px;
+.rs-facts b {
+  color: var(--text);
   font-variant-numeric: tabular-nums;
 }
-.rs-stats span {
-  font-size: 11px;
-  color: var(--muted);
-}
 .rs-group-label {
-  font-size: 11px;
+  margin-top: 2px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--muted);
 }
 .rs-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 .rs-chip {
-  padding: 3px 9px;
+  padding: 1px 8px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 10px;
 }
 .rs-alerts {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+}
+.rs-alerts .capacity-alert-item {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+}
+.rs-alerts .alerts-center-viewall {
+  padding: 4px 8px;
+  font-size: 11px;
+  text-align: left;
 }
 .rs-ok {
   font-size: 12px;

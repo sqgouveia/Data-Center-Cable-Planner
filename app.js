@@ -720,56 +720,71 @@ function setupRackTooltip(){
   svg.addEventListener('mouseleave',hide);
   svg.addEventListener('mousedown',hide);
 }
-function summaryMeter(label,valueText,ratio,note=''){
+function summaryMeter(label,valueText,ratio,hint=''){
   const lv=levelForRatio(ratio);
   const width=ratio===null?0:Math.min(100,Math.round(ratio*100));
-  return `<div class="rs-meter"><div class="rs-meter-head"><span>${label}</span><b>${valueText}</b></div>`
-    +`<div class="rs-bar"><i class="heat-${lv}" style="width:${width}%"></i></div>${note?`<small class="rs-note">${note}</small>`:''}</div>`;
+  return `<div class="rs-meter"${hint?` title="${esc(hint)}"`:''}><div class="rs-meter-head"><span>${label}</span><b>${valueText}</b></div>`
+    +`<div class="rs-bar"><i class="heat-${lv}" style="width:${width}%"></i></div></div>`;
 }
-function renderRoomSummary(p){
+function roomSummaryData(){
   const room=state.rooms.find(r=>r.id===state.activeRoomId);
-  const stats=computeStats();
-  const s=summarizeRackMetrics([...stats.values()]);
+  const s=summarizeRackMetrics([...computeStats().values()]);
   const thermal=roomThermalLoad(room);
-  setPropTitleSticky(room?`Resumo · ${room.name}`:'Resumo da sala');
-  const meters=[
-    summaryMeter('Ocupação de U',`${s.usedU} de ${s.totalU} U · ${pctText(s.uRatio)}`,s.uRatio,`${s.freeU} U livres em ${s.racks} ${s.racks===1?'rack':'racks'}`),
-    s.powerCap>0
-      ?summaryMeter('Energia',`${s.powerW} de ${s.powerCap} W · ${pctText(s.powerRatio)}`,s.powerRatio)
-      :summaryMeter('Energia',`${s.powerW} W`,null,'Defina a capacidade elétrica dos racks para acompanhar o limite.'),
-    s.weightCap>0
-      ?summaryMeter('Peso no piso',`${kgText(s.weightKg)} de ${s.weightCap} kg · ${pctText(s.weightRatio)}`,s.weightRatio)
-      :summaryMeter('Peso no piso',`${kgText(s.weightKg)} kg`,null),
-    thermal.capacity>0
-      ?summaryMeter('Refrigeração',`${thermal.watts} de ${thermal.capacity} W · ${thermal.pct}%`,thermal.watts/thermal.capacity)
-      :summaryMeter('Refrigeração',`${thermal.watts} W`,null,'Defina a capacidade de refrigeração da sala em Cadastros.')
-  ].join('');
+  const roomId=state.activeRoomId;
   const byType=new Map();
   state.cables.forEach(c=>{const t=c.type||'Sem tipo';byType.set(t,(byType.get(t)||0)+1);});
-  const typeChips=[...byType.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([t,n])=>`<span class="rs-chip">${esc(t)} <b>${n}</b></span>`).join('');
-  const roomId=state.activeRoomId;
+  const chips=[...byType.entries()].sort((a,b)=>b[1]-a[1]);
   const items=[
-    ...capacityIssues().filter(i=>i.roomId===roomId).map(i=>({level:i.level,title:i.name,detail:`${i.label} · ${Math.round(i.current)}/${Math.round(i.capacity)} ${i.unit}`,attr:i.kind==='cooling'?'data-rs-room':`data-rs-rack="${esc(i.rackId)}"`,value:i.kind==='cooling'?roomId:i.rackId})),
+    ...capacityIssues().filter(i=>i.roomId===roomId).map(i=>({level:i.level,title:i.name,detail:`${i.label} · ${Math.round(i.current)}/${Math.round(i.capacity)} ${i.unit}`,kind:i.kind==='cooling'?'room':'rack',value:i.kind==='cooling'?roomId:i.rackId})),
     ...assetsNeedingAttention().filter(a=>a.roomId===roomId).map(a=>{
       const w=assetWarrantyLevel(a),e=assetEndOfLifeLevel(a);
       const reason=[w==='expired'?'Garantia vencida':w==='soon'?'Garantia vence em breve':null,e==='expired'?'EOL vencido':e==='soon'?'EOL vence em breve':null].filter(Boolean).join(' · ');
-      return {level:(w==='expired'||e==='expired')?'high':'mid',title:a.name||a.assetTag||'Asset',detail:reason,attr:'data-rs-asset',value:a.id};
+      return {level:(w==='expired'||e==='expired')?'high':'mid',title:a.name||a.assetTag||'Asset',detail:reason,kind:'asset',value:a.id};
     })
   ];
-  const shown=items.slice(0,6);
-  const alerts=items.length
-    ?shown.map((it,i)=>`<button type="button" class="capacity-alert-item level-${it.level}" data-rs-i="${i}"><span>${esc(it.title)}</span><small>${esc(it.detail)}</small></button>`).join('')
-      +(items.length>shown.length?`<button type="button" class="alerts-center-viewall" id="rsAllAlerts">Mais ${items.length-shown.length} na Central de alertas →</button>`:'')
-    :'<div class="rs-ok">Nenhum alerta nesta sala.</div>';
-  p.innerHTML=`<div class="room-summary">${meters}`
-    +`<div class="rs-group-label">Alertas da sala</div><div class="rs-alerts">${alerts}</div>`
-    +`<div class="rs-stats"><div><b>${s.assetCount}</b><span>assets em racks</span></div><div><b>${state.cables.length}</b><span>cabos</span></div><div><b>${state.trays.length}</b><span>calhas</span></div></div>`
-    +(typeChips?`<div class="rs-group-label">Cabos por tipo</div><div class="rs-chips">${typeChips}</div>`:'')
-    +`<div class="help">Clique em um rack, calha ou cabo para ver os detalhes.</div></div>`;
+  return {room,s,thermal,chips,items};
+}
+// `alerts`/`chips` limitam quantos alertas e chips de tipo de cabo entram.
+function roomSummaryHtml({s,thermal,chips,items},{alerts,chips:chipCount}){
+  const meters=[
+    summaryMeter('Ocupação de U',`${s.usedU}/${s.totalU} U · ${pctText(s.uRatio)}`,s.uRatio,`${s.freeU} U livres em ${s.racks} ${s.racks===1?'rack':'racks'}`),
+    s.powerCap>0
+      ?summaryMeter('Energia',`${s.powerW}/${s.powerCap} W · ${pctText(s.powerRatio)}`,s.powerRatio)
+      :summaryMeter('Energia',`${s.powerW} W`,null,'Sem capacidade elétrica definida nos racks.'),
+    s.weightCap>0
+      ?summaryMeter('Peso no piso',`${kgText(s.weightKg)}/${s.weightCap} kg · ${pctText(s.weightRatio)}`,s.weightRatio)
+      :summaryMeter('Peso no piso',`${kgText(s.weightKg)} kg`,null,'Sem capacidade de carga definida nos racks.'),
+    thermal.capacity>0
+      ?summaryMeter('Refrigeração',`${thermal.watts}/${thermal.capacity} W · ${thermal.pct}%`,thermal.watts/thermal.capacity)
+      :summaryMeter('Refrigeração',`${thermal.watts} W`,null,'Sem capacidade de refrigeração definida na sala.')
+  ].join('');
+  const facts=`<div class="rs-facts"><span><b>${s.racks}</b> racks</span><span><b>${s.assetCount}</b> assets</span><span><b>${state.cables.length}</b> cabos</span><span><b>${state.trays.length}</b> calhas</span></div>`;
+  const chipHtml=chipCount>0&&chips.length?`<div class="rs-chips">${chips.slice(0,chipCount).map(([t,n])=>`<span class="rs-chip">${esc(t)} <b>${n}</b></span>`).join('')}</div>`:'';
+  const shown=items.slice(0,alerts);
+  let alertHtml;
+  if(!items.length)alertHtml='<div class="rs-ok">Nenhum alerta nesta sala.</div>';
+  else{
+    alertHtml=shown.map((it,i)=>`<button type="button" class="capacity-alert-item level-${it.level}" data-rs-i="${i}"><span>${esc(it.title)}</span><small>${esc(it.detail)}</small></button>`).join('');
+    if(items.length>shown.length)alertHtml+=`<button type="button" class="alerts-center-viewall" id="rsAllAlerts">${shown.length?`Mais ${items.length-shown.length}`:`${items.length} ${items.length===1?'alerta':'alertas'}`} na Central de alertas →</button>`;
+  }
+  return `<div class="room-summary">${meters}${facts}${chipHtml}<div class="rs-group-label">Alertas da sala</div><div class="rs-alerts">${alertHtml}</div></div>`;
+}
+function renderRoomSummary(p){
+  const data=roomSummaryData();
+  setPropTitleSticky(data.room?`Resumo · ${data.room.name}`:'Resumo da sala');
+  // O resumo tem que caber sem barra de rolagem: começa completo e vai
+  // cortando alertas e chips até o painel (que rola) parar de transbordar.
+  const section=p.closest('section');
+  const variants=[{alerts:4,chips:3},{alerts:3,chips:3},{alerts:2,chips:2},{alerts:2,chips:0},{alerts:1,chips:0},{alerts:0,chips:0}];
+  for(const v of variants){
+    p.innerHTML=roomSummaryHtml(data,v);
+    if(!section||section.scrollHeight<=section.clientHeight)break;
+  }
+  const shown=data.items.slice(0,p.querySelectorAll('[data-rs-i]').length);
   p.querySelectorAll('[data-rs-i]').forEach(btn=>btn.onclick=()=>{
     const it=shown[Number(btn.dataset.rsI)];
-    if(it.attr==='data-rs-asset'){openAssetModal(it.value);return;}
-    if(it.attr==='data-rs-room'){openRoomEditor(it.value);return;}
+    if(it.kind==='asset'){openAssetModal(it.value);return;}
+    if(it.kind==='room'){openRoomEditor(it.value);return;}
     state.multiSelected=[]; state.selected={type:'rack',id:it.value}; renderAll(false); renderProperties();
   });
   $('rsAllAlerts')?.addEventListener('click',()=>openAlertsCenterPanel($('btnAlertsCenter')||$('properties')));
