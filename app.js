@@ -2851,6 +2851,7 @@ function setupPan(){
   const syncZoomUI=()=>{
     const pct=Math.round((p.zoom||1)*100);
     if(zoomRange) zoomRange.value=String(Math.max(55,Math.min(250,pct)));
+    if(zoomRange) zoomRange.style.setProperty('--fill',`${((Math.max(55,Math.min(250,pct))-55)/195*100).toFixed(1)}%`);
     if(zoomValue) zoomValue.textContent=`${pct}%`;
   };
   const setZoomAtCenter=(z)=>{

@@ -31,10 +31,11 @@
   --purple: #a78bfa;
   --grid: #1a2a49;
   --shadow: 0 12px 40px rgba(2, 6, 16, 0.6), 0 0 0 0.5px rgba(120, 160, 255, 0.14);
-  --r-xs: 4px;
-  --r-sm: 6px;
-  --r-md: 8px;
-  --r-lg: 12px;
+  /* Raios iguais nos dois temas (o app.css já define estes valores no tema claro). */
+  --r-xs: 2px;
+  --r-sm: 3px;
+  --r-md: 4px;
+  --r-lg: 6px;
   --fs-micro: 11.5px;
 }
 
@@ -793,4 +794,60 @@ label {
   border: 0.5px solid color-mix(in srgb, var(--text) 22%, transparent);
   border-radius: 5px;
   box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 18%, transparent);
+}
+
+/* ---------- Slider do zoom: mesma aparência nos dois temas ----------
+   O controle nativo pinta o trecho vazio de branco no tema escuro. Aqui a
+   trilha e o preenchimento vêm dos tokens; --fill é atualizado pelo app.js. */
+.canvas-zoom-bar .zoom-range {
+  --fill: 23%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+.canvas-zoom-bar .zoom-range:focus {
+  box-shadow: none;
+}
+.canvas-zoom-bar .zoom-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--blue) var(--fill),
+    color-mix(in srgb, var(--text) 22%, transparent) var(--fill)
+  );
+}
+.canvas-zoom-bar .zoom-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: 0.5px solid color-mix(in srgb, var(--text) 25%, transparent);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+.canvas-zoom-bar .zoom-range::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+}
+.canvas-zoom-bar .zoom-range::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--blue);
+}
+.canvas-zoom-bar .zoom-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0.5px solid color-mix(in srgb, var(--text) 25%, transparent);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
