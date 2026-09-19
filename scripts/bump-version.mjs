@@ -28,10 +28,20 @@ if (!mapRe.test(html)) throw new Error('bloco <script type="importmap"> não enc
 html = html.replace(mapRe, block.replace(/^ {6}/, ''));
 html = html.replace(/src="app\.js\?v=\d+"/, `src="app.js?v=${next}"`);
 
-if (process.argv.includes('css')) {
+const withCss = process.argv.includes('css');
+const cssBumps = [];
+if (withCss) {
   for (const name of ['app.css', 'macos.css']) {
-    html = html.replace(new RegExp(`href="${name.replace('.', '\.')}\?v=(\d+)"`), (_, v) => `href="${name}?v=${Number(v) + 1}"`);
+    const attr = `href="${name}?v=`;
+    const at = html.indexOf(attr);
+    if (at < 0) throw new Error(`${attr}N" não encontrado em index.html`);
+    const start = at + attr.length;
+    const end = html.indexOf('"', start);
+    const value = Number(html.slice(start, end));
+    if (!Number.isFinite(value)) throw new Error(`versão de ${name} inválida`);
+    html = html.slice(0, start) + String(value + 1) + html.slice(end);
+    cssBumps.push(`${name} v${value} -> v${value + 1}`);
   }
 }
 writeFileSync(indexPath, html);
-console.log(`JS: v${current} -> v${next} (${modules.length} módulos)${process.argv.includes('css') ? ' + CSS' : ''}`);
+console.log(`JS: v${current} -> v${next} (${modules.length} módulos)${cssBumps.length ? '; ' + cssBumps.join('; ') : ''}`);
