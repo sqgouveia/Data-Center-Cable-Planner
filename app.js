@@ -574,23 +574,43 @@ function deleteRow(id){
   state.racks=state.racks.filter(r=>r.rowId!==id);
   removeRackReferences(ids); normalizeState(); state.selected=null; renderAll(); toast('Fileira excluída');
 }
+// O botão de adicionar fileira vive dentro do cartão da primeira fileira. Sem
+// nenhuma fileira não existe cartão: o botão aparece solto, sem moldura.
+function rowAddButtonHtml(){
+  return `<button id="btnAddRow" class="btn primary full rows-add" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Adicionar fileira</button>`;
+}
+function addRowFromPanel(){
+  if(structureBlocked())return;
+  const rackCount=Math.max(0,Math.min(100,Math.floor(num($('defaultRacks')?.value,0))));
+  addRow(rackCount,state.defaultRowGap);
+  normalizeIndices();
+  renderAll();
+  toast(`Fileira ${state.rows.length} adicionada`);
+}
 function buildRowsPanel(){
   const p=$('rowsPanel'); p.innerHTML='';
-  if(!state.rows.length){ p.innerHTML='<div class="empty">Nenhuma fileira. Você pode criar 0 fileiras e adicionar depois.</div>'; return; }
-  state.rows.forEach(row=>{
-    const d=document.createElement('div'); d.className='row-card';
-    const chev=(path)=>`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg>`;
-    d.innerHTML=`<div class="row-line">
-        <label class="row-field row-field-name"><span>Nome da fileira</span><input data-row-name="${row.id}" value="${esc(row.name)}"></label>
-        <label class="row-field row-field-count" title="Quantidade de racks"><span>Racks</span><div class="row-spinner"><input data-row-count="${row.id}" type="number" min="0" max="100" value="${row.rackCount}"><span class="row-spinner-btns"><button type="button" data-step-up="${row.id}" aria-label="Aumentar racks" tabindex="-1">${chev('m6 15 6-6 6 6')}</button><button type="button" data-step-down="${row.id}" aria-label="Diminuir racks" tabindex="-1">${chev('m6 9 6 6 6-6')}</button></span></div></label>
-        ${state.rows.indexOf(row)>0?`<label class="row-field row-field-gap" title="Distância para a fileira anterior (m)"><span>Dist. (m)</span><input data-row-gap="${row.id}" type="number" min="0" step="0.01" value="${row.gap||0}"></label>`:''}
-      </div>
-      <div class="row-line row-line-actions">
-        <button type="button" class="btn small row-rename-btn" data-rename-row="${row.id}" title="Renomear os racks desta fileira automaticamente" aria-label="Renomear racks automaticamente"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9-9-9Z"/><path d="M7.5 7.5h.01"/></svg>Renomear</button>
-        <button type="button" class="iconbtn row-delete" data-del-row="${row.id}" title="Excluir fileira" aria-label="Excluir fileira"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/></svg></button>
+  if(!state.rows.length){
+    p.innerHTML=`<div class="empty">Nenhuma fileira. Você pode criar 0 fileiras e adicionar depois.</div>${rowAddButtonHtml()}`;
+    p.querySelector('#btnAddRow').onclick=addRowFromPanel;
+    return;
+  }
+  state.rows.forEach((row,index)=>{
+    const d=document.createElement('div'); d.className='prop-card prop-row-card';
+    const racksField=`<label class="prop-field" title="Quantidade de racks"><span class="prop-field-label">${propIcon('rack')}<span class="prop-field-text">Racks</span></span><span class="prop-field-box"><input data-row-count="${row.id}" type="number" min="0" max="100" value="${row.rackCount}"></span></label>`;
+    // A primeira fileira não tem fileira anterior: sem campo de distância, o
+    // campo de racks ocupa a linha inteira em vez de deixar meia coluna vazia.
+    const gapField=index>0?`<label class="prop-field" title="Distância para a fileira anterior (m)"><span class="prop-field-label">${propIcon('gap')}<span class="prop-field-text">Dist. (m)</span></span><span class="prop-field-box"><input data-row-gap="${row.id}" type="number" min="0" step="0.01" value="${row.gap||0}"></span></label>`:'';
+    d.innerHTML=`<label class="prop-field"><span class="prop-field-label">${propIcon('name')}<span class="prop-field-text">Nome da fileira</span></span><span class="prop-field-box"><input data-row-name="${row.id}" value="${esc(row.name)}"></span></label>
+      ${gapField?`<div class="grid2">${racksField}${gapField}</div>`:racksField}
+      <div class="grid2">
+        <button type="button" class="btn ghost" data-rename-row="${row.id}" title="Renomear os racks desta fileira automaticamente" aria-label="Renomear racks automaticamente">${propIcon('name')}Renomear</button>
+        <button type="button" class="btn danger" data-del-row="${row.id}" title="Excluir fileira" aria-label="Excluir fileira">${propIcon('trash')}Excluir</button>
       </div>`;
     p.appendChild(d);
   });
+  p.querySelector('.prop-row-card')?.insertAdjacentHTML('afterbegin',rowAddButtonHtml());
+  p.querySelector('#btnAddRow').onclick=addRowFromPanel;
+  bindPropPanel(p);
   p.querySelectorAll('[data-row-name]').forEach(e=>e.onchange=()=>{if(structureBlocked())return;
     const r=state.rows.find(x=>x.id===e.dataset.rowName);
     if(!r)return;
@@ -609,13 +629,6 @@ function buildRowsPanel(){
     renderAll();
   });
   p.querySelectorAll('[data-row-count]').forEach(e=>e.onchange=()=>{if(structureBlocked())return;resizeRow(e.dataset.rowCount,num(e.value,0));});
-  p.querySelectorAll('[data-step-up],[data-step-down]').forEach(btn=>btn.onclick=ev=>{
-    ev.preventDefault();ev.stopPropagation();
-    if(structureBlocked())return;
-    const inp=p.querySelector(`[data-row-count="${btn.dataset.stepUp||btn.dataset.stepDown}"]`); if(!inp)return;
-    if(btn.dataset.stepUp)inp.stepUp(); else inp.stepDown();
-    inp.dispatchEvent(new Event('change'));
-  });
   p.querySelectorAll('[data-row-gap]').forEach(e=>e.onchange=()=>{if(structureBlocked())return;const r=state.rows.find(x=>x.id===e.dataset.rowGap);if(!r)return;r.gap=Math.max(0,num(e.value,0));renderAll();});
   p.querySelectorAll('[data-rename-row]').forEach(e=>e.onclick=ev=>{if(structureBlocked())return;ev.stopPropagation();openRenameRowModal(e.dataset.renameRow);});
   p.querySelectorAll('[data-del-row]').forEach(e=>e.onclick=ev=>{if(structureBlocked())return;ev.stopPropagation();deleteRow(e.dataset.delRow);});
@@ -2356,7 +2369,7 @@ function setPropHead(kind,title,subtitle){
   if(s)s.textContent=subtitle||'Selecione um rack, calha ou cabo.';
 }
 // Painel do rack: cada campo tem um rótulo com ícone e uma caixa própria.
-const RACK_FIELD_ICONS={
+const PROP_FIELD_ICONS={
   name:'<path d="M11.2 3H4v7.2l9.4 9.4a1.8 1.8 0 0 0 2.5 0l4.7-4.7a1.8 1.8 0 0 0 0-2.5L11.2 3Z"/><path d="M7.6 7.6h.01"/>',
   units:'<rect x="3" y="4.5" width="18" height="15" rx="2.2"/><path d="M3 9.5h18M3 14.5h18"/>',
   width:'<path d="M15.8 2.6 21.4 8.2 8.2 21.4 2.6 15.8 15.8 2.6Z"/><path d="M7.3 11.5l1.8 1.8M10.4 8.4l1.8 1.8M13.5 5.3l1.8 1.8"/>',
@@ -2367,34 +2380,57 @@ const RACK_FIELD_ICONS={
   weight:'<rect x="4.6" y="10.2" width="14.8" height="10.6" rx="2"/><path d="M8.4 10.2V7.6a3.6 3.6 0 0 1 7.2 0v2.6"/><path d="M12 14.4v2.4"/>',
   infinite:'<path d="M6.5 8.5C4.2 8.5 2.6 9.9 2.6 12c0 2.1 1.6 3.5 3.9 3.5 2.6 0 3.9-2 5.5-3.5 1.6-1.5 2.9-3.5 5.5-3.5 2.3 0 3.9 1.4 3.9 3.5 0 2.1-1.6 3.5-3.9 3.5-2.6 0-3.9-2-5.5-3.5C10.4 10.5 9.1 8.5 6.5 8.5Z"/>',
   info:'<circle cx="12" cy="12" r="9.2"/><path class="i" d="M12 11.2v5.3M12 7.6h.01"/>',
+  type:'<rect x="3" y="4" width="18" height="6" rx="1.6"/><rect x="3" y="14" width="18" height="6" rx="1.6"/><path d="M7 7h.01M7 17h.01"/>',
+  rack:'<rect x="3" y="4" width="18" height="7" rx="1.6"/><rect x="3" y="13" width="18" height="7" rx="1.6"/><path d="M7 7.5h.01M7 16.5h.01"/>',
+  u:'<path d="M4 7h16M4 12h16M4 17h10"/>',
+  face:'<rect x="5" y="3" width="14" height="18" rx="1.6"/><path d="M12 3v18M9 8h.01"/>',
+  asset:'<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 10.5h.01M7 13.5h.01M11 12h7"/>',
+  port:'<rect x="3" y="8" width="18" height="8" rx="1.6"/><path d="M8 12h.01M12 12h.01M16 12h.01"/>',
+  percent:'<path d="M18.5 5.5 5.5 18.5"/><circle cx="8.5" cy="8.5" r="2.2"/><circle cx="15.5" cy="15.5" r="2.2"/>',
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M20.5 12h-2.2M5.7 12H3.5M18 6l-1.6 1.6M7.6 16.4 6 18M18 18l-1.6-1.6M7.6 7.6 6 6"/>',
+  link:'<path d="M9.5 14.5 14.5 9.5M8 17H6.8a4.2 4.2 0 0 1 0-8.4H8M16 7h1.2a4.2 4.2 0 0 1 0 8.4H16"/>',
+  arrowUp:'<path d="M12 19V5M6 11l6-6 6 6"/>',
+  arrowDown:'<path d="M12 5v14M6 13l6 6 6-6"/>',
+  sliders:'<path d="M4 8h9M19 8h1M4 16h3M13 16h7"/><circle cx="16" cy="8" r="2.2"/><circle cx="10" cy="16" r="2.2"/>',
+  project:'<path d="M4 21V5.5L12 3l8 2.5V21"/><path d="M9 21v-5h6v5"/>',
+  rows:'<rect x="3" y="3.5" width="18" height="5" rx="1.2"/><rect x="3" y="9.5" width="18" height="5" rx="1.2"/><rect x="3" y="15.5" width="18" height="5" rx="1.2"/>',
   bayface:'<rect x="3" y="5" width="18" height="14" rx="1.8"/><path d="M3 9.6h18M3 14.4h18"/>',
   bayfaceFrame:'<rect x="4" y="4" width="16" height="16" rx="3.6"/>',
   chevronUp:'<path d="M6 14.5 12 8.5l6 6"/>',
   chevronDown:'<path d="M6 9.5 12 15.5l6-6"/>',
   trash:'<path d="M4.5 7h15M9.5 7V4.8h5V7M6.6 7l.8 11.9a1.7 1.7 0 0 0 1.7 1.6h5.8a1.7 1.7 0 0 0 1.7-1.6L17.4 7"/><path d="M10.3 10.8v6M13.7 10.8v6"/>'
 };
-function rackFieldIcon(name,extra){
-  return `<svg class="rack-ico ic-${name}${extra?' '+extra:''}" viewBox="0 0 24 24" aria-hidden="true">${RACK_FIELD_ICONS[name]||''}</svg>`;
+function propIcon(name,extra){
+  return `<svg class="prop-ico ic-${name}${extra?' '+extra:''}" viewBox="0 0 24 24" aria-hidden="true">${PROP_FIELD_ICONS[name]||''}</svg>`;
 }
 // Coluna de setas própria: as setas nativas do input numérico não são
 // estilizáveis e aparecem como um bloco claro sobre a caixa escura.
-function rackSpinButtons(){
-  return `<span class="rack-spin"><button type="button" class="rack-spin-btn" data-step="up" tabindex="-1" aria-label="Aumentar">${rackFieldIcon('chevronUp')}</button><button type="button" class="rack-spin-btn" data-step="down" tabindex="-1" aria-label="Diminuir">${rackFieldIcon('chevronDown')}</button></span>`;
+function propSpinButtons(){
+  return `<span class="prop-spin"><button type="button" class="prop-spin-btn" data-step="up" tabindex="-1" aria-label="Aumentar">${propIcon('chevronUp')}</button><button type="button" class="prop-spin-btn" data-step="down" tabindex="-1" aria-label="Diminuir">${propIcon('chevronDown')}</button></span>`;
 }
-function bindRackPanel(root){
+function bindPropPanel(root){
+  // Campos numéricos ganham a coluna de setas própria. Os painéis gerados em
+  // JS trazem a marcação de onde ela entra; o HTML estático (painel Ambiente)
+  // recebe o mesmo tratamento aqui.
+  root.querySelectorAll('.prop-field-box').forEach(box=>{
+    const input=box.querySelector('input[type="number"]');
+    if(!input||box.querySelector('.prop-spin'))return;
+    box.classList.add('has-spin');
+    box.insertAdjacentHTML('beforeend',propSpinButtons());
+  });
   // O "∞" só faz sentido enquanto o campo está sem limite definido. Zero
   // também é "sem limite" no resto do app (powerCapacity > 0).
-  root.querySelectorAll('.rack-field-box.has-trailing input').forEach(input=>{
-    const box=input.closest('.rack-field-box');
+  root.querySelectorAll('.prop-field-box.has-trailing input').forEach(input=>{
+    const box=input.closest('.prop-field-box');
     const sync=()=>{box.classList.toggle('is-filled',Math.max(0,num(input.value,0))>0);};
     input.addEventListener('input',sync);
     sync();
   });
-  root.querySelectorAll('.rack-spin-btn').forEach(btn=>{
+  root.querySelectorAll('.prop-spin-btn').forEach(btn=>{
     btn.onclick=()=>{
-      const box=btn.closest('.rack-field-box');
+      const box=btn.closest('.prop-field-box');
       const input=box&&box.querySelector('input');
-      if(!input)return;
+      if(!input||input.disabled)return;
       const before=input.value;
       let fired=false;
       const mark=()=>{fired=true;};
@@ -2407,6 +2443,23 @@ function bindRackPanel(root){
       if(!fired&&input.value!==before)input.dispatchEvent(new Event('change'));
     };
   });
+}
+// Preenche os ícones declarados no HTML estático (painel Ambiente): o markup
+// carrega só data-prop-icon / data-prop-trailing, o desenho vem do mesmo
+// conjunto usado pelos painéis de rack e cabo.
+function hydratePropFields(root){
+  root.querySelectorAll('[data-prop-icon]').forEach(el=>{
+    if(el.querySelector('.prop-ico'))return;
+    el.insertAdjacentHTML('afterbegin',propIcon(el.dataset.propIcon));
+  });
+  root.querySelectorAll('[data-prop-trailing]').forEach(el=>{
+    if(el.querySelector('.prop-ico'))return;
+    el.innerHTML=propIcon(el.dataset.propTrailing,'prop-field-trailing');
+  });
+}
+function setupPropCards(root){
+  hydratePropFields(root);
+  bindPropPanel(root);
 }
 function renderProperties(){
   const p=$('properties');
@@ -2472,33 +2525,33 @@ function renderProperties(){
     const weightLevel=weightCapacity<=0?'none':(rackWeightKg>weightCapacity?'high':weightPct>=80?'mid':'low');
     setPropTitleSticky(r.name);
     setPropHead('rack','Propriedades do rack','Configure nome, medidas e capacidade.');
-    p.innerHTML=`<div class="rack-panel">
+    p.innerHTML=`<div class="prop-card">
       ${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. Desbloqueie para alterar este rack.</div>':''}
-      <label class="rack-field"><span class="rack-field-label">${rackFieldIcon('name')}<span class="rack-field-text">Nome</span></span><span class="rack-field-box"><input id="prName" value="${esc(r.name)}"></span></label>
+      <label class="prop-field"><span class="prop-field-label">${propIcon('name')}<span class="prop-field-text">Nome</span></span><span class="prop-field-box"><input id="prName" value="${esc(r.name)}"></span></label>
       <div class="grid2">
-        <label class="rack-field"><span class="rack-field-label">${rackFieldIcon('units')}<span class="rack-field-text">Qtd. U</span></span><span class="rack-field-box has-spin"><input id="prUnits" type="number" min="1" max="60" value="${r.units}">${rackSpinButtons()}</span></label>
-        <label class="rack-field"><span class="rack-field-label">${rackFieldIcon('width')}<span class="rack-field-text">Largura (m)</span></span><span class="rack-field-box has-spin"><input id="prWidth" type="number" min="0.1" step="0.01" value="${r.width}">${rackSpinButtons()}</span></label>
+        <label class="prop-field"><span class="prop-field-label">${propIcon('units')}<span class="prop-field-text">Qtd. U</span></span><span class="prop-field-box has-spin"><input id="prUnits" type="number" min="1" max="60" value="${r.units}"></span></label>
+        <label class="prop-field"><span class="prop-field-label">${propIcon('width')}<span class="prop-field-text">Largura (m)</span></span><span class="prop-field-box has-spin"><input id="prWidth" type="number" min="0.1" step="0.01" value="${r.width}"></span></label>
       </div>
       <div class="grid2">
-        <label class="rack-field"><span class="rack-field-label">${rackFieldIcon('depth')}<span class="rack-field-text">Profund. (m)</span></span><span class="rack-field-box has-spin"><input id="prDepth" type="number" min="0.1" step="0.01" value="${r.depth??state.rackDepth}">${rackSpinButtons()}</span></label>
-        <label class="rack-field"><span class="rack-field-label">${rackFieldIcon('gap')}<span class="rack-field-text">Dist. próx. (m)</span></span><span class="rack-field-box has-spin"><input id="prGapAfter" type="number" min="0" step="0.01" value="${r.gapAfter??state.rackGap}">${rackSpinButtons()}</span></label>
+        <label class="prop-field"><span class="prop-field-label">${propIcon('depth')}<span class="prop-field-text">Profund. (m)</span></span><span class="prop-field-box has-spin"><input id="prDepth" type="number" min="0.1" step="0.01" value="${r.depth??state.rackDepth}"></span></label>
+        <label class="prop-field"><span class="prop-field-label">${propIcon('gap')}<span class="prop-field-text">Dist. próx. (m)</span></span><span class="prop-field-box has-spin"><input id="prGapAfter" type="number" min="0" step="0.01" value="${r.gapAfter??state.rackGap}"></span></label>
       </div>
-      <label class="rack-field"><span class="rack-field-label">${rackFieldIcon('rise')}<span class="rack-field-text">Última U → calha (m)</span></span><span class="rack-field-box has-spin"><input id="prRiseToTray" type="number" min="0" step="0.01" value="${num(r.riseToTray,state.lastUToTray).toFixed(2)}">${rackSpinButtons()}</span></label>
-      <div class="rack-card-sub">
-        <span class="rack-field-label">${rackFieldIcon('power')}<span class="rack-field-text">Cap. elétrica (W) <span class="rack-field-opt">(opcional)</span></span></span>
-        <span class="rack-field-box has-trailing has-spin">${rackFieldIcon('infinite','rack-field-trailing')}<input id="prPowerCapacity" type="number" min="0" step="1" placeholder="Sem limite definido" aria-label="Capacidade elétrica (W) (opcional)" value="${powerCapacity>0?powerCapacity:''}">${rackSpinButtons()}</span>
-        <div class="rack-readout rack-power-readout power-${powerLevel}">${rackFieldIcon('info','rack-readout-icon')}<span>Consumo estimado: <b>${rackPowerW} W</b>${powerCapacity>0?` de ${powerCapacity} W (${powerPct}%)`:''}</span></div>
+      <label class="prop-field"><span class="prop-field-label">${propIcon('rise')}<span class="prop-field-text">Última U → calha (m)</span></span><span class="prop-field-box has-spin"><input id="prRiseToTray" type="number" min="0" step="0.01" value="${num(r.riseToTray,state.lastUToTray).toFixed(2)}"></span></label>
+      <div class="prop-card-sub">
+        <span class="prop-field-label">${propIcon('power')}<span class="prop-field-text">Cap. elétrica (W) <span class="prop-field-opt">(opcional)</span></span></span>
+        <span class="prop-field-box has-trailing has-spin">${propIcon('infinite','prop-field-trailing')}<input id="prPowerCapacity" type="number" min="0" step="1" placeholder="Sem limite definido" aria-label="Capacidade elétrica (W) (opcional)" value="${powerCapacity>0?powerCapacity:''}"></span>
+        <div class="prop-readout rack-power-readout power-${powerLevel}">${propIcon('info','prop-readout-icon')}<span>Consumo estimado: <b>${rackPowerW} W</b>${powerCapacity>0?` de ${powerCapacity} W (${powerPct}%)`:''}</span></div>
       </div>
-      <div class="rack-card-sub">
-        <span class="rack-field-label">${rackFieldIcon('weight')}<span class="rack-field-text">Carga do piso (kg) <span class="rack-field-opt">(opcional)</span></span></span>
-        <span class="rack-field-box has-trailing has-spin">${rackFieldIcon('infinite','rack-field-trailing')}<input id="prWeightCapacity" type="number" min="0" step="1" placeholder="Sem limite definido" aria-label="Capacidade de carga do piso (kg) (opcional)" value="${weightCapacity>0?weightCapacity:''}">${rackSpinButtons()}</span>
-        <div class="rack-readout rack-power-readout power-${weightLevel}">${rackFieldIcon('info','rack-readout-icon')}<span>Peso estimado: <b>${rackWeightKg} kg</b>${weightCapacity>0?` de ${weightCapacity} kg (${weightPct}%)`:''}</span></div>
+      <div class="prop-card-sub">
+        <span class="prop-field-label">${propIcon('weight')}<span class="prop-field-text">Carga do piso (kg) <span class="prop-field-opt">(opcional)</span></span></span>
+        <span class="prop-field-box has-trailing has-spin">${propIcon('infinite','prop-field-trailing')}<input id="prWeightCapacity" type="number" min="0" step="1" placeholder="Sem limite definido" aria-label="Capacidade de carga do piso (kg) (opcional)" value="${weightCapacity>0?weightCapacity:''}"></span>
+        <div class="prop-readout rack-power-readout power-${weightLevel}">${propIcon('info','prop-readout-icon')}<span>Peso estimado: <b>${rackWeightKg} kg</b>${weightCapacity>0?` de ${weightCapacity} kg (${weightPct}%)`:''}</span></div>
       </div>
-      <button class="btn ghost full" id="openBayface">${rackFieldIcon('bayface')}${rackFieldIcon('bayfaceFrame')}Ver Bayface</button>
-      <button class="btn danger full" id="delRack">${rackFieldIcon('trash')}Excluir rack</button>
-      <div class="rack-footnote">${rackFieldIcon('info')}Alterações salvas automaticamente.</div>
+      <button class="btn ghost full" id="openBayface">${propIcon('bayface')}${propIcon('bayfaceFrame')}Ver Bayface</button>
+      <button class="btn danger full" id="delRack">${propIcon('trash')}Excluir rack</button>
+      <div class="prop-footnote">${propIcon('info')}Alterações salvas automaticamente.</div>
     </div>`;
-    bindRackPanel(p);
+    bindPropPanel(p);
     if($('prName'))$('prName').onchange=()=>{if(structureBlocked())return;r.name=$('prName').value.trim();refreshVisuals();renderProperties();};
     if($('prUnits'))$('prUnits').onchange=()=>{if(structureBlocked())return;const next=Math.max(1,Math.min(60,Math.floor(num($('prUnits').value,state.rackUnits))));const top=highestOccupiedU(state.assets,r.id);if(next<top){toast(`Há equipamento até a U${top}. Mova-o ou remova-o antes de reduzir o rack para ${next}U.`);renderProperties();return;}r.units=next;refreshVisuals();renderProperties();};
     if($('prWidth'))$('prWidth').onchange=()=>{if(structureBlocked())return;
@@ -2655,70 +2708,70 @@ function renderCableProperties(p,c){
   setPropTitleSticky(c.name);
   setPropHead('cable','Propriedades do cabo','Configure origem, destino e tipo.');
   const caret='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
-  const stepHead=(n,label)=>`<header class="panel-step-head"><span class="panel-step-num">${n}</span><h4>${label}</h4><button type="button" class="panel-step-toggle" aria-expanded="true" aria-label="Recolher ${label}">${caret}</button></header>`;
-  p.innerHTML=`<div class="cable-panel">
-  <section class="panel-step" data-panel-step="geral">
-    ${stepHead(1,'Geral')}
-    <div class="panel-step-body">
-      <div class="panel-grid">
-        <label class="catalog-field"><span class="catalog-field-label">Nome <i class="req">*</i></span><input id="cbName" class="field-icon field-icon-tag" value="${esc(c.name)}"></label>
-        <label class="catalog-field"><span class="catalog-field-label">Tipo <i class="req">*</i></span><select id="cbType" class="field-icon field-icon-type">${cableTypeNames().map(t=>`<option value="${esc(t)}" ${c.type===t?'selected':''}>${esc(t)}</option>`).join('')}</select></label>
+  // Mesma linguagem visual do painel do rack: um cartão, cada campo com
+  // rótulo de ícone e caixa própria, e origem/destino/extras/roteamento como
+  // sub-cartões recolhíveis.
+  const fieldLabel=(icon,label,req)=>`<span class="prop-field-label">${propIcon(icon)}<span class="prop-field-text">${label}${req?' <i class="req">*</i>':''}</span></span>`;
+  const subHead=(icon,label)=>`<header class="prop-sub-head">${fieldLabel(icon,label)}<button type="button" class="panel-step-toggle" aria-expanded="true" aria-label="Recolher ${label}">${caret}</button></header>`;
+  p.innerHTML=`<div class="prop-card cable-panel">
+  <div class="grid2">
+    <label class="prop-field">${fieldLabel('name','Nome',true)}<span class="prop-field-box"><input id="cbName" value="${esc(c.name)}"></span></label>
+    <label class="prop-field">${fieldLabel('type','Tipo',true)}<span class="prop-field-box"><select id="cbType">${cableTypeNames().map(t=>`<option value="${esc(t)}" ${c.type===t?'selected':''}>${esc(t)}</option>`).join('')}</select></span></label>
+  </div>
+  <div class="prop-card-sub" data-panel-step="origem">
+    ${subHead('arrowUp','Origem')}
+    <div class="prop-sub-body">
+      <div class="${ouInvalid?'grid2':'prop-grid-3'}">
+        <label class="prop-field">${fieldLabel('rack','Rack',true)}<span class="prop-field-box"><select id="cbOR">${opts}</select></span></label>
+        <label class="prop-field prop-field-u">${fieldLabel('u','U',true)}<span class="prop-field-box has-spin ${ouInvalid?'input-error':''}"><input id="cbOU" type="number" min="1" max="${ouMax}" value="${c.originU}"></span><small id="cbOUError" class="field-error">${ouInvalid?`Máximo: ${ouMax}U.`:''}</small></label>
+        ${!ouInvalid?`<label class="prop-field">${fieldLabel('face','Face',true)}<span class="prop-field-box"><select id="cbOFace"><option value="front" ${originFace==='front'?'selected':''}>Frente</option><option value="rear" ${originFace==='rear'?'selected':''}>Traseira</option></select></span></label>`:''}
       </div>
-    </div>
-  </section>
-  <section class="panel-step" data-panel-step="origem">
-    ${stepHead(2,'Origem')}
-    <div class="panel-step-body">
-      <div class="panel-grid panel-grid-3">
-        <label class="catalog-field"><span class="catalog-field-label">Rack <i class="req">*</i></span><select id="cbOR" class="field-icon field-icon-rack">${opts}</select></label>
-        <label class="catalog-field"><span class="catalog-field-label">U <i class="req">*</i></span><input id="cbOU" class="field-icon field-icon-u ${ouInvalid?'input-error':''}" type="number" min="1" max="${ouMax}" value="${c.originU}"><small id="cbOUError" class="field-error">${ouInvalid?`Máximo: ${ouMax}U.`:''}</small></label>
-        ${!ouInvalid?`<label class="catalog-field"><span class="catalog-field-label">Face <i class="req">*</i></span><select id="cbOFace" class="field-icon field-icon-face"><option value="front" ${originFace==='front'?'selected':''}>Frente</option><option value="rear" ${originFace==='rear'?'selected':''}>Traseira</option></select></label>`:''}
-      </div>
-      ${!ouInvalid?`<div class="panel-grid">
-        <label class="catalog-field"><span class="catalog-field-label">Asset <small class="field-help-inline">${originAsset?'(automático)':'(opcional)'}</small></span><input id="cbOAssetName" class="field-icon field-icon-asset" value="${esc(originAsset?originAsset.name:(c.originAssetName||''))}" placeholder="Nome do equipamento" ${originAsset?'disabled':''}></label>
-        ${originAsset?.ports?.length?`<label class="catalog-field"><span class="catalog-field-label">Porta <small class="field-help-inline">(${esc(originAsset.name)})</small></span><select id="cbOPort" class="field-icon field-icon-port">${portOptions(originAsset,c.originPortId)}</select></label>`:`<label class="catalog-field"><span class="catalog-field-label">Porta <small class="field-help-inline">${originAsset?'(sem portas cadastradas)':'(opcional)'}</small></span><input id="cbOPortFree" class="field-icon field-icon-port" value="${esc(c.originPortLabel||'')}" placeholder="Digite o nome da porta"></label>`}
+      ${!ouInvalid?`<div class="grid2">
+        <label class="prop-field">${fieldLabel('asset','Asset')}<span class="prop-field-box"><input id="cbOAssetName" value="${esc(originAsset?originAsset.name:(c.originAssetName||''))}" placeholder="Nome do equipamento" ${originAsset?'disabled':''}></span><small class="field-help-inline">${originAsset?'(automático)':'(opcional)'}</small></label>
+        ${originAsset?.ports?.length?`<label class="prop-field">${fieldLabel('port','Porta')}<span class="prop-field-box"><select id="cbOPort">${portOptions(originAsset,c.originPortId)}</select></span><small class="field-help-inline">(${esc(originAsset.name)})</small></label>`:`<label class="prop-field">${fieldLabel('port','Porta')}<span class="prop-field-box"><input id="cbOPortFree" value="${esc(c.originPortLabel||'')}" placeholder="Porta"></span><small class="field-help-inline">${originAsset?'(sem portas cadastradas)':'(opcional)'}</small></label>`}
       </div>`:''}
       ${originConflict?`<div class="field-error">Porta já usada pelo cabo "${esc(originConflict.name)}".</div>`:''}
     </div>
-  </section>
-  <section class="panel-step" data-panel-step="destino">
-    ${stepHead(3,'Destino')}
-    <div class="panel-step-body">
-      <div class="panel-grid panel-grid-3">
-        <label class="catalog-field"><span class="catalog-field-label">Rack <i class="req">*</i></span><select id="cbDR" class="field-icon field-icon-rack">${opts}</select></label>
-        <label class="catalog-field"><span class="catalog-field-label">U <i class="req">*</i></span><input id="cbDU" class="field-icon field-icon-u ${duInvalid?'input-error':''}" type="number" min="1" max="${duMax}" value="${c.destU}"><small id="cbDUError" class="field-error">${duInvalid?`Máximo: ${duMax}U.`:''}</small></label>
-        ${!duInvalid?`<label class="catalog-field"><span class="catalog-field-label">Face <i class="req">*</i></span><select id="cbDFace" class="field-icon field-icon-face"><option value="front" ${destFace==='front'?'selected':''}>Frente</option><option value="rear" ${destFace==='rear'?'selected':''}>Traseira</option></select></label>`:''}
+  </div>
+  <div class="prop-card-sub" data-panel-step="destino">
+    ${subHead('arrowDown','Destino')}
+    <div class="prop-sub-body">
+      <div class="${duInvalid?'grid2':'prop-grid-3'}">
+        <label class="prop-field">${fieldLabel('rack','Rack',true)}<span class="prop-field-box"><select id="cbDR">${opts}</select></span></label>
+        <label class="prop-field prop-field-u">${fieldLabel('u','U',true)}<span class="prop-field-box has-spin ${duInvalid?'input-error':''}"><input id="cbDU" type="number" min="1" max="${duMax}" value="${c.destU}"></span><small id="cbDUError" class="field-error">${duInvalid?`Máximo: ${duMax}U.`:''}</small></label>
+        ${!duInvalid?`<label class="prop-field">${fieldLabel('face','Face',true)}<span class="prop-field-box"><select id="cbDFace"><option value="front" ${destFace==='front'?'selected':''}>Frente</option><option value="rear" ${destFace==='rear'?'selected':''}>Traseira</option></select></span></label>`:''}
       </div>
-      ${!duInvalid?`<div class="panel-grid">
-        <label class="catalog-field"><span class="catalog-field-label">Asset <small class="field-help-inline">${destAsset?'(automático)':'(opcional)'}</small></span><input id="cbDAssetName" class="field-icon field-icon-asset" value="${esc(destAsset?destAsset.name:(c.destAssetName||''))}" placeholder="Nome do equipamento" ${destAsset?'disabled':''}></label>
-        ${destAsset?.ports?.length?`<label class="catalog-field"><span class="catalog-field-label">Porta <small class="field-help-inline">(${esc(destAsset.name)})</small></span><select id="cbDPort" class="field-icon field-icon-port">${portOptions(destAsset,c.destPortId)}</select></label>`:`<label class="catalog-field"><span class="catalog-field-label">Porta <small class="field-help-inline">${destAsset?'(sem portas cadastradas)':'(opcional)'}</small></span><input id="cbDPortFree" class="field-icon field-icon-port" value="${esc(c.destPortLabel||'')}" placeholder="Digite o nome da porta"></label>`}
+      ${!duInvalid?`<div class="grid2">
+        <label class="prop-field">${fieldLabel('asset','Asset')}<span class="prop-field-box"><input id="cbDAssetName" value="${esc(destAsset?destAsset.name:(c.destAssetName||''))}" placeholder="Equipamento" ${destAsset?'disabled':''}></span><small class="field-help-inline">${destAsset?'(automático)':'(opcional)'}</small></label>
+        ${destAsset?.ports?.length?`<label class="prop-field">${fieldLabel('port','Porta')}<span class="prop-field-box"><select id="cbDPort">${portOptions(destAsset,c.destPortId)}</select></span><small class="field-help-inline">(${esc(destAsset.name)})</small></label>`:`<label class="prop-field">${fieldLabel('port','Porta')}<span class="prop-field-box"><input id="cbDPortFree" value="${esc(c.destPortLabel||'')}" placeholder="Porta"></span><small class="field-help-inline">${destAsset?'(sem portas cadastradas)':'(opcional)'}</small></label>`}
       </div>`:''}
       ${destConflict?`<div class="field-error">Porta já usada pelo cabo "${esc(destConflict.name)}".</div>`:''}
     </div>
-  </section>
-  <section class="panel-step" data-panel-step="extras">
-    ${stepHead(4,'Extras')}
-    <div class="panel-step-body">
-      <div class="panel-grid panel-grid-extras">
-        <label class="catalog-field"><span class="catalog-field-label">Folga (%)</span><input id="cbSlack" class="field-icon field-icon-percent" type="number" min="0" step="1" value="${c.slack??state.defaultSlack}"></label>
-        <div class="panel-note"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8.5h.01"/></svg><span>A folga compensa curvas e conexões.</span></div>
-      </div>
-    </div>
-  </section>
-  ${!v.valid?`<div class="validation-error">⚠ ${v.errors.map(esc).join('<br>')}</div>`:''}
-  <div class="cable-metrics" id="cableResult"></div>
-  <div class="cable-route-card">
-    <div class="panel-card-head"><span class="panel-card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M6 8.4v4.1a3.5 3.5 0 0 0 3.5 3.5h5.1"/></svg></span><b>Roteamento</b></div>
-    <p class="cable-route-help">Automática: o sistema encontra o caminho pelas calhas. Manual: escolha os racks intermediários e o sistema valida cada trecho.</p>
-    <label class="catalog-field"><span class="catalog-field-label">Modo</span><select id="routeMode" class="field-icon field-icon-gear"><option value="automatic" ${(c.routeMode||'automatic')==='automatic'?'selected':''}>Automática</option><option value="manual" ${c.routeMode==='manual'?'selected':''}>Manual</option></select></label>
-    <div id="manualRoutePanel" class="manual-route-panel ${c.routeMode==='manual'?'':'hidden'}">
-      <div class="manual-route-status" id="manualRouteStatus"></div>
-      <button class="btn primary full" id="pickRouteRack" type="button">Adicionar rack à rota</button>
-      <div id="manualRouteList"></div>
-      <button class="btn ghost full" id="clearManualRoute" type="button" ${c.via?.length?'':'disabled'}>Limpar rota manual</button>
+  </div>
+  <div class="prop-card-sub" data-panel-step="extras">
+    ${subHead('sliders','Extras')}
+    <div class="prop-sub-body">
+      <label class="prop-field">${fieldLabel('percent','Folga (%)')}<span class="prop-field-box has-spin"><input id="cbSlack" type="number" min="0" step="1" value="${c.slack??state.defaultSlack}"></span></label>
+      <div class="prop-readout">${propIcon('info','prop-readout-icon')}<span>A folga compensa curvas e conexões.</span></div>
     </div>
   </div>
-  <button class="btn danger full cable-delete" id="delCable" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></svg>Excluir cabo</button>
+  ${!v.valid?`<div class="validation-error">⚠ ${v.errors.map(esc).join('<br>')}</div>`:''}
+  <div class="cable-metrics" id="cableResult"></div>
+  <div class="prop-card-sub" data-panel-step="rota">
+    ${subHead('link','Roteamento')}
+    <div class="prop-sub-body">
+      <p class="prop-hint">Automática: o sistema encontra o caminho pelas calhas. Manual: escolha os racks intermediários e o sistema valida cada trecho.</p>
+      <label class="prop-field">${fieldLabel('gear','Modo')}<span class="prop-field-box"><select id="routeMode"><option value="automatic" ${(c.routeMode||'automatic')==='automatic'?'selected':''}>Automática</option><option value="manual" ${c.routeMode==='manual'?'selected':''}>Manual</option></select></span></label>
+      <div id="manualRoutePanel" class="manual-route-panel ${c.routeMode==='manual'?'':'hidden'}">
+        <div class="manual-route-status" id="manualRouteStatus"></div>
+        <button class="btn primary full" id="pickRouteRack" type="button">Adicionar rack à rota</button>
+        <div id="manualRouteList"></div>
+        <button class="btn ghost full" id="clearManualRoute" type="button" ${c.via?.length?'':'disabled'}>Limpar rota manual</button>
+      </div>
+    </div>
+  </div>
+  <button class="btn danger full" id="delCable" type="button">${propIcon('trash')}Excluir cabo</button>
+  <div class="prop-footnote">${propIcon('info')}Alterações salvas automaticamente.</div>
   </div>`;
   $('cbOR').value=c.originRack;$('cbDR').value=c.destRack;
   const sync=()=>{refreshVisuals();renderProperties();};
@@ -2751,7 +2804,7 @@ function renderCableProperties(p,c){
 }
 // Passos do painel do cabo: o estado de aberto/fechado vive fora do DOM
 // porque o painel inteiro é reconstruído a cada alteração.
-const cablePanelOpen={geral:true,origem:true,destino:true,extras:true};
+const cablePanelOpen={origem:true,destino:true,extras:true,rota:true};
 function bindCablePanelSections(root){
   if(!root)return;
   root.querySelectorAll('[data-panel-step]').forEach(sec=>{
@@ -3517,6 +3570,7 @@ function bind(){
   setupHeatControl();setupRackTooltip();setupSummaryRefit();setupEnvAdvanced();setupPlantExport();
   setupSidebarToggle();
   setupStructureLockControl();
+  setupPropCards(document);
 
   load();renderAll(false);initHistory(cloud.cloudProjectId);setupPan();setupPropSectionResize();
   // A barra lateral já foi inicializada por setupSidebarToggle().
@@ -3538,14 +3592,6 @@ function bind(){
 
   requestAnimationFrame(()=>window.__applyCanvasPan&&window.__applyCanvasPan());
   $('btnBuildRows').onclick=rebuildStructureFromSettings;
-  $('btnAddRow').onclick=()=>{
-    if(structureBlocked())return;
-    const rackCount=Math.max(0,Math.min(100,Math.floor(num($('defaultRacks')?.value,0))));
-    addRow(rackCount,state.defaultRowGap);
-    normalizeIndices();
-    renderAll();
-    toast(`Fileira ${state.rows.length} adicionada`);
-  };
   $('btnAddTray').onclick=()=>{ if(structureBlocked())return; const g=geometry(); const y=g.rows.length?g.rows[0].y-80:VIEW_PAD; createIndependentTray(g,g.x0,y,g.x0+Math.max(240,g.scale*3),y); };
   $('btnAddCablePanel')?.addEventListener('click',addCable);$('btnImport').onclick=()=>$('excelInput').click();
   bindStyledSelect('cablesFilter','cablesFilterBtn');$('cablesFilter')?.addEventListener('change',()=>{cables.cablesFilterMode=$('cablesFilter').value;syncSelectButton('cablesFilter','cablesFilterBtn');renderCables();});

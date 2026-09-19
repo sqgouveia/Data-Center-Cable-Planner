@@ -12,27 +12,27 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=179" />
-    <link rel="stylesheet" href="macos.css?v=44" />
+    <link rel="stylesheet" href="app.css?v=192" />
+    <link rel="stylesheet" href="macos.css?v=57" />
     <script type="importmap">
       {
         "imports": {
-          "./js/bulk-assets.js": "./js/bulk-assets.js?v=181",
-          "./js/cables.js": "./js/cables.js?v=181",
-          "./js/catalogs.js": "./js/catalogs.js?v=181",
-          "./js/cloud-sync.js": "./js/cloud-sync.js?v=181",
-          "./js/dialogs.js": "./js/dialogs.js?v=181",
-          "./js/geometry.js": "./js/geometry.js?v=181",
-          "./js/inventory-import.js": "./js/inventory-import.js?v=181",
-          "./js/occupancy.js": "./js/occupancy.js?v=181",
-          "./js/pdf-report.js": "./js/pdf-report.js?v=181",
-          "./js/plant-export.js": "./js/plant-export.js?v=181",
-          "./js/rack-metrics.js": "./js/rack-metrics.js?v=181",
-          "./js/routing.js": "./js/routing.js?v=181",
-          "./js/runtime.js": "./js/runtime.js?v=181",
-          "./js/state.js": "./js/state.js?v=181",
-          "./js/styled-select.js": "./js/styled-select.js?v=181",
-          "./js/utils.js": "./js/utils.js?v=181"
+          "./js/bulk-assets.js": "./js/bulk-assets.js?v=194",
+          "./js/cables.js": "./js/cables.js?v=194",
+          "./js/catalogs.js": "./js/catalogs.js?v=194",
+          "./js/cloud-sync.js": "./js/cloud-sync.js?v=194",
+          "./js/dialogs.js": "./js/dialogs.js?v=194",
+          "./js/geometry.js": "./js/geometry.js?v=194",
+          "./js/inventory-import.js": "./js/inventory-import.js?v=194",
+          "./js/occupancy.js": "./js/occupancy.js?v=194",
+          "./js/pdf-report.js": "./js/pdf-report.js?v=194",
+          "./js/plant-export.js": "./js/plant-export.js?v=194",
+          "./js/rack-metrics.js": "./js/rack-metrics.js?v=194",
+          "./js/routing.js": "./js/routing.js?v=194",
+          "./js/runtime.js": "./js/runtime.js?v=194",
+          "./js/state.js": "./js/state.js?v=194",
+          "./js/styled-select.js": "./js/styled-select.js?v=194",
+          "./js/utils.js": "./js/utils.js?v=194"
         }
       }
     </script>
@@ -585,8 +585,16 @@
     <div class="app">
       <aside class="sidebar left">
         <section>
-          <div class="section-head">
-            <h2>Ambiente</h2>
+          <div class="section-head prop-head">
+            <span class="prop-head-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M4 21V5.5L12 3l8 2.5V21" />
+                <path d="M9 21v-5h6v5" />
+              </svg>
+            </span>
+            <div class="prop-head-text">
+              <h2>Ambiente</h2>
+            </div>
             <button
               id="btnReset"
               class="iconbtn"
@@ -596,138 +604,181 @@
               ＋
             </button>
           </div>
-          <label
-            >Nome do projeto<input id="projectName" value="Data Center"
-          /></label>
-          <div class="grid2">
-            <label
-              >Fileiras<input
-                id="rowCount"
-                type="number"
-                min="0"
-                max="30"
-                value="2"
-            /></label>
-            <label
-              >Racks/fila<input
-                id="defaultRacks"
-                type="number"
-                min="0"
-                max="100"
-                value="5"
-            /></label>
+          <div class="prop-card">
+            <label class="prop-field"
+              ><span class="prop-field-label" data-prop-icon="project"
+                ><span class="prop-field-text">Nome do projeto</span></span
+              ><span class="prop-field-box"
+                ><input id="projectName" value="Data Center" /></span
+            ></label>
+            <div class="grid2">
+              <label class="prop-field"
+                ><span class="prop-field-label" data-prop-icon="rows"
+                  ><span class="prop-field-text">Fileiras</span></span
+                ><span class="prop-field-box"
+                  ><input
+                    id="rowCount"
+                    type="number"
+                    min="0"
+                    max="30"
+                    value="2" /></span
+              ></label>
+              <label class="prop-field"
+                ><span class="prop-field-label" data-prop-icon="rack"
+                  ><span class="prop-field-text">Racks/fila</span></span
+                ><span class="prop-field-box"
+                  ><input
+                    id="defaultRacks"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value="5" /></span
+              ></label>
+            </div>
+            <label class="prop-field"
+              ><span class="prop-field-label" data-prop-icon="u"
+                ><span class="prop-field-text">Altura do rack (U)</span></span
+              ><span class="prop-field-box"
+                ><input
+                  id="rackUnits"
+                  type="number"
+                  min="1"
+                  max="60"
+                  value="48" /></span
+            ></label>
+            <button
+              id="envAdvancedToggle"
+              class="env-advanced-toggle"
+              type="button"
+              aria-expanded="false"
+              aria-controls="envAdvanced"
+            >
+              <span>Mais opções</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+            <div id="envAdvanced" class="env-advanced hidden">
+              <div class="grid2">
+                <label class="prop-field"
+                  ><span class="prop-field-label" data-prop-icon="width"
+                    ><span class="prop-field-text">Largura (m)</span></span
+                  ><span class="prop-field-box"
+                    ><input
+                      id="rackWidth"
+                      type="number"
+                      min="0.1"
+                      step="0.01"
+                      value="0.60" /></span
+                ></label>
+                <label class="prop-field"
+                  ><span class="prop-field-label" data-prop-icon="depth"
+                    ><span class="prop-field-text">Profund. (m)</span></span
+                  ><span class="prop-field-box"
+                    ><input
+                      id="rackDepth"
+                      type="number"
+                      min="0.1"
+                      step="0.01"
+                      value="1.20" /></span
+                ></label>
+              </div>
+              <label class="prop-field"
+                ><span class="prop-field-label" data-prop-icon="gap"
+                  ><span class="prop-field-text">Dist. entre racks (m)</span></span
+                ><span class="prop-field-box"
+                  ><input
+                    id="rackGap"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value="0" /></span
+              ></label>
+              <label class="prop-field"
+                ><span class="prop-field-label" data-prop-icon="power"
+                  ><span class="prop-field-text"
+                    >Cap. elétrica padrão (W)
+                    <span class="prop-field-opt">(opcional)</span></span
+                  ></span
+                ><span class="prop-field-box has-trailing"
+                  ><span data-prop-trailing="infinite"></span
+                  ><input
+                    id="rackPowerCapacity"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Sem limite definido" /></span
+              ></label>
+              <label class="prop-field"
+                ><span class="prop-field-label" data-prop-icon="weight"
+                  ><span class="prop-field-text"
+                    >Carga do piso padrão (kg)
+                    <span class="prop-field-opt">(opcional)</span></span
+                  ></span
+                ><span class="prop-field-box has-trailing"
+                  ><span data-prop-trailing="infinite"></span
+                  ><input
+                    id="rackWeightCapacity"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Sem limite definido" /></span
+              ></label>
+              <label class="prop-field"
+                ><span class="prop-field-label" data-prop-icon="gap"
+                  ><span class="prop-field-text">Dist. entre fileiras (m)</span></span
+                ><span class="prop-field-box"
+                  ><input
+                    id="defaultRowGap"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value="1.20" /></span
+              ></label>
+              <label class="prop-field"
+                ><span class="prop-field-label" data-prop-icon="rise"
+                  ><span class="prop-field-text">Última U → calha (m)</span></span
+                ><span class="prop-field-box"
+                  ><input
+                    id="lastUToTray"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value="1.00" /></span
+              ></label>
+              <label class="prop-field"
+                ><span class="prop-field-label" data-prop-icon="percent"
+                  ><span class="prop-field-text">Folga padrão (%)</span></span
+                ><span class="prop-field-box"
+                  ><input
+                    id="defaultSlack"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value="10" /></span
+              ></label>
+            </div>
+            <button id="btnBuildRows" class="btn primary full">
+              <svg class="prop-ico ic-check" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m4.5 12.5 5 5 10-11" /></svg
+              >Aplicar estrutura
+            </button>
           </div>
-          <label
-            >Altura do rack (U)<input
-              id="rackUnits"
-              type="number"
-              min="1"
-              max="60"
-              value="48"
-          /></label>
-          <button
-            id="envAdvancedToggle"
-            class="env-advanced-toggle"
-            type="button"
-            aria-expanded="false"
-            aria-controls="envAdvanced"
-          >
-            <span>Mais opções</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
-          </button>
-          <div id="envAdvanced" class="env-advanced hidden">
-          <div class="grid2">
-            <label
-              >Largura (m)<input
-                id="rackWidth"
-                type="number"
-                min="0.1"
-                step="0.01"
-                value="0.60" /></label
-            ><label
-              >Profundidade (m)<input
-                id="rackDepth"
-                type="number"
-                min="0.1"
-                step="0.01"
-                value="1.20"
-            /></label>
-          </div>
-          <label
-            >Distância padrão entre racks (m)<input
-              id="rackGap"
-              type="number"
-              min="0"
-              step="0.01"
-              value="0"
-          /></label>
-          <label
-            >Capacidade elétrica padrão (W)
-            <small class="field-help-inline">(opcional)</small
-            ><input
-              id="rackPowerCapacity"
-              type="number"
-              min="0"
-              step="1"
-              placeholder="Sem limite definido"
-          /></label>
-          <label
-            >Capacidade de carga do piso padrão (kg)
-            <small class="field-help-inline">(opcional)</small
-            ><input
-              id="rackWeightCapacity"
-              type="number"
-              min="0"
-              step="1"
-              placeholder="Sem limite definido"
-          /></label>
-          <label
-            >Distância padrão entre fileiras (m)<input
-              id="defaultRowGap"
-              type="number"
-              min="0"
-              step="0.01"
-              value="1.20"
-          /></label>
-          <label
-            >Altura da última U até a calha (m)<input
-              id="lastUToTray"
-              type="number"
-              min="0"
-              step="0.01"
-              value="1.00"
-          /></label>
-          <label
-            >Folga padrão (%)<input
-              id="defaultSlack"
-              type="number"
-              min="0"
-              step="1"
-              value="10"
-          /></label>
-          </div>
-          <button id="btnBuildRows" class="btn primary full">
-            ✓ Aplicar estrutura
-          </button>
         </section>
         <section>
-          <div class="rows-head">
-            <div class="modal-icon rows-head-icon" aria-hidden="true">
+          <div class="rows-head prop-head">
+            <span class="prop-head-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24">
                 <rect x="3" y="3" width="18" height="5" rx="1.2" />
                 <rect x="3" y="9.5" width="18" height="5" rx="1.2" />
                 <rect x="3" y="16" width="18" height="5" rx="1.2" />
-                <path d="M7 5.5h.01M7 12h.01M7 18.5h.01" />
               </svg>
-            </div>
-            <div class="rows-head-text">
+            </span>
+            <div class="prop-head-text">
               <h2>Fileiras</h2>
-              <span>Configure as fileiras do seu data center.</span>
+              <small>Configure as fileiras do seu data center.</small>
             </div>
           </div>
-          <button id="btnAddRow" class="btn primary rows-add" type="button">
-            <span class="ui-plus">+</span> Adicionar fileira
-          </button>
           <div id="rowsPanel"></div>
         </section>
       </aside>
@@ -961,15 +1012,15 @@
           title="Arraste para redimensionar"
         ></div>
         <section class="cables-section">
-          <div class="cables-head">
-            <span class="cables-head-icon">
+          <div class="cables-head prop-head">
+            <span class="prop-head-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M7 4h6a3 3 0 0 1 0 6H8a3 3 0 0 0 0 6h9" />
                 <path d="M3 4h2v3H3zM19 14h2v4h-2z" />
                 <path d="M3 5.5H1.5M21 16h1.5" />
               </svg>
             </span>
-            <div class="cables-head-text">
+            <div class="prop-head-text">
               <h2>Cabos</h2>
             </div>
             <span id="cableCount" class="cables-count">0 cabos</span>
@@ -3872,6 +3923,6 @@
         </div>
       </div>
     </div>
-    <script type="module" src="app.js?v=181"></script>
+    <script type="module" src="app.js?v=194"></script>
   </body>
 </html>

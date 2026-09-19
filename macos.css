@@ -1982,46 +1982,141 @@ label {
    Um cartão só, com rótulo e caixa de entrada por campo. Os campos
    opcionais mostram "∞" à direita enquanto estão vazios (sem limite).
    ===================================================================== */
-.rack-panel {
+.prop-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px;
+  gap: 5px;
+  padding: 9px;
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: var(--panel2);
   box-shadow: inset 0 1px 0 var(--edge);
 }
-.rack-panel .grid2 {
+.prop-card .grid2 {
   gap: 8px;
 }
-.rack-panel .structure-lock-note {
+/* Painel Ambiente: o bloco "Mais opções" é uma coluna de campos igual ao
+   resto do cartão. */
+.prop-card .env-advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.prop-card .env-advanced-toggle {
   margin: 0;
 }
-.rack-panel .rack-field {
+/* Seção Fileiras: cada fileira é um cartão igual ao dos outros painéis. */
+#rowsPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+/* Os cartões da barra lateral aproveitam a largura: o respiro da seção
+   sobra nas laterais, então o cartão avança 8px para cada lado. */
+.sidebar .prop-card {
+  margin-left: -5px;
+  margin-right: -8px;
+}
+/* Cabeçalhos de seção (Ambiente, Fileiras, Cabos) usam o desenho do
+   cabeçalho de Propriedades: barra de chrome com gradiente, caixa de ícone,
+   título e subtítulo. */
+.sidebar.left > section > .prop-head,
+.sidebar.right > .cables-section > .cables-head {
+  /* flex:none é obrigatório: sem ele o flex:1 herdado de .prop-head faz o
+     cabeçalho esticar na vertical dentro da seção em coluna. */
+  flex: none;
+  margin: -15px -14px 9px;
+  padding: 11px 14px 9px;
+  background: linear-gradient(180deg, var(--chrome-1), var(--chrome-2));
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+  box-shadow: inset 0 1px 0 var(--edge);
+}
+.prop-head > .iconbtn,
+.prop-head > .cables-count,
+.prop-head > .cables-add {
+  margin-left: auto;
+}
+.prop-head > .cables-count + .cables-add {
+  margin-left: 0;
+}
+.cables-head .prop-head-text,
+.rows-head .prop-head-text {
+  flex: 1;
+}
+/* Contagem e botão do cabeçalho de cabos no mesmo tamanho dos campos. */
+.cables-count {
+  padding: 2px 7px;
+  font-size: 10.5px;
+}
+.cables-add {
+  height: 24px;
+  padding: 0 9px;
+  gap: 4px;
+  font-size: 11px;
+  border-radius: var(--r-sm);
+}
+/* Ações das seções: mesma altura, raio, ícone e tipografia dos botões dos
+   painéis de rack, cabo e fileira. */
+.prop-card .btn.primary .prop-ico {
+  color: currentColor;
+}
+.rows-add {
+  height: 28px;
+  margin: 0 0 8px;
+  padding: 0 10px;
+  gap: 7px;
+  border-radius: var(--r-md);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+/* Dentro do cartão o espaçamento é do próprio cartão. */
+.prop-card .rows-add {
+  width: 100%;
+  margin: 0;
+}
+.rows-add .ui-icon {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2;
+}
+.prop-card .grid2 > .btn {
+  height: 28px;
+  padding: 0 8px;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.prop-card .grid2 > .btn .prop-ico {
+  width: 13px;
+  height: 13px;
+}
+.prop-card .structure-lock-note {
+  margin: 0;
+}
+.prop-card .prop-field {
   margin: 0;
   color: var(--text);
   font-size: 12px;
   font-weight: 650;
   letter-spacing: 0;
 }
-.rack-panel .rack-field-label {
+.prop-card .prop-field-label {
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 650;
   letter-spacing: -0.01em;
-  line-height: 1.25;
+  line-height: 1.2;
   color: var(--text);
   white-space: nowrap;
 }
-.rack-panel .rack-field-text {
+.prop-card .prop-field-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.rack-panel .rack-ico {
+.prop-card .prop-ico {
   width: 14px;
   height: 14px;
   flex: none;
@@ -2033,23 +2128,23 @@ label {
   stroke-linejoin: round;
   color: var(--blue);
 }
-.rack-panel .rack-field-opt {
+.prop-card .prop-field-opt {
   color: var(--muted);
   font-weight: 550;
 }
 /* ícone de informação: disco cheio com o "i" recortado */
-.rack-panel .rack-ico.ic-info circle {
+.prop-card .prop-ico.ic-info circle {
   fill: currentColor;
   stroke: none;
 }
-.rack-panel .rack-ico.ic-info .i {
+.prop-card .prop-ico.ic-info .i {
   stroke: #fff;
   stroke-width: 2.6;
 }
-.rack-panel .rack-field-box {
+.prop-card .prop-field-box {
   position: relative;
   display: block;
-  margin-top: 3px;
+  margin-top: 2px;
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: color-mix(in srgb, var(--bg) 85%, var(--panel));
@@ -2057,57 +2152,57 @@ label {
     border-color 0.15s,
     box-shadow 0.15s;
 }
-.rack-panel .rack-field-box:focus-within {
+.prop-card .prop-field-box:focus-within {
   border-color: var(--blue);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent);
 }
-.rack-panel .rack-field-box input {
+.prop-card .prop-field-box input {
   width: 100%;
   margin: 0;
   border: 0;
   border-radius: inherit;
   background: transparent;
   color: var(--text);
-  padding: 6px 10px;
-  font-size: 13px;
+  padding: 4px 9px;
+  font-size: 12.5px;
   font-weight: 500;
   font-family: inherit;
   outline: 0;
   box-shadow: none;
 }
-.rack-panel .rack-field-box input:focus {
+.prop-card .prop-field-box input:focus {
   border: 0;
   background: transparent;
   box-shadow: none;
 }
-.rack-panel .rack-field-box input::placeholder {
+.prop-card .prop-field-box input::placeholder {
   color: var(--muted);
   opacity: 0.85;
 }
 /* as setas nativas do input numérico saem de cena: a coluna de setas do
    painel é própria, com a divisória que o desenho mostra. */
-.rack-panel input[type="number"] {
+.prop-card input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
-  padding-right: 34px;
+  padding-right: 32px;
 }
-.rack-panel input[type="number"]::-webkit-outer-spin-button,
-.rack-panel input[type="number"]::-webkit-inner-spin-button {
+.prop-card input[type="number"]::-webkit-outer-spin-button,
+.prop-card input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
   appearance: none;
   margin: 0;
 }
-.rack-panel .rack-spin {
+.prop-card .prop-spin {
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
-  width: 26px;
+  width: 25px;
   display: flex;
   flex-direction: column;
   border-left: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
 }
-.rack-panel .rack-spin-btn {
+.prop-card .prop-spin-btn {
   flex: 1;
   display: grid;
   place-items: center;
@@ -2121,31 +2216,31 @@ label {
     background 0.12s ease,
     color 0.12s ease;
 }
-.rack-panel .rack-spin-btn:first-child {
+.prop-card .prop-spin-btn:first-child {
   border-radius: 0 calc(var(--r-md) - 1px) 0 0;
 }
-.rack-panel .rack-spin-btn:last-child {
+.prop-card .prop-spin-btn:last-child {
   border-radius: 0 0 calc(var(--r-md) - 1px) 0;
 }
-.rack-panel .rack-spin-btn:hover {
+.prop-card .prop-spin-btn:hover {
   background: color-mix(in srgb, var(--text) 10%, transparent);
   color: var(--text);
 }
-.rack-panel .rack-spin-btn:focus-visible {
+.prop-card .prop-spin-btn:focus-visible {
   outline: 0;
   box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--blue) 55%, transparent);
 }
-.rack-panel .rack-spin-btn .rack-ico {
+.prop-card .prop-spin-btn .prop-ico {
   width: 11px;
   height: 11px;
   margin: 0;
   color: inherit;
   stroke-width: 2.2;
 }
-.rack-panel .rack-field-box.has-trailing input {
+.prop-card .prop-field-box.has-trailing input {
   padding-right: 60px;
 }
-.rack-panel .rack-field-trailing {
+.prop-card .prop-field-trailing {
   position: absolute;
   top: 50%;
   right: 34px;
@@ -2159,89 +2254,171 @@ label {
   transition: opacity 0.12s ease;
 }
 /* com limite definido o "∞" sai de cena */
-.rack-panel .rack-field-box.is-filled .rack-field-trailing {
+.prop-card .prop-field-box.is-filled .prop-field-trailing {
   opacity: 0;
 }
-.rack-panel .rack-card-sub {
+/* Colunas: rack / U / face. A U é sempre 1–2 dígitos, então fica estreita. */
+.prop-card .prop-grid-3 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) 66px minmax(0, 1.05fr);
+  gap: 7px;
+}
+/* A U é 1–2 dígitos: coluna estreita com caixa e setas menores, para o
+   número não encostar na coluna de setas. */
+.prop-card .prop-field-u .prop-field-box input {
+  padding-left: 7px;
+  padding-right: 21px;
+  font-size: 12.5px;
+}
+.prop-card .prop-field-u .prop-spin {
+  width: 21px;
+}
+.prop-card .prop-field-u .prop-spin-btn .prop-ico {
+  width: 9px;
+  height: 9px;
+}
+.prop-card .prop-field-box select {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--text);
+  padding: 4px 9px;
+  font-family: inherit;
+  font-size: 12.5px;
+  outline: 0;
+  box-shadow: none;
+}
+.prop-card .prop-field-box select:focus {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.prop-card .prop-field-box input:disabled {
+  opacity: 0.75;
+}
+.prop-card .prop-field-box:has(input:disabled) {
+  opacity: 0.6;
+}
+.prop-card .prop-field-box:has(input:disabled) .prop-spin {
+  pointer-events: none;
+}
+/* Cabeçalho de sub-cartão recolhível (origem, destino, extras, roteamento). */
+.prop-card .prop-sub-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.prop-card .prop-sub-body {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 8px;
+  gap: 4px;
+}
+.prop-card .prop-card-sub.collapsed .prop-sub-body {
+  display: none;
+}
+.prop-card .prop-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+.prop-card .prop-field .field-help-inline {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+}
+/* O resumo de medidas do cabo segue o ritmo das linhas de leitura. */
+.prop-card .cable-metric {
+  padding: 4px 8px;
+}
+.prop-card .cable-metric-label {
+  font-size: 11px;
+}
+.prop-card .cable-metric b {
+  font-size: 11.5px;
+}
+.prop-card .prop-card-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px;
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: color-mix(in srgb, var(--panel2) 45%, var(--panel));
 }
-.rack-panel .rack-readout {
+.prop-card .prop-readout {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   margin: 0;
-  padding: 5px 8px;
+  padding: 3px 8px;
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: color-mix(in srgb, var(--bg) 70%, var(--panel));
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--muted);
   line-height: 1.3;
 }
-.rack-panel .rack-readout .rack-readout-icon {
+.prop-card .prop-readout .prop-readout-icon {
   width: 15px;
   height: 15px;
   margin: 0;
 }
-.rack-panel .rack-readout b {
+.prop-card .prop-readout b {
   color: var(--text);
   font-family: inherit;
   font-weight: 700;
 }
-.rack-panel .rack-readout.power-mid {
+.prop-card .prop-readout.power-mid {
   border-color: color-mix(in srgb, var(--orange) 45%, var(--border));
   color: var(--orange);
 }
-.rack-panel .rack-readout.power-mid b {
+.prop-card .prop-readout.power-mid b {
   color: var(--orange);
 }
-.rack-panel .rack-readout.power-high {
+.prop-card .prop-readout.power-high {
   border-color: color-mix(in srgb, var(--red) 50%, var(--border));
   color: var(--red);
 }
-.rack-panel .rack-readout.power-high b {
+.prop-card .prop-readout.power-high b {
   color: var(--red);
 }
-.rack-panel .btn.full {
+.prop-card .btn.full {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   width: 100%;
-  height: 32px;
+  height: 28px;
   margin: 0;
   border-radius: var(--r-md);
   font-size: 12.5px;
   font-weight: 700;
 }
-.rack-panel .btn.full .rack-ico {
+.prop-card .btn.full .prop-ico {
   width: 16px;
   height: 16px;
 }
-.rack-panel .btn.ghost .rack-ico {
+.prop-card .btn.ghost .prop-ico {
   color: var(--blue);
 }
-.rack-panel .btn.ghost:hover:not(:disabled) .rack-ico {
+.prop-card .btn.ghost:hover:not(:disabled) .prop-ico {
   color: var(--blue-ink);
 }
-.rack-panel .btn.danger {
+.prop-card .btn.danger {
   border-color: color-mix(in srgb, var(--red) 45%, transparent);
   background: color-mix(in srgb, var(--red) 12%, transparent);
 }
-.rack-panel .btn.danger:hover:not(:disabled) {
+.prop-card .btn.danger:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--red) 62%, transparent);
   background: color-mix(in srgb, var(--red) 20%, transparent);
 }
-.rack-panel .btn.danger .rack-ico {
+.prop-card .btn.danger .prop-ico {
   color: var(--red);
 }
-.rack-panel .rack-footnote {
+.prop-card .prop-footnote {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2249,7 +2426,7 @@ label {
   font-size: 11.5px;
   line-height: 1.35;
 }
-.rack-panel .rack-footnote .rack-ico {
+.prop-card .prop-footnote .prop-ico {
   width: 16px;
   height: 16px;
 }
