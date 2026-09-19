@@ -12,27 +12,27 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=160" />
-    <link rel="stylesheet" href="macos.css?v=25" />
+    <link rel="stylesheet" href="app.css?v=175" />
+    <link rel="stylesheet" href="macos.css?v=40" />
     <script type="importmap">
       {
         "imports": {
-          "./js/bulk-assets.js": "./js/bulk-assets.js?v=161",
-          "./js/cables.js": "./js/cables.js?v=161",
-          "./js/catalogs.js": "./js/catalogs.js?v=161",
-          "./js/cloud-sync.js": "./js/cloud-sync.js?v=161",
-          "./js/dialogs.js": "./js/dialogs.js?v=161",
-          "./js/geometry.js": "./js/geometry.js?v=161",
-          "./js/inventory-import.js": "./js/inventory-import.js?v=161",
-          "./js/occupancy.js": "./js/occupancy.js?v=161",
-          "./js/pdf-report.js": "./js/pdf-report.js?v=161",
-          "./js/plant-export.js": "./js/plant-export.js?v=161",
-          "./js/rack-metrics.js": "./js/rack-metrics.js?v=161",
-          "./js/routing.js": "./js/routing.js?v=161",
-          "./js/runtime.js": "./js/runtime.js?v=161",
-          "./js/state.js": "./js/state.js?v=161",
-          "./js/styled-select.js": "./js/styled-select.js?v=161",
-          "./js/utils.js": "./js/utils.js?v=161"
+          "./js/bulk-assets.js": "./js/bulk-assets.js?v=176",
+          "./js/cables.js": "./js/cables.js?v=176",
+          "./js/catalogs.js": "./js/catalogs.js?v=176",
+          "./js/cloud-sync.js": "./js/cloud-sync.js?v=176",
+          "./js/dialogs.js": "./js/dialogs.js?v=176",
+          "./js/geometry.js": "./js/geometry.js?v=176",
+          "./js/inventory-import.js": "./js/inventory-import.js?v=176",
+          "./js/occupancy.js": "./js/occupancy.js?v=176",
+          "./js/pdf-report.js": "./js/pdf-report.js?v=176",
+          "./js/plant-export.js": "./js/plant-export.js?v=176",
+          "./js/rack-metrics.js": "./js/rack-metrics.js?v=176",
+          "./js/routing.js": "./js/routing.js?v=176",
+          "./js/runtime.js": "./js/runtime.js?v=176",
+          "./js/state.js": "./js/state.js?v=176",
+          "./js/styled-select.js": "./js/styled-select.js?v=176",
+          "./js/utils.js": "./js/utils.js?v=176"
         }
       }
     </script>
@@ -940,7 +940,15 @@
       <aside class="sidebar right">
         <section>
           <div class="section-head-sticky">
-            <div class="section-head"><h2>Propriedades</h2></div>
+            <div class="section-head prop-head">
+              <span id="propHeadIcon" class="prop-head-icon" aria-hidden="true"></span>
+              <div class="prop-head-text">
+                <h2 id="propHeadTitle">Propriedades</h2>
+                <small id="propHeadSubtitle"
+                  >Selecione um rack, calha ou cabo.</small
+                >
+              </div>
+            </div>
             <div id="propTitleSticky" class="prop-title-sticky"></div>
           </div>
           <div id="properties">
@@ -3864,6 +3872,6 @@
         </div>
       </div>
     </div>
-    <script type="module" src="app.js?v=161"></script>
+    <script type="module" src="app.js?v=176"></script>
   </body>
 </html>

@@ -2340,11 +2340,27 @@ function closeBayface(){closeBayfaceAssetPicker();const m=$('bayfaceModal');if(!
 function openRackBayface(rackId){if(!assetRack(rackId))return;openBayface(rackId);}
 
 function setPropTitleSticky(text){ const el=$('propTitleSticky'); if(el)el.textContent=text||''; }
+// Cabeçalho da aba Propriedades: muda com o que está selecionado, para a
+// pessoa saber de cara o que está editando (e não só o nome do item).
+const PROP_HEAD_ICONS={
+  default:'<path d="M4 7h16M4 12h16M4 17h10"/>',
+  cable:'<path d="M5 17c6 0 5-10 11-10"/><circle cx="18.5" cy="7" r="1.8"/><circle cx="5.5" cy="17" r="1.8"/>',
+  rack:'<rect x="3" y="4" width="18" height="7" rx="1.6"/><rect x="3" y="13" width="18" height="7" rx="1.6"/><path d="M7 7.5h.01M15 7.5h2M7 16.5h.01M15 16.5h2"/>',
+  tray:'<path d="M3 9h18M3 15h18M6 9v6M18 9v6"/>',
+  multi:'<rect x="3" y="4" width="18" height="7" rx="1.6"/><rect x="3" y="13" width="18" height="7" rx="1.6"/>'
+};
+function setPropHead(kind,title,subtitle){
+  const icon=$('propHeadIcon'),t=$('propHeadTitle'),s=$('propHeadSubtitle');
+  if(icon)icon.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true">${PROP_HEAD_ICONS[kind]||PROP_HEAD_ICONS.default}</svg>`;
+  if(t)t.textContent=title||'Propriedades';
+  if(s)s.textContent=subtitle||'Selecione um rack, calha ou cabo.';
+}
 function renderProperties(){
   const p=$('properties');
   if(state.trayMultiSelected.length>1){
     const count=state.trayMultiSelected.length;
     setPropTitleSticky(`${count} calhas selecionadas`);
+    setPropHead('tray',`${count} calhas selecionadas`,'Somente exclusão em lote.');
     p.innerHTML=`<div class="help">Várias calhas selecionadas. Para evitar alterações acidentais na geometria e nas conexões, somente a exclusão em lote está disponível.</div>
       <button class="btn danger full" id="delSelectedTrays">Excluir ${count} calhas selecionadas</button>
       <button class="btn ghost full" id="clearSelectedTrays">Limpar seleção</button>`;
@@ -2355,6 +2371,7 @@ function renderProperties(){
   if(state.multiSelected.length>1){
     const count=state.multiSelected.length;
     setPropTitleSticky(`${count} racks selecionados`);
+    setPropHead('multi',`${count} racks selecionados`,'Alterações aplicadas a todos os selecionados.');
     p.innerHTML=`${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. As propriedades dos racks estão somente para consulta.</div>':''}
       <div class="help">As propriedades abaixo serão aplicadas a todos os racks selecionados. Deixe um campo vazio para não alterá-lo. Largura e profundidade mantêm cada rack centrado.</div>
       <div class="grid2"><label>Qtd. U<input id="bulkUnits" type="number" min="1" max="60" placeholder="Não alterar"></label><label>Largura (m)<input id="bulkWidth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label></div>
@@ -2386,6 +2403,7 @@ function renderProperties(){
   }
   if(!state.selected){
     if(state.racks.length){renderRoomSummary(p);return;}
+    setPropHead('default','Propriedades','Selecione um rack, calha ou cabo.');
     setPropTitleSticky('');p.innerHTML='<div class="empty">Selecione um rack, calha ou cabo.</div>';return;
   }
   if(state.selected.type==='rack'){
@@ -2400,6 +2418,7 @@ function renderProperties(){
     const weightPct=weightCapacity>0?Math.round(rackWeightKg/weightCapacity*100):null;
     const weightLevel=weightCapacity<=0?'none':(rackWeightKg>weightCapacity?'high':weightPct>=80?'mid':'low');
     setPropTitleSticky(r.name);
+    setPropHead('rack','Propriedades do rack','Configure nome, medidas e capacidade.');
     p.innerHTML=`${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. Desbloqueie para alterar este rack.</div>':''}
       <label>Nome<input id="prName" value="${esc(r.name)}"></label>
       <div class="grid2"><label>Qtd. U<input id="prUnits" type="number" min="1" max="60" value="${r.units}"></label><label>Largura (m)<input id="prWidth" type="number" min="0.1" step="0.01" value="${r.width}"></label></div>
@@ -2457,6 +2476,7 @@ function renderProperties(){
     const g=geometry();
     const currentLength=trayLengthMeters(t,g);
     setPropTitleSticky(t.name||'Calha');
+    setPropHead('tray','Propriedades da calha','Configure nome, altura e conexões.');
     p.innerHTML=`${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. Desbloqueie para alterar esta calha.</div>':''}
       <label>Nome<input id="trName" value="${esc(t.name||'Calha')}"></label>
       <label>Comprimento da calha (m)<input id="trLength" type="number" min="0.01" step="0.01" value="${currentLength.toFixed(2)}"></label>
@@ -2518,21 +2538,30 @@ function updateCableAssetNameField(c,side){
   if(asset){
     if(side==='origin')c.originAssetName=asset.name; else c.destAssetName=asset.name;
     field.value=asset.name; field.disabled=true;
-    if(hint)hint.textContent='(preenchido automaticamente pelo asset instalado nessa U)';
+    if(hint)hint.textContent='(automático)';
+    field.title='Preenchido automaticamente pelo asset instalado nessa U.';
   }else{
     // Sem asset nessa U: NÃO apaga o que já está guardado no cabo — pode ser
     // uma referência que o usuário digitou pra uma posição sem asset formal.
     // Só garante que o campo fique editável e mostre o valor atual salvo.
     field.value=side==='origin'?(c.originAssetName||''):(c.destAssetName||'');
     field.disabled=false;
-    if(hint)hint.textContent='(opcional — nem todo asset precisa estar cadastrado ainda)';
+    if(hint)hint.textContent='(opcional)';
+    field.title='Nem todo asset precisa estar cadastrado ainda — este campo aceita texto livre.';
   }
 }
 
 function renderCableProperties(p,c){
   if(!c){p.innerHTML='<div class="empty">Cabo não encontrado.</div>';return;}
   const rackLabel=r=>`${rowForRack(r)?.name||''} / ${r.name}`;
-  const opts=state.racks.slice().sort((a,b)=>rackLabel(a).localeCompare(rackLabel(b),'pt-BR')).map(r=>`<option value="${r.id}">${esc(rackLabel(r))} (${Math.floor(num(r.units,state.rackUnits))}U)</option>`).join('');
+  // O rótulo do rack vive numa coluna estreita: mostra só o nome do rack
+  // (a fileira e a contagem de U vão no title). A fileira só entra no texto
+  // quando existem racks com o mesmo nome em fileiras diferentes, senão a
+  // lista fica ambígua.
+  const rackNames=state.racks.map(r=>String(r.name||''));
+  const dupNames=new Set(rackNames.filter((n,i)=>rackNames.indexOf(n)!==i));
+  const optLabel=r=>dupNames.has(String(r.name||''))?rackLabel(r):(r.name||'Rack');
+  const opts=state.racks.slice().sort((a,b)=>rackLabel(a).localeCompare(rackLabel(b),'pt-BR')).map(r=>`<option value="${r.id}" title="${esc(rackLabel(r))} — ${Math.floor(num(r.units,state.rackUnits))}U">${esc(optLabel(r))}</option>`).join('');
   const v=cableUnitValidation(c);
   const o=v.origin,d=v.dest;
   const ouMax=o?Math.floor(num(o.units,state.rackUnits)):1, duMax=d?Math.floor(num(d.units,state.rackUnits)):1;
@@ -2555,27 +2584,73 @@ function renderCableProperties(p,c){
   const originConflict=c.originPortId?cablePortConflict(c,'origin',c.originPortId):null;
   const destConflict=c.destPortId?cablePortConflict(c,'dest',c.destPortId):null;
   setPropTitleSticky(c.name);
-  p.innerHTML=`<label>Nome<input id="cbName" value="${esc(c.name)}"></label>
-  <label>Tipo<select id="cbType">${cableTypeNames().map(t=>`<option value="${esc(t)}" ${c.type===t?'selected':''}>${esc(t)}</option>`).join('')}</select></label>
-  <div class="grid2"><label>Rack origem<select id="cbOR">${opts}</select></label><label>U origem<input id="cbOU" class="${ouInvalid?'input-error':''}" type="number" min="1" max="${ouMax}" value="${c.originU}"><small id="cbOUError" class="field-error">${ouInvalid?`Máximo: ${ouMax}U.`:''}</small></label></div>
-  ${!ouInvalid?`<label>Face na origem<select id="cbOFace"><option value="front" ${originFace==='front'?'selected':''}>Frente</option><option value="rear" ${originFace==='rear'?'selected':''}>Traseira</option></select></label>`:''}
-  ${!ouInvalid?`<label>Nome do asset na origem <small class="field-help-inline">${originAsset?'(preenchido automaticamente pelo asset instalado nessa U)':'(opcional — nem todo asset precisa estar cadastrado ainda)'}</small><input id="cbOAssetName" value="${esc(originAsset?originAsset.name:(c.originAssetName||''))}" placeholder="Nome do equipamento nessa U" ${originAsset?'disabled':''}></label>`:''}
-  ${!ouInvalid?(originAsset?.ports?.length?`<label>Porta de origem <small class="field-help-inline">(${esc(originAsset.name)})</small><select id="cbOPort">${portOptions(originAsset,c.originPortId)}</select></label>${originConflict?`<div class="field-error">Porta já usada pelo cabo "${esc(originConflict.name)}".</div>`:''}`:`<label>Porta de origem <small class="field-help-inline">${originAsset?`(${esc(originAsset.name)}, sem portas cadastradas)`:'(opcional)'}</small><input id="cbOPortFree" value="${esc(c.originPortLabel||'')}" placeholder="Digite o nome da porta"></label>`):''}
-  <div class="grid2"><label>Rack destino<select id="cbDR">${opts}</select></label><label>U destino<input id="cbDU" class="${duInvalid?'input-error':''}" type="number" min="1" max="${duMax}" value="${c.destU}"><small id="cbDUError" class="field-error">${duInvalid?`Máximo: ${duMax}U.`:''}</small></label></div>
-  ${!duInvalid?`<label>Face no destino<select id="cbDFace"><option value="front" ${destFace==='front'?'selected':''}>Frente</option><option value="rear" ${destFace==='rear'?'selected':''}>Traseira</option></select></label>`:''}
-  ${!duInvalid?`<label>Nome do asset no destino <small class="field-help-inline">${destAsset?'(preenchido automaticamente pelo asset instalado nessa U)':'(opcional — nem todo asset precisa estar cadastrado ainda)'}</small><input id="cbDAssetName" value="${esc(destAsset?destAsset.name:(c.destAssetName||''))}" placeholder="Nome do equipamento nessa U" ${destAsset?'disabled':''}></label>`:''}
-  ${!duInvalid?(destAsset?.ports?.length?`<label>Porta de destino <small class="field-help-inline">(${esc(destAsset.name)})</small><select id="cbDPort">${portOptions(destAsset,c.destPortId)}</select></label>${destConflict?`<div class="field-error">Porta já usada pelo cabo "${esc(destConflict.name)}".</div>`:''}`:`<label>Porta de destino <small class="field-help-inline">${destAsset?`(${esc(destAsset.name)}, sem portas cadastradas)`:'(opcional)'}</small><input id="cbDPortFree" value="${esc(c.destPortLabel||'')}" placeholder="Digite o nome da porta"></label>`):''}
+  setPropHead('cable','Propriedades do cabo','Configure origem, destino e tipo.');
+  const caret='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+  const stepHead=(n,label)=>`<header class="panel-step-head"><span class="panel-step-num">${n}</span><h4>${label}</h4><button type="button" class="panel-step-toggle" aria-expanded="true" aria-label="Recolher ${label}">${caret}</button></header>`;
+  p.innerHTML=`<div class="cable-panel">
+  <section class="panel-step" data-panel-step="geral">
+    ${stepHead(1,'Geral')}
+    <div class="panel-step-body">
+      <div class="panel-grid">
+        <label class="catalog-field"><span class="catalog-field-label">Nome <i class="req">*</i></span><input id="cbName" class="field-icon field-icon-tag" value="${esc(c.name)}"></label>
+        <label class="catalog-field"><span class="catalog-field-label">Tipo <i class="req">*</i></span><select id="cbType" class="field-icon field-icon-type">${cableTypeNames().map(t=>`<option value="${esc(t)}" ${c.type===t?'selected':''}>${esc(t)}</option>`).join('')}</select></label>
+      </div>
+    </div>
+  </section>
+  <section class="panel-step" data-panel-step="origem">
+    ${stepHead(2,'Origem')}
+    <div class="panel-step-body">
+      <div class="panel-grid panel-grid-3">
+        <label class="catalog-field"><span class="catalog-field-label">Rack <i class="req">*</i></span><select id="cbOR" class="field-icon field-icon-rack">${opts}</select></label>
+        <label class="catalog-field"><span class="catalog-field-label">U <i class="req">*</i></span><input id="cbOU" class="field-icon field-icon-u ${ouInvalid?'input-error':''}" type="number" min="1" max="${ouMax}" value="${c.originU}"><small id="cbOUError" class="field-error">${ouInvalid?`Máximo: ${ouMax}U.`:''}</small></label>
+        ${!ouInvalid?`<label class="catalog-field"><span class="catalog-field-label">Face <i class="req">*</i></span><select id="cbOFace" class="field-icon field-icon-face"><option value="front" ${originFace==='front'?'selected':''}>Frente</option><option value="rear" ${originFace==='rear'?'selected':''}>Traseira</option></select></label>`:''}
+      </div>
+      ${!ouInvalid?`<div class="panel-grid">
+        <label class="catalog-field"><span class="catalog-field-label">Asset <small class="field-help-inline">${originAsset?'(automático)':'(opcional)'}</small></span><input id="cbOAssetName" class="field-icon field-icon-asset" value="${esc(originAsset?originAsset.name:(c.originAssetName||''))}" placeholder="Nome do equipamento" ${originAsset?'disabled':''}></label>
+        ${originAsset?.ports?.length?`<label class="catalog-field"><span class="catalog-field-label">Porta <small class="field-help-inline">(${esc(originAsset.name)})</small></span><select id="cbOPort" class="field-icon field-icon-port">${portOptions(originAsset,c.originPortId)}</select></label>`:`<label class="catalog-field"><span class="catalog-field-label">Porta <small class="field-help-inline">${originAsset?'(sem portas cadastradas)':'(opcional)'}</small></span><input id="cbOPortFree" class="field-icon field-icon-port" value="${esc(c.originPortLabel||'')}" placeholder="Digite o nome da porta"></label>`}
+      </div>`:''}
+      ${originConflict?`<div class="field-error">Porta já usada pelo cabo "${esc(originConflict.name)}".</div>`:''}
+    </div>
+  </section>
+  <section class="panel-step" data-panel-step="destino">
+    ${stepHead(3,'Destino')}
+    <div class="panel-step-body">
+      <div class="panel-grid panel-grid-3">
+        <label class="catalog-field"><span class="catalog-field-label">Rack <i class="req">*</i></span><select id="cbDR" class="field-icon field-icon-rack">${opts}</select></label>
+        <label class="catalog-field"><span class="catalog-field-label">U <i class="req">*</i></span><input id="cbDU" class="field-icon field-icon-u ${duInvalid?'input-error':''}" type="number" min="1" max="${duMax}" value="${c.destU}"><small id="cbDUError" class="field-error">${duInvalid?`Máximo: ${duMax}U.`:''}</small></label>
+        ${!duInvalid?`<label class="catalog-field"><span class="catalog-field-label">Face <i class="req">*</i></span><select id="cbDFace" class="field-icon field-icon-face"><option value="front" ${destFace==='front'?'selected':''}>Frente</option><option value="rear" ${destFace==='rear'?'selected':''}>Traseira</option></select></label>`:''}
+      </div>
+      ${!duInvalid?`<div class="panel-grid">
+        <label class="catalog-field"><span class="catalog-field-label">Asset <small class="field-help-inline">${destAsset?'(automático)':'(opcional)'}</small></span><input id="cbDAssetName" class="field-icon field-icon-asset" value="${esc(destAsset?destAsset.name:(c.destAssetName||''))}" placeholder="Nome do equipamento" ${destAsset?'disabled':''}></label>
+        ${destAsset?.ports?.length?`<label class="catalog-field"><span class="catalog-field-label">Porta <small class="field-help-inline">(${esc(destAsset.name)})</small></span><select id="cbDPort" class="field-icon field-icon-port">${portOptions(destAsset,c.destPortId)}</select></label>`:`<label class="catalog-field"><span class="catalog-field-label">Porta <small class="field-help-inline">${destAsset?'(sem portas cadastradas)':'(opcional)'}</small></span><input id="cbDPortFree" class="field-icon field-icon-port" value="${esc(c.destPortLabel||'')}" placeholder="Digite o nome da porta"></label>`}
+      </div>`:''}
+      ${destConflict?`<div class="field-error">Porta já usada pelo cabo "${esc(destConflict.name)}".</div>`:''}
+    </div>
+  </section>
+  <section class="panel-step" data-panel-step="extras">
+    ${stepHead(4,'Extras')}
+    <div class="panel-step-body">
+      <div class="panel-grid panel-grid-extras">
+        <label class="catalog-field"><span class="catalog-field-label">Folga (%)</span><input id="cbSlack" class="field-icon field-icon-percent" type="number" min="0" step="1" value="${c.slack??state.defaultSlack}"></label>
+        <div class="panel-note"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8.5h.01"/></svg><span>A folga compensa curvas e conexões.</span></div>
+      </div>
+    </div>
+  </section>
   ${!v.valid?`<div class="validation-error">⚠ ${v.errors.map(esc).join('<br>')}</div>`:''}
-  <label>Folga (%)<input id="cbSlack" type="number" min="0" step="1" value="${c.slack??state.defaultSlack}"></label>
-  <div class="result" id="cableResult"></div><div class="route-tools"><b>Roteamento</b><div class="help">Automática: o sistema encontra o caminho pelas calhas. Manual: escolha os racks intermediários e o sistema valida cada trecho.</div>
-   <label class="route-mode-label">Modo<select id="routeMode"><option value="automatic" ${(c.routeMode||'automatic')==='automatic'?'selected':''}>Automática</option><option value="manual" ${c.routeMode==='manual'?'selected':''}>Manual</option></select></label>
-   <div id="manualRoutePanel" class="manual-route-panel ${c.routeMode==='manual'?'':'hidden'}">
-     <div class="manual-route-status" id="manualRouteStatus"></div>
-     <button class="btn primary" id="pickRouteRack" type="button">Adicionar rack à rota</button>
-     <div id="manualRouteList"></div>
-     <button class="btn ghost" id="clearManualRoute" type="button" ${c.via?.length?'':'disabled'}>Limpar rota manual</button>
-   </div>
-   <button class="btn danger" id="delCable">Excluir cabo</button></div>`;
+  <div class="cable-metrics" id="cableResult"></div>
+  <div class="cable-route-card">
+    <div class="panel-card-head"><span class="panel-card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M6 8.4v4.1a3.5 3.5 0 0 0 3.5 3.5h5.1"/></svg></span><b>Roteamento</b></div>
+    <p class="cable-route-help">Automática: o sistema encontra o caminho pelas calhas. Manual: escolha os racks intermediários e o sistema valida cada trecho.</p>
+    <label class="catalog-field"><span class="catalog-field-label">Modo</span><select id="routeMode" class="field-icon field-icon-gear"><option value="automatic" ${(c.routeMode||'automatic')==='automatic'?'selected':''}>Automática</option><option value="manual" ${c.routeMode==='manual'?'selected':''}>Manual</option></select></label>
+    <div id="manualRoutePanel" class="manual-route-panel ${c.routeMode==='manual'?'':'hidden'}">
+      <div class="manual-route-status" id="manualRouteStatus"></div>
+      <button class="btn primary full" id="pickRouteRack" type="button">Adicionar rack à rota</button>
+      <div id="manualRouteList"></div>
+      <button class="btn ghost full" id="clearManualRoute" type="button" ${c.via?.length?'':'disabled'}>Limpar rota manual</button>
+    </div>
+  </div>
+  <button class="btn danger full cable-delete" id="delCable" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></svg>Excluir cabo</button>
+  </div>`;
   $('cbOR').value=c.originRack;$('cbDR').value=c.destRack;
   const sync=()=>{refreshVisuals();renderProperties();};
   $('cbType').onchange=()=>{c.type=$('cbType').value;sync();};
@@ -2599,12 +2674,57 @@ function renderCableProperties(p,c){
   $('cbName').onchange=()=>{c.name=$('cbName').value.trim()||c.name;refreshVisuals();renderProperties();};
   $('delCable').onclick=()=>{state.cables=state.cables.filter(x=>x.id!==c.id);state.selected=null;window.__manualRoutePicking=false;renderAll();toast('Cabo removido');};
    updateCableResult(c);
+  bindCablePanelSections(p);
   // Reconfere o campo de nome logo após o próximo quadro de tela — proteção
   // extra contra qualquer sequência de seleção que deixe o disabled/valor
   // fora de sincronia com o asset de verdade instalado na U.
   requestAnimationFrame(()=>{if(state.selected?.type==='cable'&&state.selected.id===c.id){updateCableAssetNameField(c,'origin');updateCableAssetNameField(c,'dest');}});
 }
-function updateCableResult(c){const el=$('cableResult');if(!el)return;const validation=cableUnitValidation(c);if(!validation.valid){el.innerHTML='<div class="validation-error">⚠ '+validation.errors.map(esc).join('<br>')+'</div>';return;}const res=calcCable(c);const rounded=res.reachable?Math.ceil(res.total):0;el.innerHTML=`<div class="metric"><span>Vertical origem</span><b>${res.v1.toFixed(2)} m</b></div><div class="metric"><span>Trecho pelas calhas</span><b>${res.tray.toFixed(2)} m</b></div><div class="metric"><span>Vertical destino</span><b>${res.v2.toFixed(2)} m</b></div><div class="metric"><span>Conexões</span><b>${res.connection.toFixed(2)} m</b></div><div class="metric"><span>Base</span><b>${res.base.toFixed(2)} m</b></div><div class="metric"><span>Folga ${c.slack??state.defaultSlack}%</span><b>${res.slack.toFixed(2)} m</b></div><div class="metric"><span>Total</span><b>${res.total.toFixed(2)} m</b></div><div class="metric total-rounded"><span>Total arredondado para cima</span><b>${res.reachable?rounded:'—'} m</b></div>${res.reachable?'':'<div class="unreachable">Não existe rota pelas calhas cadastradas.</div>'}`;}
+// Passos do painel do cabo: o estado de aberto/fechado vive fora do DOM
+// porque o painel inteiro é reconstruído a cada alteração.
+const cablePanelOpen={geral:true,origem:true,destino:true,extras:true};
+function bindCablePanelSections(root){
+  if(!root)return;
+  root.querySelectorAll('[data-panel-step]').forEach(sec=>{
+    const key=sec.dataset.panelStep;
+    const btn=sec.querySelector('.panel-step-toggle');
+    const open=cablePanelOpen[key]!==false;
+    sec.classList.toggle('collapsed',!open);
+    if(!btn)return;
+    btn.setAttribute('aria-expanded',String(open));
+    btn.onclick=()=>{
+      const now=cablePanelOpen[key]===false;
+      cablePanelOpen[key]=now;
+      sec.classList.toggle('collapsed',!now);
+      btn.setAttribute('aria-expanded',String(now));
+    };
+  });
+}
+const CABLE_METRIC_ICONS={
+  upArrow:'<path d="M12 19V5M6 11l6-6 6 6"/>',
+  downArrow:'<path d="M12 5v14M6 13l6 6 6-6"/>',
+  tray:'<path d="M3 9h18M3 15h18M6 9v6M18 9v6"/>',
+  link:'<path d="M9.5 14.5 14.5 9.5M8 17H6.8a4.2 4.2 0 0 1 0-8.4H8M16 7h1.2a4.2 4.2 0 0 1 0 8.4H16"/>',
+  ruler:'<path d="M3.5 8.5h17v7h-17zM8 8.5v3M12 8.5v4M16 8.5v3"/>',
+  percent:'<path d="M18.5 5.5 5.5 18.5M8.5 7.5h.01M15.5 16.5h.01"/>'
+};
+function updateCableResult(c){
+  const el=$('cableResult');if(!el)return;
+  const validation=cableUnitValidation(c);
+  if(!validation.valid){el.innerHTML='<div class="validation-error">⚠ '+validation.errors.map(esc).join('<br>')+'</div>';return;}
+  const res=calcCable(c);
+  const rounded=res.reachable?Math.ceil(res.total):0;
+  const row=(parcela,icon,label,value)=>`<div class="cable-metric" data-parcela="${parcela}"><span class="cable-metric-icon"><svg viewBox="0 0 24 24" aria-hidden="true">${CABLE_METRIC_ICONS[icon]}</svg></span><span class="cable-metric-label">${label}</span><b>${value.toFixed(2)} m</b></div>`;
+  el.innerHTML=row('origem','upArrow','Vertical origem',res.v1)
+    +row('calhas','tray','Trecho pelas calhas',res.tray)
+    +row('destino','downArrow','Vertical destino',res.v2)
+    +row('conexoes','link','Conexões',res.connection)
+    +row('base','ruler','Base',res.base)
+    +row('folga','percent',`Folga ${c.slack??state.defaultSlack}%`,res.slack)
+    +`<div class="cable-metric is-total"><span class="cable-metric-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6h11l-5.5 6 5.5 6h-11"/></svg></span><span class="cable-metric-label">Total</span><b>${res.total.toFixed(2)} m</b></div>`
+    +`<div class="cable-metric is-rounded"><span class="cable-metric-icon"><svg viewBox="0 0 24 24" aria-hidden="true">${CABLE_METRIC_ICONS.upArrow}</svg></span><span class="cable-metric-label">Total arredondado para cima</span><b>${res.reachable?rounded:'—'} m</b></div>`
+    +(res.reachable?'':'<div class="unreachable">Não existe rota pelas calhas cadastradas.</div>');
+}
 
 function bindManualRouteControls(c){
   const pick=$('pickRouteRack'),clear=$('clearManualRoute');
@@ -3421,4 +3541,3 @@ function bind(){
   window.addEventListener('resize',()=>{render();});
 }
 startAuth();
-

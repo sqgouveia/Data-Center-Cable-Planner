@@ -1211,8 +1211,8 @@ label {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: var(--blue);
-  color: var(--on-accent);
+  background: color-mix(in srgb, var(--blue) 84%, black);
+  color: #fff;
   font-size: 12.5px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -1268,6 +1268,13 @@ label {
 .catalog-step-body .grid2 {
   gap: 12px;
 }
+.catalog-step .catalog-field {
+  margin-bottom: 0;
+}
+.catalog-step .catalog-field input,
+.catalog-step .catalog-field select {
+  margin-top: 0;
+}
 .catalog-step-body .grid2 > div {
   min-width: 0;
 }
@@ -1281,6 +1288,7 @@ label {
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background-color: var(--panel);
+  background-image: var(--field-icon, none);
   background-repeat: no-repeat;
   background-position: 11px center;
   background-size: 16px 16px;
@@ -1288,40 +1296,110 @@ label {
   font-size: 13px;
   box-shadow: none;
 }
-.catalog-editor-card select.field-icon {
+
+/* O painel lateral é estreito: os campos entram em escala compacta. */
+.cable-panel .field-icon {
+  width: 100%;
+  height: 26px;
+  padding: 0 8px 0 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background-color: var(--panel);
+  background-image: var(--field-icon, none);
+  background-repeat: no-repeat;
+  background-position: 9px center;
+  background-size: 13px 13px;
+  color: var(--text);
+  font-size: 10.5px;
+  line-height: 24px;
+  box-shadow: none;
+}
+.cable-panel select.field-icon {
+  padding-right: 22px;
+  line-height: normal;
+}
+.cable-panel .catalog-field-label {
+  margin-bottom: 2px;
+  font-size: 10.5px;
+  line-height: 1.2;
+}
+/* O label/input globais trazem 9px embaixo e 5px em cima: dentro do painel
+   estreito esse ritmo é o que fazia cada campo ocupar o dobro do necessário. */
+.cable-panel .catalog-field {
+  margin-bottom: 0;
+}
+.cable-panel .catalog-field input,
+.cable-panel .catalog-field select {
+  margin-top: 0;
+}
+.cable-panel .catalog-field-help {
+  margin-top: 3px;
+  font-size: 9.5px;
+}
+.catalog-editor-card select.field-icon,
+.cable-panel select.field-icon {
   padding-right: 30px;
 }
 .catalog-editor-card .field-icon:focus,
-.catalog-editor-card .field-icon:focus-visible {
+.catalog-editor-card .field-icon:focus-visible,
+.cable-panel .field-icon:focus,
+.cable-panel .field-icon:focus-visible {
   outline: 0;
   border-color: var(--blue);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 22%, transparent);
 }
-.catalog-editor-card .field-icon::placeholder {
+.catalog-editor-card .field-icon::placeholder,
+.cable-panel .field-icon::placeholder {
   color: var(--muted);
   opacity: 0.8;
 }
 :root.light .catalog-editor-card .field-icon,
-:root[data-theme="light"] .catalog-editor-card .field-icon {
+:root[data-theme="light"] .catalog-editor-card .field-icon,
+:root.light .cable-panel .field-icon,
+:root[data-theme="light"] .cable-panel .field-icon {
   background-color: var(--panel);
 }
 .field-icon-name {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='7' width='18' height='10' rx='2'/%3E%3Cpath d='M7 10.5h.01M7 13.5h.01M11 12h7'/%3E%3C/svg%3E");
+  --field-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='7' width='18' height='10' rx='2'/%3E%3Cpath d='M7 10.5h.01M7 13.5h.01M11 12h7'/%3E%3C/svg%3E");
 }
 .field-icon-type {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='6' rx='1.6'/%3E%3Crect x='3' y='14' width='18' height='6' rx='1.6'/%3E%3Cpath d='M7 7h.01M7 17h.01'/%3E%3C/svg%3E");
+  --field-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='6' rx='1.6'/%3E%3Crect x='3' y='14' width='18' height='6' rx='1.6'/%3E%3Cpath d='M7 7h.01M7 17h.01'/%3E%3C/svg%3E");
 }
 .field-icon-manufacturer {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20V6l7-3v17M11 20h9V10l-9-4'/%3E%3Cpath d='M7 9h.01M7 13h.01M7 17h.01M15 12h.01M15 16h.01'/%3E%3C/svg%3E");
+  --field-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20V6l7-3v17M11 20h9V10l-9-4'/%3E%3Cpath d='M7 9h.01M7 13h.01M7 17h.01M15 12h.01M15 16h.01'/%3E%3C/svg%3E");
 }
 .field-icon-power {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13 2 4 14h6l-1 8 9-12h-6l1-8Z'/%3E%3C/svg%3E");
+  --field-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13 2 4 14h6l-1 8 9-12h-6l1-8Z'/%3E%3C/svg%3E");
 }
 .field-icon-weight {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 8h15l-1.3 10.6a2 2 0 0 1-2 1.7H7.8a2 2 0 0 1-2-1.7L4.5 8Z'/%3E%3Cpath d='M9 8V6.2a3 3 0 0 1 6 0V8'/%3E%3C/svg%3E");
+  --field-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 8h15l-1.3 10.6a2 2 0 0 1-2 1.7H7.8a2 2 0 0 1-2-1.7L4.5 8Z'/%3E%3Cpath d='M9 8V6.2a3 3 0 0 1 6 0V8'/%3E%3C/svg%3E");
 }
 .field-icon-port {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='8' width='18' height='8' rx='1.6'/%3E%3Cpath d='M8 12h.01M12 12h.01M16 12h.01'/%3E%3C/svg%3E");
+  --field-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='8' width='18' height='8' rx='1.6'/%3E%3Cpath d='M8 12h.01M12 12h.01M16 12h.01'/%3E%3C/svg%3E");
+}
+.field-icon-rack {
+  --field-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='6' rx='1.4'/%3E%3Crect x='4' y='14' width='16' height='6' rx='1.4'/%3E%3Cpath d='M7.5 7h.01M7.5 17h.01'/%3E%3C/svg%3E");
+}
+.field-icon-u {
+  --field-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h16M4 12h16M4 17h10'/%3E%3C/svg%3E");
+}
+.field-icon-face {
+  --field-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='3' width='14' height='18' rx='1.6'/%3E%3Cpath d='M12 3v18M9 8h.01'/%3E%3C/svg%3E");
+}
+.field-icon-asset {
+  --field-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='7' width='18' height='10' rx='2'/%3E%3Cpath d='M7 10.5h.01M7 13.5h.01M11 12h7'/%3E%3C/svg%3E");
+}
+.cable-panel .field-icon-percent {
+  padding-right: 18px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18.5 5.5 5.5 18.5'/%3E%3Ccircle cx='8.5' cy='8.5' r='2.2'/%3E%3Ccircle cx='15.5' cy='15.5' r='2.2'/%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M18.5 5.5 5.5 18.5'/%3E%3Ccircle cx='8.5' cy='8.5' r='2.2'/%3E%3Ccircle cx='15.5' cy='15.5' r='2.2'/%3E%3C/svg%3E");
+  background-position: 8px center, right 7px center;
+  background-size: 12px 12px, 11px 11px;
+}
+.field-icon-gear {
+  --field-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 3.5v2.2M12 18.3v2.2M20.5 12h-2.2M5.7 12H3.5M18 6l-1.6 1.6M7.6 16.4 6 18M18 18l-1.6-1.6M7.6 7.6 6 6'/%3E%3C/svg%3E");
+}
+.field-icon-tag {
+  --field-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98ab' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 3H4v7l9.5 9.5a2 2 0 0 0 2.8 0l4.2-4.2a2 2 0 0 0 0-2.8L11 3Z'/%3E%3Cpath d='M7.5 7.5h.01'/%3E%3C/svg%3E");
 }
 
 /* ---------- Portas: vazio, cartões e divisor ---------- */
@@ -1494,6 +1572,408 @@ label {
 .catalog-editor-card .form-actions .btn .ic {
   width: 15px;
   height: 15px;
+  margin: 0;
+}
+
+/* =====================================================================
+   Aba Propriedades: cabeçalho contextual e painel do cabo
+   ===================================================================== */
+.section-head-sticky {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.prop-head {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.prop-head-icon {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--blue) 16%, transparent);
+  color: var(--blue-ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 26%, transparent);
+}
+.prop-head-icon:empty {
+  display: none;
+}
+.prop-head-icon svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.prop-head-text {
+  min-width: 0;
+}
+.prop-head-text h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: var(--text);
+  text-transform: none;
+}
+.prop-head-text small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.25;
+}
+.prop-title-sticky {
+  margin: 0 0 0 auto;
+  flex: none;
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--blue) 40%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+  color: var(--blue-ink);
+  font: 600 10px/1.3 "IBM Plex Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  max-width: 46%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Painel do cabo: passos numerados ---------- */
+.cable-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.panel-step {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel2) 45%, transparent);
+  padding: 1px 10px;
+}
+.panel-step-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 -10px;
+  padding: 1px 7px;
+  border-radius: 7px 7px 0 0;
+  background: color-mix(in srgb, var(--chrome-1) 72%, transparent);
+  border-bottom: 1px solid var(--border);
+}
+:root.light .panel-step-head,
+:root[data-theme="light"] .panel-step-head {
+  background: color-mix(in srgb, var(--panel3) 55%, #fff);
+}
+.panel-step.collapsed .panel-step-head {
+  border-radius: 7px;
+  border-bottom-color: transparent;
+}
+.panel-step-num {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--blue) 84%, black);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.panel-step-head h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: var(--text);
+}
+.panel-step-toggle {
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.panel-step-toggle:hover {
+  background: var(--panel3);
+  color: var(--text);
+}
+.panel-step-toggle:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 30%, transparent);
+}
+.panel-step-toggle svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.15s ease;
+}
+.panel-step.collapsed .panel-step-toggle svg {
+  transform: rotate(-90deg);
+}
+.panel-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px 0 7px;
+}
+.panel-step.collapsed .panel-step-body {
+  display: none;
+}
+.panel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 6px;
+}
+.panel-grid-3 {
+  /* Rack precisa de espaço para "fileira / rack"; U é sempre 1–2 dígitos. */
+  grid-template-columns: minmax(0, 1fr) 54px minmax(0, 0.9fr);
+}
+/* Colunas estreitas: o ícone encolhe para o texto do campo caber. */
+.panel-grid-3 .field-icon {
+  padding-left: 17px;
+  background-position: 4px center;
+  background-size: 11px 11px;
+  font-size: 10px;
+}
+.panel-grid-3 select.field-icon {
+  padding-right: 9px;
+  text-overflow: ellipsis;
+}
+.panel-grid-3 .field-icon-u {
+  padding-left: 15px;
+  padding-right: 6px;
+  background-position: 3px center;
+  background-size: 11px 11px;
+}
+/* As setinhas nativas do input numérico comem a largura do texto: com 1–2
+   dígitos num campo estreito, o valor aparecia cortado. */
+.panel-grid-3 .field-icon-u::-webkit-outer-spin-button,
+.panel-grid-3 .field-icon-u::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.panel-grid-3 .field-icon-u {
+  -moz-appearance: textfield;
+}
+.panel-grid-extras {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr);
+  align-items: center;
+}
+.panel-grid > * {
+  min-width: 0;
+}
+.panel-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 5px 6px;
+  border: 1px solid color-mix(in srgb, var(--blue) 28%, var(--border));
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--blue) 9%, transparent);
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.25;
+}
+.panel-note svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  margin-top: 1px;
+  fill: none;
+  stroke: var(--blue-ink);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+/* ---------- Resumo de medidas ---------- */
+.cable-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.cable-metric {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel) 62%, transparent);
+}
+.cable-metric-icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-xs);
+  background: color-mix(in srgb, var(--panel3) 80%, transparent);
+  color: var(--muted);
+}
+.cable-metric-icon svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cable-metric-label {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  font-size: 10.5px;
+}
+.cable-metric b {
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.cable-metric.is-total {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--panel) 62%, transparent);
+}
+.cable-metric.is-total .cable-metric-icon {
+  background: color-mix(in srgb, var(--panel3) 80%, transparent);
+  color: var(--muted);
+}
+.cable-metric.is-total .cable-metric-label {
+  font-weight: 500;
+}
+.cable-metric.is-total b {
+  font-size: 11.5px;
+  color: var(--text);
+}
+.cable-metric.is-rounded {
+  margin-top: 2px;
+}
+.cable-metric.is-rounded .cable-metric-icon {
+  background: var(--blue);
+  color: var(--on-accent);
+}
+.cable-metric.is-rounded {
+  padding: 5px 7px;
+  border-color: color-mix(in srgb, var(--blue) 36%, transparent);
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
+}
+.cable-metric.is-rounded .cable-metric-label {
+  font-weight: 600;
+}
+.cable-metric.is-rounded b {
+  font-size: 15px;
+  color: var(--blue-ink);
+}
+/* Cada parcela do resumo tem uma cor própria (trilha, não estado): é o que
+   separa visualmente as linhas de medida no painel estreito. */
+.cable-metric[data-parcela="origem"] .cable-metric-icon {
+  background: color-mix(in srgb, var(--green) 18%, transparent);
+  color: var(--green);
+}
+.cable-metric[data-parcela="calhas"] .cable-metric-icon {
+  background: color-mix(in srgb, color-mix(in srgb, var(--green) 50%, var(--blue)) 18%, transparent);
+  color: color-mix(in srgb, var(--green) 45%, var(--blue));
+}
+.cable-metric[data-parcela="destino"] .cable-metric-icon {
+  background: color-mix(in srgb, var(--blue) 18%, transparent);
+  color: var(--blue);
+}
+.cable-metric[data-parcela="conexoes"] .cable-metric-icon {
+  background: color-mix(in srgb, var(--orange) 18%, transparent);
+  color: var(--orange);
+}
+.cable-metric[data-parcela="base"] .cable-metric-icon {
+  background: color-mix(in srgb, var(--purple) 20%, transparent);
+  color: var(--purple);
+}
+.cable-metric[data-parcela="folga"] .cable-metric-icon {
+  background: color-mix(in srgb, var(--green) 18%, transparent);
+  color: var(--green);
+}
+
+/* ---------- Roteamento e exclusão ---------- */
+.cable-route-card {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 8px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel2) 45%, transparent);
+}
+.panel-card-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.panel-card-head b {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+.panel-card-icon {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--blue) 16%, transparent);
+  color: var(--blue-ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 26%, transparent);
+}
+.panel-card-icon svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cable-route-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.3;
+}
+.cable-delete {
+  height: 30px;
+  gap: 6px;
+  justify-content: center;
+  font-size: 11.5px;
+}
+.cable-delete .ic {
+  width: 12px;
+  height: 12px;
   margin: 0;
 }
 
