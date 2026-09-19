@@ -52,7 +52,21 @@ function projectCloudPayload(){
   delete copy.selected; delete copy.multiSelected; delete copy.trayMultiSelected;
   return copy;
 }
-function projectSnapshotForCloud(){ return JSON.stringify(projectCloudPayload()); }
+// JSON com as chaves ordenadas: normalizeState() e cia. reatribuem campos e mudam
+// a ordem das chaves sem mudar o conteúdo, e isso não pode contar como edição.
+function stableStringify(v){
+  if(v===null||typeof v!=='object')return JSON.stringify(v);
+  if(Array.isArray(v))return '['+v.map(x=>stableStringify(x)??'null').join(',')+']';
+  return '{'+Object.keys(v).sort().filter(k=>v[k]!==undefined).map(k=>JSON.stringify(k)+':'+stableStringify(v[k])).join(',')+'}';
+}
+// Usado só para saber se algo mudou desde o último salvamento. `updatedAt` da sala
+// é renovado a cada syncActiveRoom() (que roda ao montar este próprio snapshot);
+// sem tirá-lo, qualquer save() sem mudança real marcava "Alterações não salvas".
+function projectSnapshotForCloud(){
+  const payload=projectCloudPayload();
+  (payload.rooms||[]).forEach(r=>{delete r.updatedAt;});
+  return stableStringify(payload);
+}
 export function setCloudStatus(status){
   cloudStatus=status;
   const el=$('cloudStatus');
@@ -279,6 +293,7 @@ function markCloudDirty(){
   const snap=projectSnapshotForCloud();
   cloud.cloudDirty=lastCloudSnapshot!==snap;
   if(cloud.cloudDirty)setCloudStatus('pending');
+  else if(cloudStatus==='pending')setCloudStatus('saved'); // voltou ao estado salvo (ex.: desfez a edição)
   return cloud.cloudDirty;
 }
 export function scheduleCloudSave(){
@@ -591,6 +606,12 @@ async function openCloudProject(id){
     centerCanvasOnContent();
     setStructureLock(state.structureLocked,false);
     updateStructureControls();
+    // Projetos antigos são ajustados ao montar a tela (campos novos de asset, geometria
+    // das calhas). Isso não é edição do usuário: a linha de base para "Alterações não
+    // salvas" passa a ser o estado já ajustado, e não o que veio da nuvem.
+    lastCloudSnapshot=projectSnapshotForCloud();
+    cloud.cloudDirty=false;
+    setCloudStatus('saved');
     toast('Projeto aberto');
   }catch(err){
     console.error('Open project UI:',err);
@@ -781,3 +802,4 @@ function friendlyAuthError(error){
   if(low.includes('rate limit'))return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
   return m;
 }
+
