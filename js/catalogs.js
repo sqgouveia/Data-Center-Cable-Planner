@@ -11,11 +11,11 @@ export const catalogs = { catalogEditorPortDefs: [] };
 // Funções e constantes que continuam em app.js; injetadas por configureCatalogs()
 // para evitar import circular com app.js.
 let applyRoomData, updateRoomUI, normalizeCableCatalogs, cableTypeNames, defaultCableType, toast,
-  save, render, updateRoomThermalBadge, normalizeLocations, assetSubstatusValues, renderAssetsList,
+  save, render, normalizeLocations, assetSubstatusValues, renderAssetsList,
   bayfaceAssetTypeClass, openBayface, renderAll;
 export function configureCatalogs(deps){
   ({ applyRoomData, updateRoomUI, normalizeCableCatalogs, cableTypeNames, defaultCableType, toast,
-    save, render, updateRoomThermalBadge, normalizeLocations, assetSubstatusValues,
+    save, render, normalizeLocations, assetSubstatusValues,
     renderAssetsList, bayfaceAssetTypeClass, openBayface, renderAll } = deps);
 }
 
@@ -231,7 +231,7 @@ export function saveRoomEditor(){
   room.name=name;
   room.coolingCapacityW=Math.max(0,num($('roomEditorCooling').value,0));
   room.updatedAt=new Date().toISOString();
-  save(); renderAssetCatalogs(); updateRoomUI(); updateRoomThermalBadge(); closeRoomEditor(); toast('Sala atualizada');
+  save(); renderAssetCatalogs(); updateRoomUI(); closeRoomEditor(); toast('Sala atualizada');
 }
 async function deleteAssetRoom(roomId){
   const room=state.rooms.find(r=>r.id===roomId);if(!room)return;

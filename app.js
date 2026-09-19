@@ -690,26 +690,37 @@ function setupHeatControl(){
 const pctText=v=>`${Math.round(v*100)}%`;
 const kgText=v=>String(Math.round(v*10)/10);
 function rackTooltipHtml(r,m){
+  const row=(label,valueText,ratio)=>{
+    const w=ratio===null?0:Math.min(100,Math.round(ratio*100));
+    return `<div class="rack-tip-row"><span>${label}</span><b>${valueText}</b></div>`
+      +`<div class="rs-bar"><i class="heat-${levelForRatio(ratio)}" style="width:${w}%"></i></div>`;
+  };
   const cap=(label,used,unit,capacity,ratio)=>capacity>0
-    ?`<div>${label} <b>${used} ${unit}</b> de ${capacity} ${unit} (${pctText(ratio)})</div>`
-    :`<div>${label} <b>${used} ${unit}</b> <span class="muted">sem capacidade definida</span></div>`;
+    ?row(label,`${used} de ${capacity} ${unit} · ${pctText(ratio)}`,ratio)
+    :row(label,`${used} ${unit} · sem capacidade`,null);
   const alerts=[m.expired?`${m.expired} com prazo vencido`:'',m.soon?`${m.soon} vencendo em breve`:''].filter(Boolean).join(' · ');
-  return `<div class="rack-tip-title"><b>${esc(r.name)}</b><span>${m.totalU}U</span></div>`
-    +`<div>U ocupadas <b>${m.usedU}/${m.totalU}</b> (${pctText(m.uRatio)}) · ${m.freeU} livres</div>`
-    +`<div class="muted">Frente ${m.frontU} · Traseira ${m.rearU}</div>`
+  return `<div class="rack-tip-title"><b>${esc(r.name)}</b><span>${m.totalU}U · ${m.assetCount} ${m.assetCount===1?'asset':'assets'}</span></div>`
+    +row('Ocupação de U',`${m.usedU}/${m.totalU} · ${pctText(m.uRatio)}`,m.uRatio)
+    +`<div class="rack-tip-sub">Frente ${m.frontU} · Traseira ${m.rearU} · ${m.freeU} livres</div>`
     +cap('Energia',m.powerW,'W',m.powerCap,m.powerRatio)
     +cap('Peso',kgText(m.weightKg),'kg',m.weightCap,m.weightRatio)
-    +`<div>Assets <b>${m.assetCount}</b></div>`
     +(alerts?`<div class="rack-tip-alert alert-${m.alertLevel}">${esc(alerts)}</div>`:'');
 }
+const HEAT_CLASSES=['heat-l1','heat-l2','heat-l3','heat-l4','heat-none','hover-tint'];
 function setupRackTooltip(){
   const svg=$('layout'), tip=$('rackTooltip'), wrap=$('canvasWrap'); if(!svg||!tip||!wrap)return;
-  const hide=()=>tip.classList.add('hidden');
+  let tinted=null;
+  // No modo Normal o rack sob o mouse ganha a cor da ocupação de U; nos outros
+  // modos ele já está colorido pela camada escolhida.
+  const untint=()=>{tinted?.classList.remove(...HEAT_CLASSES);tinted=null;};
+  const hide=()=>{tip.classList.add('hidden');untint();};
   svg.addEventListener('mousemove',e=>{
     if(e.buttons){hide();return;}
     const id=document.elementsFromPoint(e.clientX,e.clientY).map(el=>el.closest('[data-rack]')).find(Boolean)?.dataset.rack;
     const m=id&&rackStats.get(id), r=id&&state.racks.find(x=>x.id===id);
     if(!m||!r){hide();return;}
+    const body=heatMode==='off'?svg.querySelector(`[data-rack="${id}"] .rack-body`):null;
+    if(body!==tinted){untint();if(body){body.classList.add(`heat-${levelForRatio(m.uRatio)}`,'hover-tint');tinted=body;}}
     tip.innerHTML=rackTooltipHtml(r,m); tip.classList.remove('hidden');
     const box=wrap.getBoundingClientRect();
     let x=e.clientX-box.left+16, y=e.clientY-box.top+16;
@@ -787,7 +798,7 @@ function renderRoomSummary(p){
     if(it.kind==='room'){openRoomEditor(it.value);return;}
     state.multiSelected=[]; state.selected={type:'rack',id:it.value}; renderAll(false); renderProperties();
   });
-  $('rsAllAlerts')?.addEventListener('click',()=>openAlertsCenterPanel($('btnAlertsCenter')||$('properties')));
+  $('rsAllAlerts')?.addEventListener('click',e=>{e.stopPropagation();openAlertsCenterPanel($('btnAlertsCenter')||$('properties'));});
 }
 
 function render(){
@@ -1182,15 +1193,6 @@ function updateAlertsCenterBadge(){
   btn.classList.toggle('hidden',total===0);
   if($('alertsCenterCount'))$('alertsCenterCount').textContent=String(total);
 }
-function updateRoomThermalBadge(){
-  const badge=$('roomThermalBadge'); if(!badge)return;
-  const room=state.rooms.find(r=>r.id===state.activeRoomId);
-  const t=roomThermalLoad(room);
-  if(!room||t.capacity<=0){badge.classList.add('hidden');return;}
-  badge.classList.remove('hidden');
-  badge.className='room-thermal-badge level-'+t.level;
-  if($('roomThermalBadgeText'))$('roomThermalBadgeText').textContent=`🌡️ ${t.watts}W de ${t.capacity}W (${t.pct}%)`;
-}
 function allProjectRacks(){
   syncActiveRoom();
   const list=[];
@@ -1278,7 +1280,7 @@ function cablePortConflict(cable,side,portId){
   const field=side==='origin'?'originPortId':'destPortId';
   return state.cables.find(c=>c.id!==cable.id && c[field]===portId && ((side==='origin'?c.originRack:c.destRack)===(side==='origin'?cable.originRack:cable.destRack)))||null;
 }
-configureCatalogs({ applyRoomData, updateRoomUI, normalizeCableCatalogs, cableTypeNames, defaultCableType, toast, save, render, updateRoomThermalBadge, normalizeLocations, assetSubstatusValues, renderAssetsList, bayfaceAssetTypeClass, openBayface, renderAll });
+configureCatalogs({ applyRoomData, updateRoomUI, normalizeCableCatalogs, cableTypeNames, defaultCableType, toast, save, render, normalizeLocations, assetSubstatusValues, renderAssetsList, bayfaceAssetTypeClass, openBayface, renderAll });
 configureCloudSync({ applyRoomData, syncActiveRoom, migrateGlobalAssets, ensureRooms, updateRoomUI, setStructureLock, updateStructureControls, applyTheme, initHistory, toast, normalizeState, assetRack, DEFAULT_ASSET_TYPES, DEFAULT_ASSET_STATUSES, DEFAULT_ASSET_SUBSTATUSES, renderAll, openHelpModal, closeHelpModal, switchHelpSection, bind });
 function normalizeLocations(){
   state.locations=Array.isArray(state.locations)?state.locations:[];
@@ -2507,7 +2509,7 @@ function renderManualRouteUI(c){
   if(status){status.textContent=md.reachable?(c.via?.length?`Rota válida: ${[c.originRack,...c.via,c.destRack].map(rackNameById).join(' → ')}`:'Nenhum rack intermediário selecionado.'):`Rota impossível: ${rackNameById(md.failedFrom)} → ${rackNameById(md.failedTo)}`;status.className='manual-route-status '+(md.reachable?'valid':'invalid');}
   const clear=$('clearManualRoute');if(clear)clear.disabled=!(c.via||[]).length;
 }
-function refreshVisuals(){normalizeState();render();renderCables();updateAlertsCenterBadge();updateRoomThermalBadge();save();}
+function refreshVisuals(){normalizeState();render();renderCables();updateAlertsCenterBadge();save();}
 
 configureCables({ syncActiveRoom, normalizeCableCatalogs, cableTypeNames, defaultCableType, cableTypeColor, toast, cableUnitValidation, renderAll });
 async function exportAssetsXLSX(){
@@ -2549,7 +2551,7 @@ function updateCanvasEmptyHint(){
   const dismissed=localStorage.getItem('dccp_hint_dismissed')==='1';
   hint.classList.toggle('hidden',dismissed||state.rows.length>0);
 }
-function renderAll(persist=true){ensureFields();updateRoomUI();buildRowsPanel();render();renderProperties();renderCables();updateStructureControls();updateProjectSummary();updateMinimap();updateAlertsCenterBadge();updateRoomThermalBadge();updateCanvasEmptyHint();state.snapToEdges=true;if(persist)save();updateHistoryButtons();}
+function renderAll(persist=true){ensureFields();updateRoomUI();buildRowsPanel();render();renderProperties();renderCables();updateStructureControls();updateProjectSummary();updateMinimap();updateAlertsCenterBadge();updateCanvasEmptyHint();state.snapToEdges=true;if(persist)save();updateHistoryButtons();}
 
 function svgLocalPoint(clientX,clientY){
   const stage=$('canvasStage');
@@ -2630,6 +2632,8 @@ function setupPropSectionResize(){
     const maxAllowed=Math.max(120,right.clientHeight-140);
     const h=Math.max(120,Math.min(maxAllowed,startH+dy));
     propSection.style.maxHeight=h+'px';
+    propSection.style.height=h+'px';
+    if(!state.selected&&!state.multiSelected.length&&!state.trayMultiSelected.length)renderProperties();
   };
   const onUp=()=>{
     dragging=false;
@@ -2637,6 +2641,8 @@ function setupPropSectionResize(){
     document.removeEventListener('pointermove',onMove);
     document.removeEventListener('pointerup',onUp);
   };
+  // Duplo clique devolve o painel ao tamanho automático.
+  handle.addEventListener('dblclick',()=>{propSection.style.height='';propSection.style.maxHeight='';if(!state.selected)renderProperties();});
   handle.addEventListener('pointerdown',e=>{
     if(e.button!==0)return;
     dragging=true;
