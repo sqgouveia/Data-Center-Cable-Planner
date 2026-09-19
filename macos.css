@@ -914,3 +914,9 @@ label {
 :root[data-theme="light"] .rack-body:not([class*="heat-"]):not(.selected) {
   stroke: color-mix(in srgb, var(--border) 55%, #4a5168);
 }
+
+/* O raio da barra de zoom não muda com hover/foco (o app.css redefine o raio nesses estados). */
+.canvas-zoom-bar:hover,
+.canvas-zoom-bar:focus-within {
+  border-radius: 999px;
+}
