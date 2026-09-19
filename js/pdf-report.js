@@ -1,6 +1,8 @@
 import { esc, num, $ } from './utils.js';
 import { state } from './state.js';
 import { isAssetArchived, assetOccupancy, assetsOnFace } from './occupancy.js';
+import { geometry } from './geometry.js';
+import { capturePlant, bareSvg, svgToPngBlob, blobToDataUrl, niceScale, parseCssColor } from './plant-export.js';
 
 // Funções que continuam em app.js (tocam DOM/estado do app); injetadas por
 // configurePdfReport() para evitar import circular com app.js.
@@ -85,6 +87,57 @@ function pickRackTableStyle(units,availableHmm){
   if(rowH>=3.2)return {fontSize:5,cellPadding:0.55};
   if(rowH>=2.4)return {fontSize:4.2,cellPadding:0.35};
   return {fontSize:3.5,cellPadding:0.2};
+}
+
+// Página de planta em escala (A4 paisagem). É criada por último e movida para a
+// primeira posição, para não mexer na paginação nem na numeração do relatório.
+async function addPlantPage(doc){
+  const svgEl=document.getElementById('layout');
+  if(!svgEl||!state.racks.length)return false;
+  const cap=capturePlant(svgEl,{pxPerMeter:geometry().scale});
+  if(!cap)return false;
+  const {svg,width,height}=bareSvg(cap);
+  const dataUrl=await blobToDataUrl(await svgToPngBlob(svg,width,height,2));
+  doc.addPage('a4','landscape');
+  const pw=doc.internal.pageSize.getWidth(), ph=doc.internal.pageSize.getHeight(), m=14;
+  const headerH=26, footerH=cap.legend.length?26:16;
+  const availW=pw-m*2, availH=ph-headerH-footerH-m;
+  const scale=niceScale(cap.widthM,cap.heightM,availW,availH);
+  const wMm=cap.widthM*1000/scale, hMm=cap.heightM*1000/scale;
+  const x=m+(availW-wMm)/2, y=headerH+(availH-hMm)/2;
+  const room=state.rooms.find(r=>r.id===state.activeRoomId);
+  const loc=(state.locations||[]).find(l=>l.id===room?.locationId);
+  doc.setTextColor(0); doc.setFont(undefined,'bold'); doc.setFontSize(16);
+  doc.text('Planta da sala', m, 16);
+  doc.setFont(undefined,'normal'); doc.setFontSize(10);
+  doc.text([state.projectName||'Data Center',loc?.name,room?.name].filter(Boolean).join(' / '), m, 22);
+  doc.setTextColor(110);
+  doc.text(`Escala 1:${scale} (A4 paisagem)`, pw-m, 16, {align:'right'});
+  doc.text(new Date().toLocaleDateString('pt-BR'), pw-m, 22, {align:'right'});
+  doc.addImage(dataUrl,'PNG',x,y,wMm,hMm,undefined,'FAST');
+  doc.setDrawColor(200); doc.setLineWidth(0.2); doc.rect(x,y,wMm,hMm);
+  // Barra de escala: 1, 2, 5 ou 10 m, a maior que cabe em ~40 mm.
+  const fy=ph-footerH+6;
+  const barM=[10,5,2,1,0.5].find(v=>v*1000/scale<=40)||0.5;
+  const barMm=barM*1000/scale;
+  doc.setDrawColor(0); doc.setLineWidth(0.4);
+  doc.line(m,fy,m+barMm,fy); doc.line(m,fy-1.5,m,fy+1.5); doc.line(m+barMm,fy-1.5,m+barMm,fy+1.5);
+  doc.setTextColor(0); doc.setFontSize(8);
+  doc.text(`${String(barM).replace('.',',')} m`, m+barMm+3, fy+1);
+  let lx=m+barMm+30;
+  doc.setFontSize(8);
+  cap.legend.forEach(item=>{
+    const fill=parseCssColor(item.fill), stroke=parseCssColor(item.stroke);
+    if(fill)doc.setFillColor(...fill); else doc.setFillColor(220);
+    if(stroke)doc.setDrawColor(...stroke);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(lx,fy-2.5,4,4,0.6,0.6,'FD');
+    doc.setTextColor(0);
+    doc.text(item.label, lx+6, fy+0.8);
+    lx+=6+doc.getTextWidth(item.label)+8;
+  });
+  doc.movePage(doc.getNumberOfPages(),1);
+  return true;
 }
 
 export async function generatePDFReport(options={}){
@@ -258,6 +311,9 @@ export async function generatePDFReport(options={}){
       doc.text(`Página ${i} de ${pageCount}`, pageWidth-margin, pageHeight-8, {align:'right'});
     }
 
+    if(opt.plant!==false){
+      try{await addPlantPage(doc);}catch(err){console.error('Planta no PDF:',err);toast('O relatório foi gerado sem a planta.');}
+    }
     doc.save(`Relatorio_${(state.projectName||'DataCenter').replace(/[^A-Za-z0-9_-]/g,'_')}.pdf`);
     toast('Relatório PDF gerado');
   }catch(err){

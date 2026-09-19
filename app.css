@@ -10255,3 +10255,77 @@ button.bayface-rack-state {
 #uiConfirmBody {
   white-space: pre-line;
 }
+
+/* Exportar a planta (barra inferior do canvas) */
+.heat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.plant-export {
+  position: relative;
+}
+.plant-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 0.5px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 78%, transparent);
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.plant-export-btn:hover,
+.plant-export-btn[aria-expanded="true"] {
+  color: var(--text);
+}
+.plant-export-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.plant-export-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  min-width: 160px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 130;
+}
+.plant-export-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.plant-export-menu button:hover {
+  background: color-mix(in srgb, var(--blue) 18%, transparent);
+}
+@media (max-width: 1000px) {
+  .plant-export-btn span {
+    display: none;
+  }
+}

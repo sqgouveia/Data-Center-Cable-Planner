@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=145" />
+    <link rel="stylesheet" href="app.css?v=146" />
     <link rel="stylesheet" href="macos.css?v=10" />
   </head>
   <body>
@@ -795,13 +795,25 @@
             role="group"
             aria-label="Colorir racks por"
           >
-            <div class="heat-modes">
+            <div class="heat-row">
+              <div class="heat-modes">
               <span class="heat-label">Colorir por</span>
               <button type="button" data-heat="off" class="active" aria-pressed="true">Normal</button>
               <button type="button" data-heat="u" aria-pressed="false">Ocupação</button>
               <button type="button" data-heat="power" aria-pressed="false">Energia</button>
               <button type="button" data-heat="weight" aria-pressed="false">Peso</button>
               <button type="button" data-heat="alerts" aria-pressed="false">Alertas</button>
+            </div>
+              <div class="plant-export">
+                <button id="btnExportPlant" type="button" class="plant-export-btn" aria-haspopup="menu" aria-expanded="false" title="Exportar a planta como imagem">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>
+                  <span>Exportar planta</span>
+                </button>
+                <div id="plantExportMenu" class="plant-export-menu hidden" role="menu">
+                  <button type="button" role="menuitem" data-plant-export="png">Imagem PNG</button>
+                  <button type="button" role="menuitem" data-plant-export="svg">Vetor SVG</button>
+                </div>
+              </div>
             </div>
             <div id="heatLegend" class="heat-legend hidden"></div>
           </div>
@@ -3651,6 +3663,11 @@
         <form id="pdfReportOptionsForm">
           <div class="pdf-report-options-list">
             <label class="pdf-report-option"
+              ><input type="checkbox" id="pdfOptPlant" checked /><span
+                >Planta da sala atual em escala (1ª página)</span
+              ></label
+            >
+            <label class="pdf-report-option"
               ><input type="checkbox" id="pdfOptSummary" checked /><span
                 >Resumo geral</span
               ></label
@@ -3752,6 +3769,6 @@
         </div>
       </div>
     </div>
-    <script type="module" src="app.js?v=136"></script>
+    <script type="module" src="app.js?v=138"></script>
   </body>
 </html>

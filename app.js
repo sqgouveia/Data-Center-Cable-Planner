@@ -29,6 +29,7 @@ import { importSession, configureInventoryImport, assetStatusValues, makeAssetsT
 import { cloud, configureCloudSync, setCloudStatus, updatePlannerProjectName, assetLogDiff, recordAssetAudit, openAssetHistory, closeAssetHistory, exportCurrentAssetHistory, scheduleCloudSave, updateAutosaveUI, setAutosaveEnabled, saveProjectToCloud, importProject, showDashboard, createNewCloudProject, startAuth } from './js/cloud-sync.js';
 import { configureBulkAssets, addBulkRow, openBulkAssetsModal, closeBulkAssetsModal, saveBulkAssets, openAssetsImportModal, bindImportUI } from './js/bulk-assets.js';
 import { cables, configureCables, addCable, downloadCableTemplate, importCablesXLSX, closeCableTypeReviewModal, processCableImportRows, cableSummaryRows, cableEndpointLabel, compactPortLabels, cablesByRoom, exportCablesXLSX, cableSearchHaystack, renderCables, deleteCablesBulk } from './js/cables.js';
+import { capturePlant, composePlantSvg, svgToPngBlob, downloadBlob, safeFileName } from './js/plant-export.js';
 import { HEAT_MODES, levelForRatio, computeRackMetrics, heatLevel, summarizeRackMetrics } from './js/rack-metrics.js';
 import { catalogs, configureCatalogs, DEFAULT_ASSET_TYPES, DEFAULT_ASSET_STATUSES, DEFAULT_ASSET_SUBSTATUSES, normalizeAssetCatalogs, bayfaceTypeColor, renderCableTypesCatalog, renderAssetCatalogs, roomThermalLoad, openRoomEditor, closeRoomEditor, saveRoomEditor, addAssetLocation, openAssetCatalogModal, openLocationsModal, closeAssetCatalogModal, renderAssetCatalogManufacturerSelect, renderAssetCatalogTypeSelect, renderCatalogPortDefsEditor, openCatalogEditor, closeCatalogEditor, saveCatalogEditor, renderAssetCatalogSelects } from './js/catalogs.js';
 configurePdfReport({ syncActiveRoom, toast, assetWarrantyLevel, assetEndOfLifeLevel, assetsNeedingAttention, allProjectRacks, capacityIssues, bayfaceTypeColor, cableSummaryRows });
@@ -733,6 +734,29 @@ function setupEnvAdvanced(){
   try{open=localStorage.getItem(ENV_ADVANCED_STORAGE)==='1';}catch{}
   apply(open);
   btn.addEventListener('click',()=>{open=!open;apply(open);try{localStorage.setItem(ENV_ADVANCED_STORAGE,open?'1':'0');}catch{}});
+}
+async function exportPlant(kind){
+  const svg=$('layout');
+  if(!svg||!state.racks.length){toast('Não há planta para exportar.');return;}
+  try{
+    const cap=capturePlant(svg,{pxPerMeter:geometry().scale});
+    if(!cap){toast('Não há planta para exportar.');return;}
+    const room=state.rooms.find(r=>r.id===state.activeRoomId);
+    const loc=(state.locations||[]).find(l=>l.id===room?.locationId);
+    const {svg:markup,width,height}=composePlantSvg(cap,{title:state.projectName||'Data Center',subtitle:[loc?.name,room?.name].filter(Boolean).join(' / ')});
+    const base=safeFileName(`${state.projectName||'planta'}_${room?.name||''}_planta`);
+    if(kind==='svg')downloadBlob(new Blob([markup],{type:'image/svg+xml'}),`${base}.svg`);
+    else downloadBlob(await svgToPngBlob(markup,width,height,2),`${base}.png`);
+    toast(kind==='svg'?'Planta exportada em SVG.':'Planta exportada em PNG.');
+  }catch(err){console.error('Exportar planta:',err);toast('Não foi possível exportar a planta.');}
+}
+function setupPlantExport(){
+  const btn=$('btnExportPlant'), menu=$('plantExportMenu'); if(!btn||!menu)return;
+  const close=()=>{menu.classList.add('hidden');btn.setAttribute('aria-expanded','false');};
+  btn.addEventListener('click',e=>{e.stopPropagation();const open=menu.classList.contains('hidden');menu.classList.toggle('hidden',!open);btn.setAttribute('aria-expanded',open?'true':'false');});
+  menu.addEventListener('click',e=>{const item=e.target.closest('[data-plant-export]');if(!item)return;e.stopPropagation();close();exportPlant(item.dataset.plantExport);});
+  document.addEventListener('click',close);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
 }
 function setupHeatControl(){
   $('heatControl')?.addEventListener('click',e=>{
@@ -3198,7 +3222,7 @@ function bind(){
   // Bindar os controles do canvas ANTES da renderização do projeto.
   // Isso garante que um erro em renderAll() não deixe os controles mudos.
   setupMinimap();
-  setupHeatControl();setupRackTooltip();setupSummaryRefit();setupEnvAdvanced();
+  setupHeatControl();setupRackTooltip();setupSummaryRefit();setupEnvAdvanced();setupPlantExport();
   setupSidebarToggle();
   setupStructureLockControl();
 
@@ -3272,6 +3296,7 @@ function bind(){
       status:$('pdfOptStatus')?.checked!==false,
       lifecycle:$('pdfOptLifecycle')?.checked!==false,
       cables:$('pdfOptCables')?.checked!==false,
+      plant:$('pdfOptPlant')?.checked!==false,
       rackIds:[...document.querySelectorAll('#pdfRacksList [data-pdf-rack]:checked')].map(el=>el.dataset.pdfRack),
     };
     closePdfReportOptions();
