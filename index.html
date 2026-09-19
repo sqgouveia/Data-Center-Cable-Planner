@@ -12,27 +12,27 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=153" />
-    <link rel="stylesheet" href="macos.css?v=18" />
+    <link rel="stylesheet" href="app.css?v=160" />
+    <link rel="stylesheet" href="macos.css?v=25" />
     <script type="importmap">
       {
         "imports": {
-          "./js/bulk-assets.js": "./js/bulk-assets.js?v=152",
-          "./js/cables.js": "./js/cables.js?v=152",
-          "./js/catalogs.js": "./js/catalogs.js?v=152",
-          "./js/cloud-sync.js": "./js/cloud-sync.js?v=152",
-          "./js/dialogs.js": "./js/dialogs.js?v=152",
-          "./js/geometry.js": "./js/geometry.js?v=152",
-          "./js/inventory-import.js": "./js/inventory-import.js?v=152",
-          "./js/occupancy.js": "./js/occupancy.js?v=152",
-          "./js/pdf-report.js": "./js/pdf-report.js?v=152",
-          "./js/plant-export.js": "./js/plant-export.js?v=152",
-          "./js/rack-metrics.js": "./js/rack-metrics.js?v=152",
-          "./js/routing.js": "./js/routing.js?v=152",
-          "./js/runtime.js": "./js/runtime.js?v=152",
-          "./js/state.js": "./js/state.js?v=152",
-          "./js/styled-select.js": "./js/styled-select.js?v=152",
-          "./js/utils.js": "./js/utils.js?v=152"
+          "./js/bulk-assets.js": "./js/bulk-assets.js?v=161",
+          "./js/cables.js": "./js/cables.js?v=161",
+          "./js/catalogs.js": "./js/catalogs.js?v=161",
+          "./js/cloud-sync.js": "./js/cloud-sync.js?v=161",
+          "./js/dialogs.js": "./js/dialogs.js?v=161",
+          "./js/geometry.js": "./js/geometry.js?v=161",
+          "./js/inventory-import.js": "./js/inventory-import.js?v=161",
+          "./js/occupancy.js": "./js/occupancy.js?v=161",
+          "./js/pdf-report.js": "./js/pdf-report.js?v=161",
+          "./js/plant-export.js": "./js/plant-export.js?v=161",
+          "./js/rack-metrics.js": "./js/rack-metrics.js?v=161",
+          "./js/routing.js": "./js/routing.js?v=161",
+          "./js/runtime.js": "./js/runtime.js?v=161",
+          "./js/state.js": "./js/state.js?v=161",
+          "./js/styled-select.js": "./js/styled-select.js?v=161",
+          "./js/utils.js": "./js/utils.js?v=161"
         }
       }
     </script>
@@ -2402,14 +2402,15 @@
         <div class="modal-head">
           <div class="modal-icon">
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 20h9" />
-              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+              <path d="M12 2.6 3.6 7v10L12 21.4 20.4 17V7L12 2.6Z" />
+              <path d="M3.6 7 12 11.6 20.4 7M12 11.6v9.8" />
             </svg>
           </div>
           <div>
-            <h3 id="catalogEditorTitle">Novo cadastro</h3>
+            <h3 id="catalogEditorTitle">Novo modelo</h3>
             <span id="catalogEditorSubtitle"
-              >Cadastre um valor para o inventário.</span
+              >Defina as informações do modelo e o fabricante ao qual
+              pertence.</span
             >
           </div>
           <button
@@ -2425,110 +2426,203 @@
           id="catalogEditorId"
           type="hidden"
         />
-        <label
-          >Nome<input
-            id="catalogEditorName"
-            type="text"
-            placeholder="Digite o nome"
-            autocomplete="off"
-        /></label>
-        <div id="catalogEditorTypeWrap" class="hidden">
-          <label>Tipo<select id="catalogEditorType"></select></label>
-        </div>
-        <div id="catalogEditorManufacturerWrap" class="hidden">
-          <label
-            >Fabricante<select id="catalogEditorManufacturer"></select
-          ></label>
-        </div>
-        <div id="catalogEditorPowerWrap" class="hidden">
-          <label
-            >Potência nominal (W)
-            <small class="field-help-inline">(opcional)</small
-            ><input
-              id="catalogEditorPowerW"
-              type="number"
-              min="0"
-              step="1"
-              placeholder="Ex.: 350"
-          /></label>
-        </div>
-        <div id="catalogEditorWeightWrap" class="hidden">
-          <label
-            >Peso (kg) <small class="field-help-inline">(opcional)</small
-            ><input
-              id="catalogEditorWeightKg"
-              type="number"
-              min="0"
-              step="0.1"
-              placeholder="Ex.: 22.5"
-          /></label>
-        </div>
-        <div id="catalogEditorPortsWrap" class="hidden">
-          <div class="port-defs-section">
-            <div class="port-defs-head">
-              <span>Portas deste modelo</span><b id="catalogPortDefsTotal">0</b>
-            </div>
-            <div id="catalogPortDefsList" class="port-defs-list"></div>
-            <div class="port-def-form">
-              <div class="port-def-form-title">
-                Adicionar conjunto de portas
+        <section class="catalog-step" id="catalogStepBasic">
+          <header class="catalog-step-head">
+            <span class="catalog-step-num">1</span>
+            <h4 id="catalogStepBasicTitle">Informações básicas</h4>
+            <span class="catalog-step-hint" id="catalogStepBasicHint"
+              >Dados gerais do modelo</span
+            >
+          </header>
+          <div class="catalog-step-body">
+            <label class="catalog-field">
+              <span class="catalog-field-label" id="catalogEditorNameLabel"
+                >Nome do modelo <i class="req">*</i></span
+              >
+              <input
+                id="catalogEditorName"
+                class="field-icon field-icon-name"
+                type="text"
+                placeholder="Digite o nome do modelo"
+                autocomplete="off"
+              />
+            </label>
+            <div class="grid2">
+              <div id="catalogEditorTypeWrap" class="hidden">
+                <label class="catalog-field">
+                  <span class="catalog-field-label"
+                    >Tipo <i class="req">*</i></span
+                  >
+                  <select
+                    id="catalogEditorType"
+                    class="field-icon field-icon-type"
+                  ></select>
+                </label>
               </div>
-              <div class="grid2">
-                <label
-                  >Primeira porta<input
-                    id="portRangeStart"
-                    placeholder="Ex.: G0/0/1" /></label
-                ><label
-                  >Última porta<input
-                    id="portRangeEnd"
-                    placeholder="Ex.: G0/0/24"
-                /></label>
+              <div id="catalogEditorManufacturerWrap" class="hidden">
+                <label class="catalog-field">
+                  <span class="catalog-field-label"
+                    >Fabricante <i class="req">*</i></span
+                  >
+                  <select
+                    id="catalogEditorManufacturer"
+                    class="field-icon field-icon-manufacturer"
+                  ></select>
+                </label>
               </div>
-              <label class="port-poe-check"
-                ><input type="checkbox" id="portRangePoe" /><span
-                  >Portas PoE</span
-                ></label
-              >
-              <button
-                type="button"
-                id="portRangeAdd"
-                class="btn ghost small full"
-              >
-                ＋ Adicionar conjunto
-              </button>
-            </div>
-            <div class="port-def-form">
-              <div class="port-def-form-title">
-                Adicionar porta avulsa <small>(console, serial, etc.)</small>
+              <div id="catalogEditorPowerWrap" class="hidden">
+                <label class="catalog-field">
+                  <span class="catalog-field-label">Potência nominal (W)</span>
+                  <input
+                    id="catalogEditorPowerW"
+                    class="field-icon field-icon-power"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Ex.: 350"
+                  />
+                  <small class="catalog-field-help"
+                    >Potência de consumo do equipamento (opcional).</small
+                  >
+                </label>
               </div>
-              <label
-                >Nome da porta<input
-                  id="portSingleName"
-                  placeholder="Ex.: Console"
-              /></label>
-              <label class="port-poe-check"
-                ><input type="checkbox" id="portSinglePoe" /><span
-                  >Porta PoE</span
-                ></label
-              >
-              <button
-                type="button"
-                id="portSingleAdd"
-                class="btn ghost small full"
-              >
-                ＋ Adicionar porta avulsa
-              </button>
+              <div id="catalogEditorWeightWrap" class="hidden">
+                <label class="catalog-field">
+                  <span class="catalog-field-label">Peso (kg)</span>
+                  <input
+                    id="catalogEditorWeightKg"
+                    class="field-icon field-icon-weight"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    placeholder="Ex.: 22.5"
+                  />
+                  <small class="catalog-field-help"
+                    >Peso do equipamento (opcional).</small
+                  >
+                </label>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
+        <section class="catalog-step hidden" id="catalogEditorPortsWrap">
+          <header class="catalog-step-head">
+            <span class="catalog-step-num">2</span>
+            <h4>Portas deste modelo</h4>
+            <span class="catalog-step-hint"
+              >Defina as portas de rede do modelo</span
+            >
+          </header>
+          <div class="catalog-step-body">
+            <div id="catalogPortDefsList" class="port-defs-list"></div>
+            <b id="catalogPortDefsTotal" class="hidden">0</b>
+            <div class="port-def-form">
+              <div class="port-def-card-head">
+                <span class="port-def-card-icon">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="7" rx="1.6" />
+                    <path d="M7 11v4M12 11v6M17 11v4" />
+                  </svg>
+                </span>
+                <div>
+                  <b>Adicionar conjunto de portas</b>
+                  <small>Adicione um range de portas sequenciais.</small>
+                </div>
+              </div>
+              <div class="grid2">
+                <label class="catalog-field">
+                  <span class="catalog-field-label">Primeira porta</span>
+                  <input
+                    id="portRangeStart"
+                    class="field-icon field-icon-port"
+                    placeholder="Ex.: G0/0/1"
+                  />
+                </label>
+                <label class="catalog-field">
+                  <span class="catalog-field-label">Última porta</span>
+                  <input
+                    id="portRangeEnd"
+                    class="field-icon field-icon-port"
+                    placeholder="Ex.: G0/0/24"
+                  />
+                </label>
+              </div>
+              <div class="port-def-card-foot">
+                <label class="port-poe-check"
+                  ><input type="checkbox" id="portRangePoe" /><span
+                    >Portas PoE</span
+                  ></label
+                >
+                <button type="button" id="portRangeAdd" class="btn primary">
+                  <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  Adicionar conjunto
+                </button>
+              </div>
+            </div>
+            <div class="port-def-or"><span>OU</span></div>
+            <div class="port-def-form">
+              <div class="port-def-card-head">
+                <span class="port-def-card-icon">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 7h10l6 5-6 5H4z" />
+                    <path d="M8 7v10" />
+                  </svg>
+                </span>
+                <div>
+                  <b>Adicionar porta avulsa</b>
+                  <small
+                    >Adicione uma porta específica (console, serial,
+                    etc.).</small
+                  >
+                </div>
+              </div>
+              <label class="catalog-field">
+                <span class="catalog-field-label">Nome da porta</span>
+                <input
+                  id="portSingleName"
+                  class="field-icon field-icon-port"
+                  placeholder="Ex.: Console"
+                />
+              </label>
+              <div class="port-def-card-foot">
+                <label class="port-poe-check"
+                  ><input type="checkbox" id="portSinglePoe" /><span
+                    >Porta PoE</span
+                  ></label
+                >
+                <button type="button" id="portSingleAdd" class="btn">
+                  <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  Adicionar porta avulsa
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
         <div class="catalog-editor-help">
-          Modelos são vinculados ao tipo e ao fabricante selecionados.
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 16v-4M12 8.5h.01" />
+          </svg>
+          <span id="catalogEditorHelpText"
+            >Modelos são vinculados ao tipo e ao fabricante
+            selecionados.</span
+          >
         </div>
         <div class="form-actions">
           <button id="catalogEditorCancel" class="btn ghost" type="button">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
             Cancelar</button
           ><button id="catalogEditorSave" class="btn primary" type="button">
-            ✓ Salvar
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 13l4 4L19 7" />
+            </svg>
+            <span id="catalogEditorSaveLabel">Salvar modelo</span>
           </button>
         </div>
       </div>
@@ -3770,6 +3864,6 @@
         </div>
       </div>
     </div>
-    <script type="module" src="app.js?v=152"></script>
+    <script type="module" src="app.js?v=161"></script>
   </body>
 </html>

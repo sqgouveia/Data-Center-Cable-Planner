@@ -22,63 +22,78 @@
    Verificação: 0 seletores perdidos,0 inventados,0 propriedades com
    valor diferente do arquivo original,resultado idempotente.
    ===================================================================== */
-/* Datasheet de Componente — direção visual registrada em
-   .impeccable/surfaces/index-html.md. Papel (claro) é o mundo padrão;
-   a variante escura é um "negativo de blueprint" do mesmo sistema,
-   nunca um retorno ao antigo tema Patch Bay. */
+/* Console Óptico — direção visual registrada em DESIGN.md.
+   Escuro é o mundo padrão: grafite frio em camadas sobrepostas, um
+   único azul óptico como sinal e um filete de luz na aresta superior
+   de cada superfície. O claro é o mesmo console sob luz do dia —
+   neutro frio, não papel quente. */
 :root {
   color-scheme: dark;
-  --bg: #1c2430;
-  --panel: #212a37;
-  --panel2: #293342;
-  --border: #455063;
-  --text: #eef0ea;
-  --muted: #a8ad9c;
-  --blue: #8db6ff;
-  --green: #6fbf8f;
-  --orange: #e0a54f;
-  --red: #ef9683;
-  --route: #8db6ff;
-  --grid: #2a3444;
-  --shadow: 0 8px 20px rgba(6, 9, 14, 0.4);
-  --blue2: #8db6ff;
-  --r-xs: 2px;
-  --r-sm: 3px;
-  --r-md: 4px;
-  --r-lg: 6px;
+  --bg: #1c2431;
+  --panel: #232d3c;
+  --panel2: #2b3746;
+  --panel3: #354254;
+  --border: #45536a;
+  --border-strong: #586a85;
+  --edge: rgba(255, 255, 255, 0.08);
+  --text: #edf2f9;
+  --muted: #aab7cb;
+  --blue: #5b96ff;
+  --green: #3ecb92;
+  --orange: #f2ab57;
+  --red: #ff8375;
+  --route: #5b96ff;
+  --grid: #262f3e;
+  --shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
+  --glow: 0 0 0 1px rgba(91, 150, 255, 0.42), 0 8px 22px rgba(91, 150, 255, 0.22);
+  --blue2: #5b96ff;
+  --chrome-1: #333f52;
+  --chrome-2: #232d3c;
+  --on-accent: #0b1220;
+  --r-xs: 3px;
+  --r-sm: 5px;
+  --r-md: 8px;
+  --r-lg: 12px;
   --font-display: "Titillium Web", Inter, Segoe UI, Arial, sans-serif;
   --fs-micro: 11px;
   --fs-bf-micro: 9px;
-  --red-ink: #ffb4a3;
-  --blue-ink: #bcd3ff;
-  --yellow: #e0c84f;
-  --purple: #b48fe0;
+  --red-ink: #ffa79c;
+  --blue-ink: #b3ceff;
+  --yellow: #e7ce5d;
+  --purple: #a98cf5;
 }
 :root.light,
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f6f4ee;
-  --panel: #fbfaf5;
-  --panel2: #efebe0;
-  --border: #c9c2b0;
-  --text: #15181d;
-  --muted: #6b6656;
-  --blue: #1d4ed8;
-  --green: #2f7d4f;
-  --orange: #a8650f;
-  --red: #8a3324;
-  --route: #1d4ed8;
-  --grid: #e6e0d0;
-  --shadow: 0 8px 20px rgba(30, 26, 15, 0.1);
-  --blue2: #1d4ed8;
-  --r-xs: 2px;
-  --r-sm: 3px;
-  --r-md: 4px;
-  --r-lg: 6px;
+  --bg: #e9eef5;
+  --panel: #ffffff;
+  --panel2: #f4f7fb;
+  --panel3: #e6ecf4;
+  --border: #d4dce8;
+  --border-strong: #b6c3d5;
+  --edge: rgba(255, 255, 255, 0.9);
+  --text: #0e1520;
+  --muted: #5d6b80;
+  --blue: #1f5fe0;
+  --green: #12855c;
+  --orange: #a9631a;
+  --red: #c0392b;
+  --route: #1f5fe0;
+  --grid: #e3e8f0;
+  --shadow: 0 18px 36px rgba(15, 23, 40, 0.14);
+  --glow: 0 0 0 1px rgba(31, 95, 224, 0.35), 0 8px 20px rgba(31, 95, 224, 0.18);
+  --blue2: #1f5fe0;
+  --chrome-1: #ffffff;
+  --chrome-2: #e9eef6;
+  --on-accent: #ffffff;
+  --r-xs: 3px;
+  --r-sm: 5px;
+  --r-md: 8px;
+  --r-lg: 12px;
   --red-ink: var(--red);
   --blue-ink: var(--blue);
-  --yellow: #a8860f;
-  --purple: #6d3fae;
+  --yellow: #9a7b0c;
+  --purple: #6d3fce;
 }
 * {
   box-sizing: border-box;

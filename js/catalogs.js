@@ -299,7 +299,7 @@ export function renderCatalogPortDefsEditor(){
       return `<div class="port-def-row"><div><b>${esc(def.startLabel)} – ${esc(def.endLabel)}</b><small>${count} porta${count===1?'':'s'}${def.poe?' · PoE':''}${!range?' · padrão inválido':''}</small></div><button type="button" class="iconbtn danger-icon" data-portdef-remove="${esc(def.id)}" title="Remover">×</button></div>`;
     }
     return `<div class="port-def-row"><div><b>${esc(def.label)}</b><small>1 porta${def.poe?' · PoE':''}</small></div><button type="button" class="iconbtn danger-icon" data-portdef-remove="${esc(def.id)}" title="Remover">×</button></div>`;
-  }).join(''):'<div class="empty">Nenhuma porta definida ainda.</div>';
+  }).join(''):`<div class="port-defs-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8.5h.01"/></svg><b>Nenhuma porta definida ainda.</b><span>Adicione as portas de rede disponíveis neste modelo.</span></div>`;
   list.querySelectorAll('[data-portdef-remove]').forEach(b=>b.onclick=()=>{catalogs.catalogEditorPortDefs=catalogs.catalogEditorPortDefs.filter(d=>d.id!==b.dataset.portdefRemove);renderCatalogPortDefsEditor();});
 }
 export function openCatalogEditor(key,id=null){
@@ -312,6 +312,15 @@ export function openCatalogEditor(key,id=null){
   if(id){item=isModel?state.assetCatalogs.models.find(x=>x.id===id):state.assetCatalogs[key]?.[Number(id)];}
   title.textContent=id?(isModel?'Editar modelo':`Editar ${key==='types'?'tipo de ativo':key==='statuses'?'status':'fabricante'}`):(isModel?'Novo modelo':`Novo ${key==='types'?'tipo de ativo':key==='statuses'?'status':'fabricante'}`);
   subtitle.textContent=isModel?'Defina o tipo e o fabricante ao qual este modelo pertence.':'Cadastre um valor que poderá ser usado no inventário.';
+  // Chrome do formulário: passos numerados, rótulos e ícones do modo "modelo"
+  // só aparecem quando o cadastro é de fato um modelo.
+  m.querySelector('.catalog-editor-card')?.classList.toggle('is-model',isModel);
+  if($('catalogEditorNameLabel'))$('catalogEditorNameLabel').innerHTML=isModel?'Nome do modelo <i class="req">*</i>':'Nome <i class="req">*</i>';
+  if($('catalogEditorName'))$('catalogEditorName').placeholder=isModel?'Digite o nome do modelo':'Digite o nome';
+  if($('catalogEditorSaveLabel'))$('catalogEditorSaveLabel').textContent=isModel?'Salvar modelo':'Salvar';
+  if($('catalogStepBasicTitle'))$('catalogStepBasicTitle').textContent=isModel?'Informações básicas':'Dados do cadastro';
+  if($('catalogStepBasicHint'))$('catalogStepBasicHint').textContent=isModel?'Dados gerais do modelo':'Dados gerais do cadastro';
+  if($('catalogEditorHelpText'))$('catalogEditorHelpText').textContent=isModel?'Modelos são vinculados ao tipo e ao fabricante selecionados.':'Valores cadastrados ficam disponíveis no inventário de assets.';
   $('catalogEditorName').value=isModel?(item?.name||''):(item||'');
   typeWrap.classList.toggle('hidden',!isModel);manWrap.classList.toggle('hidden',!isModel);portsWrap?.classList.toggle('hidden',!isModel);powerWrap?.classList.toggle('hidden',!isModel);weightWrap?.classList.toggle('hidden',!isModel);
   if(isModel){

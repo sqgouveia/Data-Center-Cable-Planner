@@ -2,26 +2,25 @@
 name: Stratum
 description: Planejamento e gestão física de data center — fileiras, racks, calhas, cabos e inventário de assets
 colors:
-  paper: "#f6f4ee"
-  panel: "#fbfaf5"
-  panel-raised: "#efebe0"
-  hairline: "#c9c2b0"
-  ink: "#15181d"
-  muted: "#6b6656"
-  stamp-blue: "#1d4ed8"
-  status-green: "#2f7d4f"
-  spec-amber: "#a8650f"
-  stamp-red: "#8a3324"
-  blueprint-bg: "#1c2430"
-  blueprint-panel: "#212a37"
-  blueprint-panel-raised: "#293342"
-  blueprint-hairline: "#455063"
-  blueprint-ink: "#eef0ea"
-  blueprint-muted: "#a8ad9c"
-  blueprint-blue: "#8db6ff"
-  blueprint-green: "#6fbf8f"
-  blueprint-amber: "#e0a54f"
-  blueprint-red: "#ef9683"
+  console-bg: "#1c2431"
+  console-panel: "#232d3c"
+  console-panel-raised: "#2b3746"
+  console-panel-hover: "#354254"
+  console-hairline: "#45536a"
+  console-hairline-strong: "#586a85"
+  console-ink: "#edf2f9"
+  console-muted: "#aab7cb"
+  signal-blue: "#5b96ff"
+  status-green: "#3ecb92"
+  signal-amber: "#f2ab57"
+  signal-red: "#ff8375"
+  daylight-bg: "#e9eef5"
+  daylight-panel: "#ffffff"
+  daylight-panel-raised: "#f4f7fb"
+  daylight-hairline: "#d4dce8"
+  daylight-ink: "#0e1520"
+  daylight-muted: "#5d6b80"
+  daylight-blue: "#1f5fe0"
 typography:
   display:
     fontFamily: "Titillium Web, Inter, Segoe UI, Arial, sans-serif"
@@ -40,10 +39,10 @@ typography:
     fontFamily: "IBM Plex Mono, SFMono-Regular, Menlo, Consolas, monospace"
     fontWeight: 500
 rounded:
-  xs: "2px"
-  sm: "3px"
-  md: "4px"
-  lg: "6px"
+  xs: "3px"
+  sm: "5px"
+  md: "8px"
+  lg: "12px"
   pill: "999px"
   circle: "50%"
 spacing:
@@ -54,29 +53,29 @@ spacing:
   xl: "24px"
 components:
   button-primary:
-    backgroundColor: "{colors.stamp-blue}"
-    textColor: "{colors.paper}"
+    backgroundColor: "{colors.signal-blue}"
+    textColor: "{colors.console-bg}"
     rounded: "{rounded.sm}"
     padding: "9px 12px"
   button-danger:
-    backgroundColor: "{colors.stamp-red}"
-    textColor: "{colors.paper}"
+    backgroundColor: "{colors.signal-red}"
+    textColor: "#ffffff"
     rounded: "{rounded.sm}"
     padding: "9px 12px"
-  button-ghost:
-    backgroundColor: "transparent"
-    textColor: "{colors.muted}"
-    rounded: "{rounded.md}"
-    padding: "7px 10px"
+  button-quiet:
+    backgroundColor: "{colors.console-panel-raised}"
+    textColor: "{colors.console-ink}"
+    rounded: "{rounded.sm}"
+    padding: "9px 12px"
   modal-card:
-    backgroundColor: "{colors.panel}"
-    textColor: "{colors.ink}"
+    backgroundColor: "{colors.console-panel}"
+    textColor: "{colors.console-ink}"
     rounded: "{rounded.lg}"
     padding: "16px"
-  project-row:
-    backgroundColor: "transparent"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.xs}"
+  row-selected:
+    backgroundColor: "color-mix(in srgb, signal-blue 9%, transparent)"
+    textColor: "{colors.console-ink}"
+    rounded: "{rounded.sm}"
     padding: "12px 4px"
 ---
 
@@ -84,128 +83,149 @@ components:
 
 ## Overview
 
-**Creative North Star: "Datasheet de Componente"**
+**Creative North Star: "Console Óptico"**
 
-Stratum lê como a própria folha de especificação do data center que documenta — um documento impresso, preciso e permanente, não um dashboard SaaS de analytics nem um terminal hacker retrô escuro. O mundo padrão é papel não-couché quente e tinta quase-preta, com réguas de tabela em hairline no lugar de cards flutuantes; a cor rara — vermelho-tijolo "carimbo" — é reservada estritamente a estado crítico. Uma variante escura ("blueprint negative") existe como segundo tema, não como o mundo primário: ela inverte o mesmo sistema de tokens para uma leitura de planta técnica sob luz de instrumento, e não é um retorno ao antigo tema "Patch Bay" que este arquivo documentava antes.
+Stratum não é um dashboard de analytics nem uma planilha com tema: é o **console de instrumento do data center**. A tela se comporta como um equipamento de rack — superfícies de grafite anodizado empilhadas em camadas, filete de luz claro na aresta superior de cada uma (luz vinda de cima, como num bezel de metal), réguas de 1px no lugar de sombra difusa, e um único sinal azul óptico que marca ação, seleção e rota de cabo. Vermelho, âmbar e verde continuam existindo apenas como leitura de estado (capacidade, garantia, ciclo de vida), nunca como decoração.
 
-O tom é o de um instrumento de medição confiável, não de um produto que tenta ser caloroso. Densidade é alta e aceita — tabelas de especificação substituem cards — mas nunca ao custo de legibilidade: o piso de 11px para texto funcional continua valendo, e cor continua carregando apenas significado de estado real, nunca decoração.
+A leitura por trás de cada número é física: potência, U, porta, comprimento de cabo, peso. Por isso o sistema reserva o IBM Plex Mono para todo dado que É o conteúdo — o registro de mostrador de instrumento — e mantém a interface falando em Inter e Titillium Web.
+
+O **claro é o mundo onde o app abre** — o console sob luz do dia, em neutro frio, não papel quente. O escuro é o mesmo instrumento à noite: mesma gramática de camadas, mesmo par de tokens, e deliberadamente um grafite médio-alto (não preto), para uma jornada longa não virar um buraco escuro na tela.
 
 **Key Characteristics:**
-- Papel quente (`#f6f4ee`) como fundo padrão; a variante escura é um segundo tema explícito, não o padrão
-- Réguas de tabela em hairline (`#c9c2b0` claro / `#455063` escuro) substituem sombra como o principal sinal de separação de superfície
-- Um único acento "carimbo" (`#8a3324` claro) reservado a estado crítico — nunca usado para ação primária comum
-- Botões primário/perigo são preenchimentos chapados (flat fill), não gradiente
-- Tabelas de especificação densas (linhas com régua inferior) substituem cards flutuantes de projeto
-- Raios de canto pequenos e contidos (2–6px), não os 5–16px do mundo anterior
+- Claro frio (`#e9eef5` / branco) como padrão; o escuro é grafite frio (`#1c2431`), sem chegar a preto — três degraus de superfície (`panel`, `panel-raised`, `panel-hover`) fazem a profundidade antes de qualquer sombra
+- Filete de luz (`--edge`, branco a 7% no escuro) na aresta superior de topbar, painéis, sheets e botões — o sinal de "material" do sistema
+- A **barra óptica**: um filete de 1px do azul do sistema correndo sob a topbar, no topo dos sheets e na borda esquerda do item selecionado — o motivo assinatura, herdado do assunto (barramento/calha de cabos)
+- Réguas hairline de 1px (`#45536a`) como separador primário; sombra é rasa, funcional e sempre acompanha a régua
+- Um único acento de ação (`#5b96ff`) com brilho contido apenas no botão primário e no foco
+- Raios contidos (3–12px), nunca pills em blocos de conteúdo
+- Tabelas e linhas densas substituem cards flutuantes
 
 ## Colors
 
-A paleta é quase monocromática sobre papel (ou sobre azul-ardósia escuro na variante blueprint), com um único acento de estado crítico e dois acentos de status herdados (verde/âmbar) usados com a mesma parcimônia de antes.
-
 ### Primary
-- **Azul Carimbo** (`#1d4ed8` no tema claro / `#8db6ff` no blueprint escuro): a cor de ação do sistema — botão primário, seleção, foco, linha de rota no canvas. Usada em preenchimento chapado (flat), sem gradiente.
+- **Azul Óptico** (`#5b96ff` no escuro / `#1f5fe0` no claro): a cor de sinal do sistema — botão primário, seleção, foco, linha de rota no canvas, barra óptica. No escuro o texto sobre ele é tinta escura (`--on-accent: #0b1220`); no claro, branco. É o único acento de ação do sistema.
 
-### Tertiary
-- **Verde de Status** (`#2f7d4f` claro / `#6fbf8f` escuro): estado "ok"/ativo — mesmo papel semântico do mundo anterior, cor renumerada para o novo par claro/escuro.
-- **Âmbar de Especificação** (`#a8650f` claro / `#e0a54f` escuro): estado de atenção (capacidade/garantia perto do limite).
-- **Vermelho Carimbo** (`#8a3324` claro / `#ef9683` escuro): o único acento reservado a estado crítico real — capacidade estourada, garantia vencida, exclusão. Não é usado para ênfase decorativa nem para botões que não sejam destrutivos.
+### Tertiary (estado)
+- **Verde de Status** (`#3ecb92` / `#12855c`): estado "ok" e ativo (autosave salvo, garantia válida).
+- **Âmbar de Sinal** (`#f2ab57` / `#a9631a`): atenção — capacidade ou garantia perto do limite, estrutura bloqueada.
+- **Vermelho Sinal** (`#ff8375` / `#c0392b`): crítico — capacidade estourada, garantia vencida, exclusão.
 
 ### Neutral
-- **Papel** (`#f6f4ee`): fundo da aplicação no tema claro (padrão).
-- **Painel** (`#fbfaf5`): superfície de cards/modais/sidebars no tema claro.
-- **Painel Elevado** (`#efebe0`): inputs, badges, linhas alternadas no tema claro.
-- **Régua Hairline** (`#c9c2b0` claro / `#455063` escuro): toda borda/régua de 1px do sistema — o principal divisor visual, substituindo sombra difusa.
-- **Tinta** (`#15181d` claro / `#eef0ea` escuro): texto primário.
-- **Tinta Apagada** (`#6b6656` claro / `#a8ad9c` escuro): texto secundário/muted — rótulos, metadados.
-- **Fundo Blueprint** (`#1c2430`) / **Painel Blueprint** (`#212a37` / `#293342`): a variante escura — não reutiliza a paleta navy-quase-preta do antigo tema Patch Bay (`#090c13`/`#10141f`); é um par de tokens novo, mais azul-ardósia.
+- **Fundo Console** (`#1c2431` escuro / `#e9eef5` claro): fundo da aplicação e da planta.
+- **Painel** (`#232d3c` / `#ffffff`): sidebars, sheets, cartões.
+- **Painel Elevado** (`#2b3746` / `#f4f7fb`): botões, inputs, controles de chrome, superfícies que se apoiam sobre o painel.
+- **Painel Hover** (`#354254` / `#e6ecf4`): hover de botão e de linha.
+- **Régua Hairline** (`#45536a` / `#d4dce8`): toda borda de 1px do sistema. **Régua Forte** (`#586a85` / `#b6c3d5`) para hover e contornos que precisam de mais peso.
+- **Filete de Luz** (`--edge`): branco a 7% no escuro, branco a 90% no claro — usado só como `inset 0 1px 0` na aresta superior.
+- **Tinta** (`#edf2f9` / `#0e1520`): texto primário. **Tinta Apagada** (`#aab7cb` / `#5d6b80`): rótulos, metadados, valores secundários.
+- **Chrome** (`--chrome-1`/`--chrome-2`): a rampa de duas paradas que dá "luz de cima" à topbar (mais clara em cima, mais escura embaixo).
 
 ### Named Rules
-**The Stamp Rule.** O vermelho-carimbo (`#8a3324`/`#ef9683`) só aparece atrelado a um estado crítico real e mensurável (capacidade estourada, garantia vencida, exclusão). Nunca é usado como cor de botão comum ou destaque decorativo.
 
-**The Rare Signal Rule.** Azul Carimbo aparece em no máximo um lugar de destaque por tela — botão primário da ação atual, ou o item selecionado.
+**The One Signal Rule.** O azul óptico aparece em um único lugar de destaque por tela — o botão primário da ação atual, ou o item selecionado. Ele nunca é usado para dar cor a um cabeçalho, ícone decorativo ou borda de painel.
 
-**The Status Color Rule.** Verde e âmbar nunca são estéticos — cada um corresponde a um estado real e mensurável (capacidade, garantia, ciclo de vida). Não introduza essas cores para "dar vida" a um elemento sem estado por trás.
+**The State-Only Rule.** Verde, âmbar e vermelho só existem atrelados a um estado real e mensurável (capacidade, garantia, ciclo de vida, bloqueio, exclusão). Nenhum deles é usado "para dar vida" a um elemento sem dado por trás.
+
+**The Edge Rule.** Toda superfície elevada — topbar, toolbar, sheet, menu, botão, campo — leva `inset 0 1px 0 var(--edge)`. É o que faz o sistema ler como material e não como retângulo chapado. Nenhuma superfície elevada fica sem o filete.
 
 ## Typography
 
 **Display Font:** Titillium Web (fallback: Inter, Segoe UI, Arial)
 **Body Font:** Inter (fallback: Segoe UI, Arial)
-**Label/Mono Font:** IBM Plex Mono (fallback: SFMono-Regular, Menlo, Consolas)
+**Data/Mono Font:** IBM Plex Mono (fallback: SFMono-Regular, Menlo, Consolas)
 
-**Character:** Titillium Web carrega os títulos reais — marca, cabeçalhos de modal, telas de auth/dashboard. Inter faz o trabalho pesado do corpo denso (a métrica já estava calibrada nos truncamentos fixos espalhados pela interface, herdado do mundo anterior e preservado). IBM Plex Mono entra sempre que o número É o conteúdo — porta, watt, U, ID — funcionando como o registro "tipo mostrador de instrumento" para leituras físicas que a direção pede; nenhuma propriedade CSS nova de `font-variant-numeric` foi introduzida para isso — o efeito tabular vem da própria natureza monoespaçada da fonte já em uso.
+**Character:** Titillium Web carrega a marca e os títulos reais — é uma face técnica, semi-condensada, que não confunde o app com um produto de marketing. Inter faz o trabalho pesado em densidade alta (a métrica de truncamento fixa espalhada pela interface já está calibrada nela). IBM Plex Mono é reservado ao que É o conteúdo físico: porta, watt, U, ID, IP, comprimento.
 
 ### Hierarchy
-- **Display** (700, 18–22px): títulos de tela — "Entrar", nome do dashboard, marca Stratum.
-- **Headline** (700, 15px): título de modal (`.modal-head h3`), nome de projeto na linha de especificação.
-- **Body** (400–650, 13px): botões, inputs, texto de corpo, mensagens de auth.
-- **Label** (600, 11px — piso do sistema): rótulos de formulário, badges, cabeçalho de tabela, contadores.
-- **Data** (500, IBM Plex Mono, 9–14px): potência, contagem de portas, IDs de asset, valores de capacidade.
+- **Display** (700, 18–22px): títulos de tela — "Entrar", nome do dashboard, "Meus projetos".
+- **Headline** (700, 15px): título de modal, nome de projeto, cabeçalho de lista de cabos/fileiras.
+- **Body** (400–650, 13px): botões, inputs, texto de corpo.
+- **Label** (600, 11px — piso do sistema): rótulos de formulário, badges, cabeçalho de tabela.
+- **Data** (500, IBM Plex Mono, 9–14px): potência, contagem de portas, IDs, valores de capacidade.
 
 ### Named Rules
-**The 11px Floor Rule.** Nenhum texto funcional (rótulo, botão, célula de tabela, badge) fica abaixo de 11px. A única exceção documentada continua sendo a grade por-U do Bayface (`--fs-bf-micro: 9px`), que tem uma restrição física real de altura de linha — 1U de rack não cabe 11px de texto sem quebrar a proporção do desenho. Esta exceção é uma dívida física do componente, não uma licença para reduzir texto em qualquer outro lugar.
+**The 11px Floor Rule.** Nenhum texto funcional (rótulo, botão, célula, badge) fica abaixo de 11px. A única exceção é a grade por-U do Bayface (`--fs-bf-micro: 9px`), que tem restrição física real de altura de 1U — uma dívida do componente, não licença para reduzir texto em outro lugar.
+
+**The Instrument Rule.** Se o valor nomeia uma quantidade física ou um identificador, ele é IBM Plex Mono. Se é uma frase, é Inter. Nunca misture os dois papéis no mesmo elemento.
 
 ## Layout
 
-A aplicação continua um shell fixo de topbar + duas sidebars + canvas central, sem scroll de página. Breakpoints reais em 1250px, 1100px, 1000px, 900px e 800px colapsam a sidebar direita primeiro, depois a esquerda vira gaveta deslizante — não alterados nesta sessão.
+Shell fixo de topbar + duas sidebars + canvas central, sem scroll de página. A topbar tem 64px; a barra inferior da planta (zoom, camadas, exportar) 36px, centralizada sobre o canvas considerando a largura da sidebar esquerda (`--sb-left`). O minimapa é uma janela fixa de 260×150 no canto inferior direito, sempre aberta.
+
+Breakpoints reais em 1250px, 1100px, 1000px, 900px e 800px: a sidebar direita colapsa primeiro, depois a esquerda vira gaveta deslizante. Acima de 1909px a barra inferior mostra os rótulos de camada; abaixo disso, só os ícones.
+
+Alinhamento é à esquerda em toda a interface (listas, formulários, tabelas); a única centralização é a barra inferior sobre a planta e o estado vazio do canvas.
 
 ## Elevation & Depth
 
-O sistema deste mundo usa **hairline (régua de 1px) como o sinal primário de separação de superfície**, não sombra pura — a inversão deliberada da regra do mundo anterior. `.auth-card` volta a usar `border: 1px solid var(--border)` junto de uma sombra rasa; `.project-card` (agora uma linha de tabela) usa `border-bottom: 1px solid var(--border)` e nenhuma sombra em repouso. Onde sombra ainda aparece (`.modal-card`, `.canvas-tool-toggle`), ela é rasa e funcional (elevar acima do canvas), não o dispositivo de flutuação livre-de-borda do mundo anterior.
+Profundidade vem de **três coisas, nesta ordem**: degrau de superfície, filete de luz, régua hairline. Sombra é o quarto recurso, nunca o primeiro, e sempre rasa.
 
 ### Shadow Vocabulary
-- **Elevação padrão** (`--shadow`, `0 8px 20px rgba(30,26,15,.1)` no claro / `0 8px 20px rgba(6,9,14,.4)` no blueprint escuro): usada por `.auth-card` e pelo botão flutuante do canvas, em conjunto com hairline, não no lugar dele.
-- **Elevação de modal** (`0 16px 40px rgba(2,5,12,.45)`): `.modal-card`.
+- **Elevação de superfície** (`0 6px 16px rgba(0,0,0,.24)` no escuro): botão em hover, controles que se apoiam sobre o canvas.
+- **Elevação flutuante** (`0 10px 24px rgba(0,0,0,.32)`): pílulas e barras que pairam sobre a planta (barra de zoom, busca, bloqueio, minimapa).
+- **Elevação de sheet** (`--shadow`, `0 18px 40px rgba(0,0,0,.55)` escuro / `0 18px 36px rgba(15,23,40,.14)` claro): modais, confirmações, busca rápida, menus suspensos.
 
 ### Named Rules
-**The Hairline Rule.** Toda separação de superfície no dashboard e nas listas (linha de projeto, linhas de tabela de especificação, cartão de auth) é feita por régua de 1px na cor hairline, não por sombra larga e difusa. Sombra, quando usada, é rasa e acompanha a régua — nunca a substitui.
+**The No-Float Rule.** Nada que faz parte do chrome (topbar, sidebars, toolbar) flutua: chrome é fixo, em camadas planas, com filete e régua. Só flutua o que está fisicamente acima da planta (pílulas, minimapa) ou acima da tarefa (sheets).
+
+**The Backdrop Rule.** Fundo de modal nunca é preto puro: é `#05080e` a 62% com blur de 6px e leve saturação a mais — escurece mantendo a noção de que a planta continua ali atrás.
 
 ## Shapes
 
-Raios pequenos e contidos, tensionados para baixo em relação ao mundo anterior: `2px` (`--r-xs`) para elementos de linha/registro, `3px` (`--r-sm`) para controles (botões, inputs), `4px` (`--r-md`) para blocos de conteúdo, `6px` (`--r-lg`) para modais e o cartão de auth. Não há mais o degrau de 16px/20px do mundo anterior — a maior superfície do sistema hoje usa 6px. `999px`/`50%` seguem reservados a elementos circulares/pílula (badges de status, botão flutuante do canvas).
+Raio segue hierarquia, não gosto: `3px` (`--r-xs`) para micro-elementos e teclas, `5px` (`--r-sm`) para controles (botões, inputs, linhas de lista), `8px` (`--r-md`) para blocos e menus, `12px` (`--r-lg`) para as maiores superfícies (sheets, minimapa, sidebar-toggle arredondada de um lado). `999px`/`50%` ficam reservados a pílulas de status, à barra de zoom e a avatares.
+
+**The Pill Rule.** Pílula é status ou controle contínuo (zoom, filtros de camada). Botão de ação, campo e bloco de conteúdo nunca são pílula.
 
 ## Components
 
 ### Buttons
-- **Shape:** raio de 3px (`--r-sm`) no botão de formulário padrão; a topbar usa 4px.
-- **Primary:** `background: var(--blue)` chapado, `box-shadow: none` — preenchimento sólido, não gradiente. (Nota de drift: alguns contextos legados — `.topbar .actions>.btn.primary`, `.btn.primary:hover` global, `.row-card:hover` — ainda carregam `box-shadow` com valores de sombra colorida/difusa do mundo anterior não varridos nesta sessão; ver linha de defeitos no relatório.)
-- **Danger:** `background: var(--red)` chapado, `box-shadow: none`, mesmo padrão do Primary.
-- **Ghost:** fundo transparente, texto `muted`, sem borda em repouso — usado na topbar/toolbar.
-- **Hover / Focus:** escurece o preenchimento (`color-mix` em direção a preto) em vez de mudar sombra; ghost ganha `background: panel2` + borda hairline no hover.
+- **Shape:** raio `5px` (`--r-sm`), altura 36px na topbar e 34px na toolbar.
+- **Quiet (padrão):** `background: var(--panel2)`, `border: 1px solid var(--border)`, `inset 0 1px 0 var(--edge)`. Em hover sobe para `--panel3`, contorno `--border-strong` e sombra rasa.
+- **Primary:** gradiente vertical curto de `color-mix(blue 88%, white)` até `blue` — superfície acesa, não decoração — com `inset 0 1px 0 rgba(255,255,255,.28)` e brilho contido (`0 4px 14px blue 26%`). Texto em `--on-accent`.
+- **Danger:** mesma construção do primary em `--signal-red`, texto branco.
+- **Chrome (topbar):** fundo e borda transparentes em repouso; caixa e filete só no hover.
+- **Focus:** anel de 3px em `color-mix(blue 32%, transparent)`, sem `outline`.
 
 ### Chips / Badges
-- **Style:** fundo tingido a baixa opacidade da cor de estado, texto na cor de estado, borda tingida — padrão herdado e preservado.
+- Fundo tingido a ~12% da cor de estado, texto na cor de estado, borda a ~40% — pílula. Verde/âmbar/vermelho só com estado real por trás.
 
-### Cards / Containers (project spec-row)
-- **Corner Style:** `0` — a linha de projeto do dashboard não é mais um card com canto arredondado; é uma linha de tabela.
-- **Background:** transparente em repouso; tingido levemente de azul no hover (`color-mix(var(--blue) 6%, transparent)`).
-- **Shadow Strategy:** nenhuma — ver Elevation & Depth. A separação é a régua inferior (`border-bottom: 1px solid var(--border)`).
-- **Border:** `border-bottom: 1px solid var(--border)` apenas; uma barra vertical de 2px na cor azul acende à esquerda no hover (substitui a antiga barra de topo azul→violeta em gradiente — hoje é cor sólida única, sem parceiro violeta).
-- **Internal Padding:** `12px 4px`, layout em linha (`display:flex`) em vez de bloco de card.
-- **Icon:** o ícone de pasta em emoji foi substituído por um SVG de documento desenhado, coerente com o tema "datasheet".
+### Rows / Lists
+- **Repouso:** transparente, separadas por `border-bottom` hairline.
+- **Hover:** `--panel3` a 70%, sem mudança de raio.
+- **Selecionado:** tintura azul a 9% + `inset 2px 0 0 var(--blue)` — a barra óptica na borda esquerda, nunca preenchimento cheio.
 
 ### Inputs / Fields
-- **Style:** fundo `panel-raised`, borda `hairline` de 1px, raio 3px.
-- **Focus:** borda muda para `--blue` + anel `box-shadow` de 3px na mesma cor a 16%.
+- Fundo `--panel2`, borda hairline, raio `5px`, sombra interna rasa (`inset 0 1px 2px`) para o campo ler como rebaixado em relação ao filete do resto.
+- **Focus:** borda `--blue` + anel de 3px a 22%, mantendo a sombra interna.
+- No tema claro o campo é branco sobre chrome levemente cinza.
+
+### Modals / Sheets
+- `--panel`, raio `12px`, `--shadow`, filete de luz e um filete azul de 1px no topo (a barra óptica dentro do painel). Head separado por régua hairline.
+
+### Sheet em passos (editor de cadastro de modelo)
+O editor de modelo é um sheet largo (`min(680px, 100vw - 28px)`) em dois passos numerados: cada passo é um cartão com régua hairline, cabeçalho numerado (círculo no azul do sistema, número em `--on-accent`), título em Titillium Web e dica alinhada à direita; abaixo, os campos. Campos usam ícone à esquerda via `background-image` (sem wrapper extra, mantendo o `<select>` nativo estilizado pela casa), 42px de altura, raio `8px`. O vazio da lista de portas é desenhado (borda tracejada + ícone + frase de ação), nunca só opacidade. Os dois caminhos de inclusão (conjunto sequencial e porta avulsa) são cartões irmãos separados por um divisor "OU". O rodapé tem duas ações de largura igual, 46px: `Cancelar` (quiet) e `Salvar modelo` (primary). Cadastros simples (tipo, fabricante, status) usam a mesma janela sem os passos numerados, com o rótulo "Salvar".
 
 ### Navigation (Topbar)
-- **Style:** ações padrão em `.btn.ghost` (fundo transparente), botão primário em preenchimento chapado azul. As três gradiente-glows decorativos do mundo anterior (blobs radiais da tela de auth, filete de gradiente da topbar, barra de gradiente do hover do card) foram removidos nesta sessão em favor do sistema hairline/token.
+- Gradiente `--chrome-1 → --chrome-2` + filete de luz no topo + barra óptica de 1px sob a borda inferior.
+- Marca à esquerda com divisor vertical; ações à direita. Desfazer/refazer é controle segmentado (36px, uma caixa, divisórias internas). Localização/sala, autosave e status de nuvem seguem a mesma linguagem de controle elevado; o status de nuvem é pílula colorida por estado.
 
 ### Bayface (Signature Component)
-Visão frontal do rack, U por U, com escala tipográfica própria (`--fs-bf-micro: 9px`) abaixo do piso de 11px por restrição física real de altura de 1U — inalterado nesta sessão. A cor por tipo de asset continua vindo de uma paleta própria (`bayfaceTypeColor`), estruturalmente intocada; ela só herda os novos tokens de superfície onde já referenciava `var(--...)` (fundo do rack, réguas, trilho). A textura hachurada fina do slot vazio do Bayface (`repeating-linear-gradient`) já existia antes desta sessão como uma textura local do componente — não é um novo sistema de "estado ausente/desabilitado" aplicado ao resto do app, e não deve ser lido como tal.
+Visão frontal do rack, U por U, com escala tipográfica própria (`--fs-bf-micro: 9px`) abaixo do piso de 11px por restrição física de altura de 1U. A cor por tipo de asset continua vindo de uma paleta própria do componente (`bayfaceTypeColor`), intocada — ela herda apenas os tokens de superfície onde já referenciava `var(--...)`. A textura hachurada do slot vazio é uma textura local do Bayface, não uma convenção de "estado ausente" do sistema.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** usar régua hairline de 1px como separador primário de superfície — cards de lista, linhas de tabela, cartão de auth (The Hairline Rule).
-- **Do** manter texto funcional em 11px ou mais, exceto na grade por-U do Bayface (The 11px Floor Rule).
-- **Do** reservar o vermelho-carimbo estritamente a estado crítico real e mensurável (The Stamp Rule).
-- **Do** reservar Azul Carimbo para uma única ação/seleção de destaque por tela (The Rare Signal Rule).
-- **Do** usar IBM Plex Mono sempre que o conteúdo for um número identificador ou leitura física (porta, watt, U, ID).
-- **Do** usar preenchimento chapado (flat fill), não gradiente, em botões primário e de perigo.
+- **Do** dar profundidade por degrau de superfície + filete de luz antes de recorrer a sombra (The Edge Rule, The No-Float Rule).
+- **Do** manter texto funcional em 11px ou mais, exceto a grade por-U do Bayface (The 11px Floor Rule).
+- **Do** usar IBM Plex Mono em todo número que nomeia quantidade física ou identificador (The Instrument Rule).
+- **Do** reservar o azul óptico a uma única ação/seleção de destaque por tela (The One Signal Rule).
+- **Do** marcar seleção com a barra óptica de 2px à esquerda + tintura baixa, em vez de preencher linhas inteiras.
+- **Do** escrever em pt-BR, sentence case, verbo ativo e o mesmo termo para a mesma coisa em todo o app (Fileira, Calha, Bayface, Asset).
 
 ### Don't:
-- **Don't** introduzir verde/âmbar/vermelho decorativamente — essas cores sempre representam um estado real e mensurável.
-- **Don't** reintroduzir gradiente em botão primário/perigo ou em barra decorativa de hover — este mundo é chapado, não o "Patch Bay" de gradiente azul→violeta que este arquivo documentava antes.
-- **Don't** tratar a régua hairline do slot vazio do Bayface como uma regra de sistema para "estado ausente/desabilitado" em outras superfícies — é uma textura local do componente, não canonizada como convenção geral.
-- **Don't** adicionar um novo glifo Unicode/emoji como ícone. Os que restam no app (☾/☀ do toggle de tema, ⋮, ＋, ↪ — 9 ocorrências não varridas nesta sessão) são dívida herdada, não o padrão — ícones novos são SVG desenhado, como o ícone de documento já usado na linha de projeto.
-- **Don't** assumir que o tema escuro ("blueprint negative") é uma pele opcional secundária esteticamente livre — ele reutiliza o mesmo par de tokens hairline/flat deste sistema; não é licença para reintroduzir sombra-sem-borda ou gradiente só porque está no modo escuro.
+- **Don't** usar verde, âmbar ou vermelho fora de um estado real e mensurável (The State-Only Rule).
+- **Don't** empilhar gradientes decorativos, blobs radiais ou brilho neon: gradiente aqui simula luz sobre material (topbar, botão primário) e nada mais.
+- **Don't** fazer chrome flutuar com sombra larga sem régua — sombra sem hairline lê como template genérico.
+- **Don't** transformar bloco de conteúdo, campo ou botão de ação em pílula (The Pill Rule).
+- **Don't** adicionar glifo Unicode/emoji como ícone: ícone novo é SVG desenhado, traço 2px, herdando `currentColor`.
+- **Don't** reduzir contraste para "deixar moderno": se um rótulo precisa de 10px ou de cor apagada demais para ser lido, o problema é o layout, não a cor.
