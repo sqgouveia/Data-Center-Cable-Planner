@@ -10217,3 +10217,41 @@ button.bayface-rack-state {
 .rack-tooltip .rs-bar {
   height: 5px;
 }
+
+/* Ambiente: só o essencial à vista; o resto fica em "Mais opções" */
+.env-advanced-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin: 2px 0 10px;
+  padding: 7px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.env-advanced-toggle:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--blue) 55%, var(--border));
+}
+.env-advanced-toggle svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.15s;
+}
+.env-advanced-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+#uiConfirmBody {
+  white-space: pre-line;
+}

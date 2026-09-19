@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=144" />
+    <link rel="stylesheet" href="app.css?v=145" />
     <link rel="stylesheet" href="macos.css?v=10" />
   </head>
   <body>
@@ -603,6 +603,17 @@
               max="60"
               value="48"
           /></label>
+          <button
+            id="envAdvancedToggle"
+            class="env-advanced-toggle"
+            type="button"
+            aria-expanded="false"
+            aria-controls="envAdvanced"
+          >
+            <span>Mais opções</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+          </button>
+          <div id="envAdvanced" class="env-advanced hidden">
           <div class="grid2">
             <label
               >Largura (m)<input
@@ -672,6 +683,7 @@
               step="1"
               value="10"
           /></label>
+          </div>
           <button id="btnBuildRows" class="btn primary full">
             ✓ Aplicar estrutura
           </button>
@@ -3740,6 +3752,6 @@
         </div>
       </div>
     </div>
-    <script type="module" src="app.js?v=135"></script>
+    <script type="module" src="app.js?v=136"></script>
   </body>
 </html>

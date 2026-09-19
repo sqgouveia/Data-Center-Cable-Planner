@@ -433,10 +433,48 @@ function normalizeState(){
   state.trayMultiSelected=Array.isArray(state.trayMultiSelected)?state.trayMultiSelected.filter(id=>trayIds.has(id)):[];
   if(state.selected?.type==='tray' && !state.trayMultiSelected.includes(state.selected.id)) state.trayMultiSelected=[state.selected.id];
 }
+// O que "Aplicar estrutura" vai perder ou mudar, contado antes de confirmar.
+// Cada rack novo herda cabos e assets do rack que ocupava a mesma posição
+// (fileira + índice) na estrutura atual.
+function structureRebuildImpact(count,racksPerRow){
+  const rowIdx=new Map(state.rows.map((r,i)=>[r.id,i]));
+  const survives=r=>{const ri=rowIdx.get(r.rowId);return ri!==undefined&&ri<count&&r.index<racksPerRow;};
+  const lostIds=new Set(state.racks.filter(r=>!survives(r)).map(r=>r.id));
+  const rackIds=new Set(state.racks.map(r=>r.id));
+  const mounted=state.assets.filter(a=>a.rackId&&rackIds.has(a.rackId));
+  const cablesLost=state.cables.filter(c=>!rackIds.has(c.originRack)||!rackIds.has(c.destRack)||lostIds.has(c.originRack)||lostIds.has(c.destRack)).length;
+  const customRacks=state.racks.filter(r=>{
+    const row=state.rows.find(x=>x.id===r.rowId);
+    return survives(r)&&((row&&r.name!==makeRack(row,r.index).name)||num(r.offset,0)!==0||num(r.yOffset,0)!==0||num(r.powerCapacityW,0)>0||num(r.weightCapacityKg,0)>0);
+  }).length;
+  const renamedRows=state.rows.filter((r,i)=>r.name!==`Row-${i+1}`).length;
+  return {
+    trays:state.trays.length, lostRacks:lostIds.size, customRacks, renamedRows,
+    assetsLost:mounted.filter(a=>lostIds.has(a.rackId)).length,
+    assetsKept:mounted.filter(a=>!lostIds.has(a.rackId)).length,
+    cablesLost, cablesKept:state.cables.length-cablesLost
+  };
+}
+function structureRebuildMessage(count,racksPerRow,i){
+  const n=(k,one,many)=>`${k} ${k===1?one:many}`;
+  const out=[`A estrutura será refeita com ${n(count,'fileira','fileiras')} de ${n(racksPerRow,'rack','racks')}.`];
+  if(i.trays)out.push(`• ${n(i.trays,'calha será removida','calhas serão removidas')} (as calhas são redesenhadas do zero).`);
+  if(i.lostRacks)out.push(`• ${n(i.lostRacks,'rack sai','racks saem')} da grade.`);
+  if(i.assetsLost)out.push(`• ${n(i.assetsLost,'asset ficará','assets ficarão')} sem rack (a posição instalada é perdida).`);
+  if(i.cablesLost)out.push(`• ${n(i.cablesLost,'cabo será removido','cabos serão removidos')} por perder origem ou destino.`);
+  if(i.customRacks||i.renamedRows)out.push('• Nomes e ajustes individuais de racks e fileiras (capacidades, posição) voltam ao padrão.');
+  const kept=[i.assetsKept?n(i.assetsKept,'asset','assets'):'',i.cablesKept?n(i.cablesKept,'cabo','cabos'):''].filter(Boolean);
+  if(kept.length)out.push(`Ficam no mesmo rack (mesma fileira e posição): ${kept.join(' e ')}.`);
+  out.push('Dá para desfazer com o botão Desfazer.');
+  return out.join('\n');
+}
 async function rebuildStructureFromSettings(){
   if(structureBlocked())return;
   if(state.rows.length || state.racks.length || state.trays.length){
-    const ok=await uiConfirm('Racks e calhas atuais serão recriados do zero usando as configurações atuais. Os cabos serão preservados quando origem e destino continuarem existindo. Você poderá desfazer a reconstrução usando o botão Desfazer.',{title:'Reconstruir estrutura?',confirmText:'Reconstruir'});
+    const count0=Math.max(0,Math.min(30,Math.floor(num($('rowCount').value,0))));
+    const racks0=Math.max(0,Math.min(100,Math.floor(num($('defaultRacks').value,0))));
+    const impact=structureRebuildImpact(count0,racks0);
+    const ok=await uiConfirm(structureRebuildMessage(count0,racks0,impact),{title:'Reconstruir estrutura?',confirmText:'Reconstruir',danger:!!(impact.trays||impact.lostRacks||impact.assetsLost||impact.cablesLost)});
     if(!ok)return;
   }
 
@@ -477,6 +515,8 @@ async function rebuildStructureFromSettings(){
     return {...c,originRack,destRack,via};
   }).filter(Boolean);
 
+  // Assets instalados acompanham o rack da mesma posição; se ela deixou de existir, ficam sem rack.
+  state.assets.forEach(a=>{if(a.rackId&&oldRackKey.has(a.rackId))a.rackId=newRackByKey.get(oldRackKey.get(a.rackId))||null;});
   normalizeState();
   renderAll();
   // Dupla espera por frame de animação: garante que o navegador já
@@ -684,6 +724,15 @@ function setupSummaryRefit(){
     clearTimeout(timer);
     timer=setTimeout(()=>{if(!state.selected&&!state.multiSelected.length&&!state.trayMultiSelected.length)renderProperties();},150);
   });
+}
+const ENV_ADVANCED_STORAGE='dc-planner-env-advanced';
+function setupEnvAdvanced(){
+  const box=$('envAdvanced'), btn=$('envAdvancedToggle'); if(!box||!btn)return;
+  const apply=open=>{box.classList.toggle('hidden',!open);btn.setAttribute('aria-expanded',open?'true':'false');btn.querySelector('span').textContent=open?'Menos opções':'Mais opções';};
+  let open=false;
+  try{open=localStorage.getItem(ENV_ADVANCED_STORAGE)==='1';}catch{}
+  apply(open);
+  btn.addEventListener('click',()=>{open=!open;apply(open);try{localStorage.setItem(ENV_ADVANCED_STORAGE,open?'1':'0');}catch{}});
 }
 function setupHeatControl(){
   $('heatControl')?.addEventListener('click',e=>{
@@ -3149,7 +3198,7 @@ function bind(){
   // Bindar os controles do canvas ANTES da renderização do projeto.
   // Isso garante que um erro em renderAll() não deixe os controles mudos.
   setupMinimap();
-  setupHeatControl();setupRackTooltip();setupSummaryRefit();
+  setupHeatControl();setupRackTooltip();setupSummaryRefit();setupEnvAdvanced();
   setupSidebarToggle();
   setupStructureLockControl();
 
