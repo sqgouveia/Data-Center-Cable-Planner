@@ -2359,7 +2359,7 @@ function renderProperties(){
       <div class="grid2"><label>Qtd. U<input id="bulkUnits" type="number" min="1" max="60" placeholder="Não alterar"></label><label>Largura (m)<input id="bulkWidth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label></div>
       <div class="grid2"><label>Profundidade (m)<input id="bulkDepth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label><label>Distância próx. (m)<input id="bulkGap" type="number" min="0" step="0.01" placeholder="Não alterar"></label></div>
       <label>Altura da última U → calha (m)<input id="bulkRise" type="number" min="0" step="0.01" placeholder="Não alterar"></label>
-      <div class="grid2"><label>Capacidade elétrica (W)<input id="bulkPowerCapacity" type="number" min="0" step="1" placeholder="Não alterar"></label><label>Capacidade de carga do piso (kg)<input id="bulkWeightCapacity" type="number" min="0" step="1" placeholder="Não alterar"></label></div>
+      <div class="grid2"><label>Capacidade elétrica (W)<input id="bulkPowerCapacity" type="number" min="0" step="1" placeholder="Não alterar"></label><label>Capacidade do piso (kg)<input id="bulkWeightCapacity" type="number" min="0" step="1" placeholder="Não alterar"></label></div>
       <button class="btn primary full" id="applyBulkRack">✓ Aplicar propriedades</button>
       <button class="btn danger full" id="delSelectedRacks">Excluir ${count} racks selecionados</button>
       <button class="btn ghost full" id="clearSelectedRacks">Limpar seleção</button>`;
@@ -2985,23 +2985,69 @@ function switchHelpSection(section){
 function openQuickSearch(){const m=$('quickSearchModal');if(!m)return;m.classList.remove('hidden');m.classList.add('open');m.setAttribute('aria-hidden','false');const i=$('quickSearchInput');if(i){i.value='';renderQuickSearchResults('');requestAnimationFrame(()=>i.focus());}}
 function closeQuickSearch(){const m=$('quickSearchModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
 
+// Mini mapa: enquadra o desenho (racks e calhas) e a área visível, colore os racks pela
+// camada escolhida e permite arrastar a área visível para navegar.
+function minimapBox(g){
+  // Caixa do desenho em coordenadas da planta.
+  let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
+  const add=(x,y)=>{x1=Math.min(x1,x);y1=Math.min(y1,y);x2=Math.max(x2,x);y2=Math.max(y2,y);};
+  state.racks.forEach(r=>{const q=rackRect(r,g);add(q.x,q.y);add(q.x+q.w,q.y+q.h);});
+  state.trays.forEach(t=>{add(t.x1,t.y1);add(t.x2,t.y2);});
+  return {x1,y1,x2,y2};
+}
 function updateMinimap(){
-  const box=$('minimap'),svg=$('minimapSvg'),wrap=$('canvasWrap'); if(!box||!svg||!wrap)return;
-  const g=geometry(); if(!state.racks.length){svg.innerHTML='<text x="50%" y="50%" text-anchor="middle" class="minimap-empty">Sem racks</text>';return;}
-  const pad=10,w=box.clientWidth||190,h=Math.max(110,(box.clientHeight||150)-34), sx=(w-pad*2)/Math.max(1,g.w), sy=(h-pad*2)/Math.max(1,g.h), sc=Math.min(sx,sy), ox=(w-g.w*sc)/2, oy=(h-g.h*sc)/2;
+  const box=$('minimap'),svg=$('minimapSvg'),wrap=$('canvasWrap'); if(!box||!svg||!wrap||box.classList.contains('hidden'))return;
+  const g=geometry();
+  // Fica no canto superior direito da planta (o canto inferior direito é dos botões de ferramenta).
+  const wr=wrap.getBoundingClientRect();
+  box.style.top=`${Math.round(wr.top+12)}px`; box.style.right=`${Math.round(window.innerWidth-wr.right+18)}px`;
+  if(!state.racks.length){svg.innerHTML='<text x="50%" y="50%" text-anchor="middle" class="minimap-empty">Sem racks</text>';return;}
+  const c=minimapBox(g);
+  const p=window.__canvasPan||{x:0,y:0,zoom:1},z=p.zoom||1;
+  const view={x:-p.x/z,y:-p.y/z,w:wrap.clientWidth/z,h:wrap.clientHeight/z};
+  // O mapa mostra o desenho; a área visível entra na conta só até 1/4 do desenho de distância,
+  // para o desenho continuar grande no mapa; além disso a área visível é recortada na borda.
+  const cw=c.x2-c.x1,ch=c.y2-c.y1,mx=cw*0.25,my=ch*0.25;
+  const bx1=Math.min(c.x1,Math.max(view.x,c.x1-mx)),by1=Math.min(c.y1,Math.max(view.y,c.y1-my));
+  const bx2=Math.max(c.x2,Math.min(view.x+view.w,c.x2+mx)),by2=Math.max(c.y2,Math.min(view.y+view.h,c.y2+my));
+  const bw=Math.max(1,bx2-bx1),bh=Math.max(1,by2-by1),pad=8,head=30;
+  const w=240,h=Math.round(Math.max(90,Math.min(220,(w-pad*2)*bh/bw+pad*2)));
+  box.style.width=`${w}px`; box.style.height=`${h+head}px`;
+  const sc=Math.min((w-pad*2)/bw,(h-pad*2)/bh), ox=(w-bw*sc)/2-bx1*sc, oy=(h-bh*sc)/2-by1*sc;
   const X=x=>ox+x*sc,Y=y=>oy+y*sc;
   let out=`<rect class="minimap-bg" x="0" y="0" width="${w}" height="${h}"/>`;
   state.trays.forEach(t=>{out+=`<line class="minimap-tray" x1="${X(t.x1)}" y1="${Y(t.y1)}" x2="${X(t.x2)}" y2="${Y(t.y2)}"/>`;});
-  state.racks.forEach(r=>{const q=rackRect(r,g);out+=`<rect class="minimap-rack ${state.multiSelected.includes(r.id)?'selected':''}" x="${X(q.x)}" y="${Y(q.y)}" width="${Math.max(2,q.w*sc)}" height="${Math.max(3,q.h*sc)}"/>`;});
-  const p=window.__canvasPan||{x:0,y:0,zoom:1},z=p.zoom||1; const vx=Math.max(0,(-p.x)/z),vy=Math.max(0,(-p.y)/z),vw=wrap.clientWidth/z,vh=wrap.clientHeight/z;
-  out+=`<rect class="minimap-viewport" x="${X(vx)}" y="${Y(vy)}" width="${Math.max(4,vw*sc)}" height="${Math.max(4,vh*sc)}"/>`;
-  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.innerHTML=out;svg.dataset.ox=ox;svg.dataset.oy=oy;svg.dataset.scale=sc;svg.dataset.gw=g.w;svg.dataset.gh=g.h;
+  state.racks.forEach(r=>{
+    const q=rackRect(r,g),m=rackStats.get(r.id),lv=heatLevel(m,heatMode);
+    const sel=state.multiSelected.includes(r.id)||(state.selected?.type==='rack'&&state.selected.id===r.id);
+    const rx=X(q.x),ry=Y(q.y),rw=Math.max(2,q.w*sc),rh=Math.max(3,q.h*sc);
+    out+=`<rect class="minimap-rack ${lv?`heat-${lv}`:''} ${sel?'selected':''}" x="${rx}" y="${ry}" width="${rw}" height="${rh}" rx="1.5"/>`;
+    if(m&&m.alertLevel!=='l1')out+=`<circle class="minimap-alert alert-${m.alertLevel}" cx="${rx+rw-1.5}" cy="${ry+1.5}" r="2.4"/>`;
+  });
+  const minV=6/sc, vx1=Math.min(Math.max(view.x,bx1),bx2-minV), vy1=Math.min(Math.max(view.y,by1),by2-minV);
+  const vx2=Math.max(vx1+minV,Math.min(view.x+view.w,bx2)), vy2=Math.max(vy1+minV,Math.min(view.y+view.h,by2));
+  out+=`<rect class="minimap-viewport" x="${X(vx1)}" y="${Y(vy1)}" width="${(vx2-vx1)*sc}" height="${(vy2-vy1)*sc}"/>`;
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.innerHTML=out;svg.dataset.ox=ox;svg.dataset.oy=oy;svg.dataset.scale=sc;
 }
 function setupMinimap(){
   const toggle=$('minimapToggle'),box=$('minimap'),svg=$('minimapSvg'); if(!toggle||!box||!svg)return;
   const setOpen=open=>{box.classList.toggle('hidden',!open);if(open)requestAnimationFrame(updateMinimap);};
   toggle.addEventListener('click',()=>setOpen(box.classList.contains('hidden')));$('minimapClose')?.addEventListener('click',()=>setOpen(false));
-  svg.addEventListener('pointerdown',e=>{const sc=Number(svg.dataset.scale)||1,ox=Number(svg.dataset.ox)||0,oy=Number(svg.dataset.oy)||0,g=geometry(),pt={x:(e.offsetX-ox)/sc,y:(e.offsetY-oy)/sc};const wrap=$('canvasWrap'),p=window.__canvasPan;if(!wrap||!p)return;const z=p.zoom||1;p.x=wrap.clientWidth/2-pt.x*z;p.y=wrap.clientHeight/2-pt.y*z;window.__applyCanvasPan?.();updateMinimap();e.preventDefault();});
+  // Clicar centraliza a área visível no ponto; arrastar move a área visível junto.
+  const goTo=e=>{
+    const rect=svg.getBoundingClientRect(),vb=svg.viewBox.baseVal,k=vb.width/rect.width;
+    const sc=Number(svg.dataset.scale)||1,ox=Number(svg.dataset.ox)||0,oy=Number(svg.dataset.oy)||0;
+    const pt={x:((e.clientX-rect.left)*k-ox)/sc,y:((e.clientY-rect.top)*k-oy)/sc};
+    const wrap=$('canvasWrap'),p=window.__canvasPan; if(!wrap||!p)return;
+    const z=p.zoom||1; p.x=wrap.clientWidth/2-pt.x*z; p.y=wrap.clientHeight/2-pt.y*z;
+    window.__applyCanvasPan?.(); updateMinimap();
+  };
+  let dragging=false;
+  svg.addEventListener('pointerdown',e=>{if(e.button!==0)return;dragging=true;svg.setPointerCapture(e.pointerId);svg.classList.add('is-dragging');goTo(e);e.preventDefault();});
+  svg.addEventListener('pointermove',e=>{if(dragging)goTo(e);});
+  const stop=e=>{dragging=false;svg.classList.remove('is-dragging');if(svg.hasPointerCapture?.(e.pointerId))svg.releasePointerCapture(e.pointerId);};
+  svg.addEventListener('pointerup',stop); svg.addEventListener('pointercancel',stop);
+  window.addEventListener('resize',()=>updateMinimap());
   box.classList.add('hidden');
 }
 async function newProject(){

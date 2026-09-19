@@ -920,3 +920,71 @@ label {
 .canvas-zoom-bar:focus-within {
   border-radius: 999px;
 }
+
+/* ---------- Mini mapa ----------
+   Enquadrado no desenho, no canto superior direito da planta (o inferior direito é
+   dos botões de ferramenta). Os racks usam as mesmas cores da camada escolhida. */
+.minimap {
+  bottom: auto;
+  width: 240px;
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+}
+.minimap svg {
+  cursor: grab;
+  touch-action: none;
+}
+.minimap svg.is-dragging {
+  cursor: grabbing;
+}
+.minimap-rack {
+  fill: color-mix(in srgb, var(--panel2) 70%, var(--muted));
+  stroke: color-mix(in srgb, var(--muted) 75%, transparent);
+  stroke-width: 1;
+}
+.minimap-rack.heat-l1 {
+  fill: color-mix(in srgb, var(--heat-l1) 55%, var(--panel2));
+  stroke: var(--heat-l1);
+}
+.minimap-rack.heat-l2 {
+  fill: color-mix(in srgb, var(--heat-l2) 55%, var(--panel2));
+  stroke: var(--heat-l2);
+}
+.minimap-rack.heat-l3 {
+  fill: color-mix(in srgb, var(--heat-l3) 60%, var(--panel2));
+  stroke: var(--heat-l3);
+}
+.minimap-rack.heat-l4 {
+  fill: color-mix(in srgb, var(--heat-l4) 65%, var(--panel2));
+  stroke: var(--heat-l4);
+}
+.minimap-rack.heat-none {
+  fill: color-mix(in srgb, var(--heat-none) 14%, var(--panel2));
+  stroke: var(--heat-none);
+  stroke-dasharray: 2 1.5;
+}
+.minimap-rack.selected {
+  stroke: var(--blue);
+  stroke-width: 2;
+  stroke-dasharray: none;
+}
+.minimap-alert {
+  stroke: var(--panel);
+  stroke-width: 0.8;
+  pointer-events: none;
+}
+.minimap-alert.alert-l3 {
+  fill: var(--orange);
+}
+.minimap-alert.alert-l4 {
+  fill: var(--red);
+}
+.minimap-viewport {
+  fill: color-mix(in srgb, var(--blue) 14%, transparent);
+  stroke: var(--blue);
+  stroke-width: 1.5;
+  stroke-dasharray: none;
+  pointer-events: none;
+}
