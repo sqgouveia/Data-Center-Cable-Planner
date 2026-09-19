@@ -62,3 +62,40 @@ export function occupiedUnits(assets, rackId, face) {
   });
   return used;
 }
+
+// Problemas de posição que a interface não deveria deixar criar, mas que podem
+// vir de dados antigos, importados ou editados fora do app: dois assets
+// ocupando a mesma U na mesma face, ou um asset fora das U do rack.
+// `unitsByRack` é um Map rackId -> altura do rack em U.
+export function assetPositionProblems(assets, unitsByRack) {
+  const problems = [];
+  const groups = new Map();
+  for (const a of assets || []) {
+    if (!a || !a.rackId || isAssetArchived(a) || !unitsByRack.has(a.rackId)) continue;
+    const o = assetOccupancy(a);
+    const units = unitsByRack.get(a.rackId);
+    if (o.start < 1 || o.end > units) problems.push({ kind: 'outside', rackId: a.rackId, asset: a, units, start: o.start, end: o.end });
+    const key = `${a.rackId}|${(a.face || 'front') === 'rear' ? 'rear' : 'front'}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ asset: a, ...o });
+  }
+  for (const [key, list] of groups) {
+    list.sort((x, y) => x.start - y.start || x.end - y.end);
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length && list[j].start <= list[i].end; j++) {
+        problems.push({ kind: 'overlap', rackId: key.split('|')[0], face: key.split('|')[1], a: list[i].asset, b: list[j].asset });
+      }
+    }
+  }
+  return problems;
+}
+
+// Maior U ocupada por assets não arquivados do rack (0 se não há nenhum).
+export function highestOccupiedU(assets, rackId) {
+  let top = 0;
+  for (const a of assets || []) {
+    if (!a || a.rackId !== rackId || isAssetArchived(a)) continue;
+    top = Math.max(top, assetOccupancy(a).end);
+  }
+  return top;
+}

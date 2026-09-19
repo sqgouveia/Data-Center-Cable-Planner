@@ -21,7 +21,7 @@ import {
 } from './js/routing.js';
 import {
   isAssetArchived, assetOccupancy, assetsOnFace, assetAtRackU,
-  assetOwningPort, assetConflicts, occupiedUnits
+  assetOwningPort, assetConflicts, occupiedUnits, assetPositionProblems, highestOccupiedU
 } from './js/occupancy.js';
 import { configurePdfReport, openPdfReportOptions, closePdfReportOptions, generatePDFReport } from './js/pdf-report.js';
 import { runtime } from './js/runtime.js';
@@ -437,7 +437,7 @@ function normalizeState(){
 // O que "Aplicar estrutura" vai perder ou mudar, contado antes de confirmar.
 // Cada rack novo herda cabos e assets do rack que ocupava a mesma posição
 // (fileira + índice) na estrutura atual.
-function structureRebuildImpact(count,racksPerRow){
+function structureRebuildImpact(count,racksPerRow,newUnits){
   const rowIdx=new Map(state.rows.map((r,i)=>[r.id,i]));
   const survives=r=>{const ri=rowIdx.get(r.rowId);return ri!==undefined&&ri<count&&r.index<racksPerRow;};
   const lostIds=new Set(state.racks.filter(r=>!survives(r)).map(r=>r.id));
@@ -453,6 +453,7 @@ function structureRebuildImpact(count,racksPerRow){
     trays:state.trays.length, lostRacks:lostIds.size, customRacks, renamedRows,
     assetsLost:mounted.filter(a=>lostIds.has(a.rackId)).length,
     assetsKept:mounted.filter(a=>!lostIds.has(a.rackId)).length,
+    assetsTooTall:mounted.filter(a=>!lostIds.has(a.rackId)&&!isAssetArchived(a)&&assetOccupancy(a).end>newUnits).length, newUnits,
     cablesLost, cablesKept:state.cables.length-cablesLost
   };
 }
@@ -462,6 +463,7 @@ function structureRebuildMessage(count,racksPerRow,i){
   if(i.trays)out.push(`• ${n(i.trays,'calha será removida','calhas serão removidas')} (as calhas são redesenhadas do zero).`);
   if(i.lostRacks)out.push(`• ${n(i.lostRacks,'rack sai','racks saem')} da grade.`);
   if(i.assetsLost)out.push(`• ${n(i.assetsLost,'asset ficará','assets ficarão')} sem rack (a posição instalada é perdida).`);
+  if(i.assetsTooTall)out.push(`• ${n(i.assetsTooTall,'asset passa','assets passam')} da altura de ${i.newUnits}U dos racks novos; ficam fora do rack até serem ajustados.`);
   if(i.cablesLost)out.push(`• ${n(i.cablesLost,'cabo será removido','cabos serão removidos')} por perder origem ou destino.`);
   if(i.customRacks||i.renamedRows)out.push('• Nomes e ajustes individuais de racks e fileiras (capacidades, posição) voltam ao padrão.');
   const kept=[i.assetsKept?n(i.assetsKept,'asset','assets'):'',i.cablesKept?n(i.cablesKept,'cabo','cabos'):''].filter(Boolean);
@@ -474,8 +476,8 @@ async function rebuildStructureFromSettings(){
   if(state.rows.length || state.racks.length || state.trays.length){
     const count0=Math.max(0,Math.min(30,Math.floor(num($('rowCount').value,0))));
     const racks0=Math.max(0,Math.min(100,Math.floor(num($('defaultRacks').value,0))));
-    const impact=structureRebuildImpact(count0,racks0);
-    const ok=await uiConfirm(structureRebuildMessage(count0,racks0,impact),{title:'Reconstruir estrutura?',confirmText:'Reconstruir',danger:!!(impact.trays||impact.lostRacks||impact.assetsLost||impact.cablesLost)});
+    const impact=structureRebuildImpact(count0,racks0,Math.max(1,Math.min(60,Math.floor(num($('rackUnits').value,48)))));
+    const ok=await uiConfirm(structureRebuildMessage(count0,racks0,impact),{title:'Reconstruir estrutura?',confirmText:'Reconstruir',danger:!!(impact.trays||impact.lostRacks||impact.assetsLost||impact.assetsTooTall||impact.cablesLost)});
     if(!ok)return;
   }
 
@@ -826,6 +828,7 @@ function roomSummaryData(){
   state.cables.forEach(c=>{const t=c.type||'Sem tipo';byType.set(t,(byType.get(t)||0)+1);});
   const chips=[...byType.entries()].sort((a,b)=>b[1]-a[1]);
   const items=[
+    ...positionIssues().filter(i=>i.roomId===roomId).map(i=>({level:'high',title:i.name,detail:i.detail,kind:'rack',value:i.rackId})),
     ...capacityIssues().filter(i=>i.roomId===roomId).map(i=>({level:i.level,title:i.name,detail:`${i.label} · ${Math.round(i.current)}/${Math.round(i.capacity)} ${i.unit}`,kind:i.kind==='cooling'?'room':'rack',value:i.kind==='cooling'?roomId:i.rackId})),
     ...assetsNeedingAttention().filter(a=>a.roomId===roomId).map(a=>{
       const w=assetWarrantyLevel(a),e=assetEndOfLifeLevel(a);
@@ -1275,7 +1278,7 @@ function assetsNeedingAttention(){
 }
 function updateAlertsCenterBadge(){
   const btn=$('btnAlertsCenter'); if(!btn)return;
-  const total=assetsNeedingAttention().length+capacityIssues().length;
+  const total=assetsNeedingAttention().length+capacityIssues().length+positionIssues().length;
   btn.classList.toggle('hidden',total===0);
   if($('alertsCenterCount'))$('alertsCenterCount').textContent=String(total);
 }
@@ -1306,17 +1309,33 @@ function capacityIssues(){
   issues.sort((a,b)=>(a.level==='high'?0:1)-(b.level==='high'?0:1));
   return issues;
 }
+// Assets sobrepostos ou fora das U do rack. A interface bloqueia isso ao salvar,
+// mas dados antigos, importados ou alterados fora do app podem trazer o problema.
+function positionIssues(){
+  const unitsByRack=new Map(), meta=new Map();
+  allProjectRacks().forEach(({rack:r,room})=>{unitsByRack.set(r.id,Math.max(1,Math.floor(num(r.units,state.rackUnits))));meta.set(r.id,{name:r.name,roomId:room.id});});
+  const label=a=>a.name||a.assetTag||'asset';
+  return assetPositionProblems(state.assets,unitsByRack).map(p=>({
+    kind:'position',level:'high',rackId:p.rackId,roomId:meta.get(p.rackId)?.roomId,name:meta.get(p.rackId)?.name||'Rack',
+    detail:p.kind==='overlap'?`Sobrepostos: ${label(p.a)} × ${label(p.b)}`:`${label(p.asset)} fora das ${p.units}U`
+  }));
+}
 function closeAlertsCenterPanel(){document.querySelectorAll('.alerts-center-panel').forEach(x=>x.remove());}
 function openAlertsCenterPanel(anchorBtn){
   closeAlertsCenterPanel();
   const lifecycleIssues=assetsNeedingAttention();
   const capIssues=capacityIssues();
+  const posIssues=positionIssues();
   const KIND_UNIT_LABEL={power:'de energia',weight:'de carga',cooling:'de refrigeração'};
   const panel=document.createElement('div'); panel.className='col-filter-panel alerts-center-panel';
   let body='';
-  if(!lifecycleIssues.length && !capIssues.length){
+  if(!lifecycleIssues.length && !capIssues.length && !posIssues.length){
     body='<div class="empty">Nenhum alerta no momento.</div>';
   }else{
+    if(posIssues.length){
+      body+='<div class="alerts-center-group-label">Posição dos assets</div>';
+      body+=posIssues.map((iss,i)=>`<button type="button" class="capacity-alert-item level-high" data-position-index="${i}"><span>${esc(iss.name)}</span><small>${esc(iss.detail)}</small></button>`).join('');
+    }
     if(lifecycleIssues.length){
       body+='<div class="alerts-center-group-label">Ciclo de vida</div>';
       body+=lifecycleIssues.map((a,i)=>{
@@ -1340,6 +1359,12 @@ function openAlertsCenterPanel(anchorBtn){
     const a=lifecycleIssues[Number(btn.dataset.lifecycleIndex)];
     closeAlertsCenterPanel();
     openAssetModal(a.id);
+  });
+  panel.querySelectorAll('[data-position-index]').forEach(btn=>btn.onclick=()=>{
+    const iss=posIssues[Number(btn.dataset.positionIndex)];
+    closeAlertsCenterPanel();
+    if(iss.roomId && iss.roomId!==state.activeRoomId) switchRoom(iss.roomId);
+    state.multiSelected=[]; state.selected={type:'rack',id:iss.rackId}; renderAll(false); renderProperties();
   });
   $('alertsCenterViewAll')?.addEventListener('click',()=>{closeAlertsCenterPanel();openAssetsModalWithAttentionFilter();});
   panel.querySelectorAll('[data-capacity-index]').forEach(btn=>btn.onclick=()=>{
@@ -2342,6 +2367,7 @@ function renderProperties(){
       const ids=new Set(state.multiSelected);
       const unitsVal=$('bulkUnits').value.trim(), widthVal=$('bulkWidth').value.trim(), depthVal=$('bulkDepth').value.trim(), gapVal=$('bulkGap').value.trim(), riseVal=$('bulkRise').value.trim(), powerCapVal=$('bulkPowerCapacity').value.trim(), weightCapVal=$('bulkWeightCapacity').value.trim();
       if(!unitsVal&&!widthVal&&!depthVal&&!gapVal&&!riseVal&&!powerCapVal&&!weightCapVal){toast('Informe pelo menos uma propriedade');return;}
+      if(unitsVal){const next=Math.max(1,Math.min(60,Math.floor(num(unitsVal,0))));const blocked=state.racks.filter(r=>ids.has(r.id)&&highestOccupiedU(state.assets,r.id)>next);if(blocked.length){toast(`${blocked.length===1?'O rack '+blocked[0].name+' tem':blocked.length+' racks têm'} equipamento acima da U${next}. Ajuste os assets antes de reduzir a altura.`);return;}}
       state.racks.filter(r=>ids.has(r.id)).forEach(r=>{
         if(unitsVal){r.units=Math.max(1,Math.min(60,Math.floor(num(unitsVal,r.units))));}
         if(widthVal){const old=Math.max(.1,num(r.width,state.rackWidth)),next=Math.max(.1,num(widthVal,state.rackWidth));r.offset=num(r.offset,0)+(old-next)/2;r.width=next;}
@@ -2385,7 +2411,7 @@ function renderProperties(){
       <button class="btn ghost full" id="openBayface">▦ Ver Bayface</button><button class="btn danger full" id="delRack">Excluir rack</button>
       <div class="help autosave">As alterações do rack são salvas automaticamente.</div>`;
     if($('prName'))$('prName').onchange=()=>{if(structureBlocked())return;r.name=$('prName').value.trim();refreshVisuals();renderProperties();};
-    if($('prUnits'))$('prUnits').onchange=()=>{if(structureBlocked())return;r.units=Math.max(1,Math.min(60,Math.floor(num($('prUnits').value,state.rackUnits))));refreshVisuals();renderProperties();};
+    if($('prUnits'))$('prUnits').onchange=()=>{if(structureBlocked())return;const next=Math.max(1,Math.min(60,Math.floor(num($('prUnits').value,state.rackUnits))));const top=highestOccupiedU(state.assets,r.id);if(next<top){toast(`Há equipamento até a U${top}. Mova-o ou remova-o antes de reduzir o rack para ${next}U.`);renderProperties();return;}r.units=next;refreshVisuals();renderProperties();};
     if($('prWidth'))$('prWidth').onchange=()=>{if(structureBlocked())return;
       const oldWidth=Math.max(.1,num(r.width,state.rackWidth));
       const nextWidth=Math.max(.1,num($('prWidth').value,state.rackWidth));

@@ -114,3 +114,63 @@ test('occupiedUnits counts only the requested face', () => {
   assert.deepEqual([...occupiedUnits([front, rear], 'rack1', 'front')].sort((a, b) => a - b), [10, 11]);
   assert.deepEqual([...occupiedUnits([front, rear], 'rack1', 'rear')], [20]);
 });
+
+import { assetPositionProblems, highestOccupiedU } from '../occupancy.js';
+
+test('assetPositionProblems: sobreposição na mesma face é apontada, faces opostas não', () => {
+  const units = new Map([['rack1', 48]]);
+  const ok = assetPositionProblems([
+    asset({ id: 'a', uStart: 1, uHeight: 8 }),
+    asset({ id: 'b', uStart: 9, uHeight: 4 }),
+    asset({ id: 'c', uStart: 1, uHeight: 8, face: 'rear' }),
+  ], units);
+  assert.deepEqual(ok, []);
+  const bad = assetPositionProblems([
+    asset({ id: 'small', uStart: 11, uHeight: 8 }),
+    asset({ id: 'big', uStart: 1, uHeight: 40 }),
+  ], units);
+  assert.equal(bad.length, 1);
+  assert.equal(bad[0].kind, 'overlap');
+  assert.deepEqual([bad[0].a.id, bad[0].b.id].sort(), ['big', 'small']);
+});
+
+test('assetPositionProblems: um asset grande cobrindo vários pequenos aponta cada par', () => {
+  const units = new Map([['rack1', 48]]);
+  const bad = assetPositionProblems([
+    asset({ id: 'big', uStart: 1, uHeight: 40 }),
+    asset({ id: 's1', uStart: 11, uHeight: 2 }),
+    asset({ id: 's2', uStart: 21, uHeight: 2 }),
+  ], units);
+  assert.equal(bad.filter(p => p.kind === 'overlap').length, 2);
+});
+
+test('assetPositionProblems: asset fora das U do rack e arquivado ignorado', () => {
+  const units = new Map([['rack1', 10]]);
+  const bad = assetPositionProblems([
+    asset({ id: 'over', uStart: 8, uHeight: 5 }),
+    asset({ id: 'old', uStart: 1, uHeight: 40, status: 'Arquivado' }),
+    asset({ id: 'other', rackId: 'ghost', uStart: 1, uHeight: 4 }),
+  ], units);
+  assert.deepEqual(bad.map(p => [p.kind, p.asset?.id]), [['outside', 'over']]);
+});
+
+test('highestOccupiedU: maior U em uso, ignorando arquivados e outros racks', () => {
+  const list = [
+    asset({ id: 'a', uStart: 3, uHeight: 2 }),
+    asset({ id: 'b', uStart: 20, uHeight: 4, face: 'rear' }),
+    asset({ id: 'c', uStart: 40, uHeight: 8, status: 'Arquivado' }),
+    asset({ id: 'd', rackId: 'rack2', uStart: 30, uHeight: 2 }),
+  ];
+  assert.equal(highestOccupiedU(list, 'rack1'), 23);
+  assert.equal(highestOccupiedU(list, 'nope'), 0);
+});
+
+test('assetPositionProblems: pares sobrepostos entre si também aparecem quando um terceiro cobre os dois', () => {
+  const units = new Map([['rack1', 48]]);
+  const bad = assetPositionProblems([
+    asset({ id: 'big', uStart: 1, uHeight: 40 }),
+    asset({ id: 'twin1', uStart: 11, uHeight: 8 }),
+    asset({ id: 'twin2', uStart: 11, uHeight: 8 }),
+  ], units);
+  assert.equal(bad.filter(p => p.kind === 'overlap').length, 3);
+});
