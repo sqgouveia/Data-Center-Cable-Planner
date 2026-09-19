@@ -678,6 +678,13 @@ function updateHeatControl(){
   legend.classList.toggle('hidden',!items);
   legend.innerHTML=items?items.map(([lv,label])=>`<span class="heat-legend-item"><i class="heat-swatch heat-${lv}"></i>${esc(label)}</span>`).join(''):'';
 }
+function setupSummaryRefit(){
+  let timer=null;
+  window.addEventListener('resize',()=>{
+    clearTimeout(timer);
+    timer=setTimeout(()=>{if(!state.selected&&!state.multiSelected.length&&!state.trayMultiSelected.length)renderProperties();},150);
+  });
+}
 function setupHeatControl(){
   $('heatControl')?.addEventListener('click',e=>{
     const b=e.target.closest('[data-heat]'); if(!b||b.dataset.heat===heatMode)return;
@@ -758,7 +765,6 @@ function roomSummaryData(){
 // `alerts`/`chips` limitam quantos alertas e chips de tipo de cabo entram.
 function roomSummaryHtml({s,thermal,chips,items},{alerts,chips:chipCount}){
   const meters=[
-    summaryMeter('Ocupação de U',`${s.usedU}/${s.totalU} U · ${pctText(s.uRatio)}`,s.uRatio,`${s.freeU} U livres em ${s.racks} ${s.racks===1?'rack':'racks'}`),
     s.powerCap>0
       ?summaryMeter('Energia',`${s.powerW}/${s.powerCap} W · ${pctText(s.powerRatio)}`,s.powerRatio)
       :summaryMeter('Energia',`${s.powerW} W`,null,'Sem capacidade elétrica definida nos racks.'),
@@ -783,13 +789,20 @@ function roomSummaryHtml({s,thermal,chips,items},{alerts,chips:chipCount}){
 function renderRoomSummary(p){
   const data=roomSummaryData();
   setPropTitleSticky(data.room?`Resumo · ${data.room.name}`:'Resumo da sala');
-  // O resumo tem que caber sem barra de rolagem: começa completo e vai
-  // cortando alertas e chips até o painel (que rola) parar de transbordar.
+  // O resumo tem que caber sem barra de rolagem. Começa com todos os alertas e
+  // os chips de tipo de cabo; se transbordar, tira primeiro os chips e depois
+  // os alertas que não cabem (o botão "Mais N" leva à Central de alertas).
   const section=p.closest('section');
-  const variants=[{alerts:4,chips:3},{alerts:3,chips:3},{alerts:2,chips:2},{alerts:2,chips:0},{alerts:1,chips:0},{alerts:0,chips:0}];
-  for(const v of variants){
-    p.innerHTML=roomSummaryHtml(data,v);
-    if(!section||section.scrollHeight<=section.clientHeight)break;
+  const overflow=()=>section?section.scrollHeight-section.clientHeight:0;
+  let alerts=Math.min(data.items.length,60), chips=3;
+  p.innerHTML=roomSummaryHtml(data,{alerts,chips});
+  for(let guard=0;overflow()>0&&guard<80;guard++){
+    if(chips>0)chips=0;
+    else if(alerts>0){
+      const row=(p.querySelector('[data-rs-i]')?.offsetHeight||26)+2;
+      alerts=Math.max(0,alerts-Math.max(1,Math.ceil(overflow()/row)));
+    }else break;
+    p.innerHTML=roomSummaryHtml(data,{alerts,chips});
   }
   const shown=data.items.slice(0,p.querySelectorAll('[data-rs-i]').length);
   p.querySelectorAll('[data-rs-i]').forEach(btn=>btn.onclick=()=>{
@@ -3136,7 +3149,7 @@ function bind(){
   // Bindar os controles do canvas ANTES da renderização do projeto.
   // Isso garante que um erro em renderAll() não deixe os controles mudos.
   setupMinimap();
-  setupHeatControl();setupRackTooltip();
+  setupHeatControl();setupRackTooltip();setupSummaryRefit();
   setupSidebarToggle();
   setupStructureLockControl();
 
