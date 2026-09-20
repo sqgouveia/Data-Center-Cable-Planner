@@ -13,27 +13,27 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=254" />
-    <link rel="stylesheet" href="macos.css?v=119" />
+    <link rel="stylesheet" href="app.css?v=274" />
+    <link rel="stylesheet" href="macos.css?v=139" />
     <script type="importmap">
       {
         "imports": {
-          "./js/bulk-assets.js": "./js/bulk-assets.js?v=258",
-          "./js/cables.js": "./js/cables.js?v=258",
-          "./js/catalogs.js": "./js/catalogs.js?v=258",
-          "./js/cloud-sync.js": "./js/cloud-sync.js?v=258",
-          "./js/dialogs.js": "./js/dialogs.js?v=258",
-          "./js/geometry.js": "./js/geometry.js?v=258",
-          "./js/inventory-import.js": "./js/inventory-import.js?v=258",
-          "./js/occupancy.js": "./js/occupancy.js?v=258",
-          "./js/pdf-report.js": "./js/pdf-report.js?v=258",
-          "./js/plant-export.js": "./js/plant-export.js?v=258",
-          "./js/rack-metrics.js": "./js/rack-metrics.js?v=258",
-          "./js/routing.js": "./js/routing.js?v=258",
-          "./js/runtime.js": "./js/runtime.js?v=258",
-          "./js/state.js": "./js/state.js?v=258",
-          "./js/styled-select.js": "./js/styled-select.js?v=258",
-          "./js/utils.js": "./js/utils.js?v=258"
+          "./js/bulk-assets.js": "./js/bulk-assets.js?v=278",
+          "./js/cables.js": "./js/cables.js?v=278",
+          "./js/catalogs.js": "./js/catalogs.js?v=278",
+          "./js/cloud-sync.js": "./js/cloud-sync.js?v=278",
+          "./js/dialogs.js": "./js/dialogs.js?v=278",
+          "./js/geometry.js": "./js/geometry.js?v=278",
+          "./js/inventory-import.js": "./js/inventory-import.js?v=278",
+          "./js/occupancy.js": "./js/occupancy.js?v=278",
+          "./js/pdf-report.js": "./js/pdf-report.js?v=278",
+          "./js/plant-export.js": "./js/plant-export.js?v=278",
+          "./js/rack-metrics.js": "./js/rack-metrics.js?v=278",
+          "./js/routing.js": "./js/routing.js?v=278",
+          "./js/runtime.js": "./js/runtime.js?v=278",
+          "./js/state.js": "./js/state.js?v=278",
+          "./js/styled-select.js": "./js/styled-select.js?v=278",
+          "./js/utils.js": "./js/utils.js?v=278"
         }
       }
     </script>
@@ -608,6 +608,7 @@
               id="envCollapse"
               class="panel-step-toggle"
               type="button"
+              data-section-collapse="configuração"
               aria-expanded="true"
               title="Recolher configuração"
               aria-label="Recolher configuração"
@@ -799,6 +800,19 @@
               <h2>Fileiras</h2>
               <small>Configure as fileiras do seu data center.</small>
             </div>
+            <button
+              id="rowsCollapse"
+              class="panel-step-toggle"
+              type="button"
+              data-section-collapse="fileiras"
+              aria-expanded="true"
+              title="Recolher fileiras"
+              aria-label="Recolher fileiras"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 9.5 12 15.5l6-6" />
+              </svg>
+            </button>
           </div>
           <div id="rowsPanel"></div>
         </section>
@@ -1036,6 +1050,19 @@
                 >
               </div>
             </div>
+            <button
+              id="propCollapse"
+              class="panel-step-toggle"
+              type="button"
+              data-section-collapse="propriedades"
+              aria-expanded="true"
+              title="Recolher propriedades"
+              aria-label="Recolher propriedades"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 9.5 12 15.5l6-6" />
+              </svg>
+            </button>
             <div id="propTitleSticky" class="prop-title-sticky"></div>
           </div>
           <div id="properties">
@@ -1059,6 +1086,19 @@
             <div class="prop-head-text">
               <h2>Cabos</h2>
             </div>
+            <button
+              id="cablesCollapse"
+              class="panel-step-toggle"
+              type="button"
+              data-section-collapse="cabos"
+              aria-expanded="true"
+              title="Recolher cabos"
+              aria-label="Recolher cabos"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 9.5 12 15.5l6-6" />
+              </svg>
+            </button>
             <span id="cableCount" class="cables-count">0 cabos</span>
             <button
               id="btnAddCablePanel"
@@ -4075,6 +4115,6 @@
       <span class="task-bar-fill" aria-hidden="true"></span>
       <span class="task-bar-label" id="taskBarLabel">Processando…</span>
     </div>
-    <script type="module" src="app.js?v=258"></script>
+    <script type="module" src="app.js?v=278"></script>
   </body>
 </html>

@@ -711,6 +711,80 @@ function bindRowReorder(panel){
   });
 }
 
+// Recolher por painel: cada cabeçalho com [data-section-collapse] esconde o corpo da sua
+// seção. O cabeçalho fica, com a seta virada.
+function bindSectionCollapse(){
+  document.querySelectorAll('[data-section-collapse]').forEach(btn=>{
+    if(btn.dataset.collapseBound)return;
+    btn.dataset.collapseBound='1';
+    btn.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      const sec=btn.closest('section'); if(!sec)return;
+      const collapsed=sec.classList.toggle('collapsed');
+      const nome=btn.dataset.sectionCollapse||'painel';
+      // O puxador de redimensionar grava altura inline na seção, e inline vence o CSS: sem
+      // guardar e limpar isso, o cartão recolhido continuaria com a altura do arrasto.
+      if(collapsed){
+        sec.dataset.keepHeight=sec.style.height||'';
+        sec.dataset.keepMaxHeight=sec.style.maxHeight||'';
+        sec.style.height='';
+        sec.style.maxHeight='';
+      }else{
+        sec.style.height=sec.dataset.keepHeight||'';
+        sec.style.maxHeight=sec.dataset.keepMaxHeight||'';
+      }
+      // O estado fica no dataset: se o painel for redesenhado, a seção volta recolhida.
+      sec.dataset.collapsed=collapsed?'1':'0';
+      try{localStorage.setItem(`dccp-collapse-${nome}`,collapsed?'1':'0');}catch{}
+      btn.setAttribute('aria-expanded',collapsed?'false':'true');
+      const txt=`${collapsed?'Expandir':'Recolher'} ${nome}`;
+      btn.title=txt; btn.setAttribute('aria-label',txt);
+    });
+    // Estado salvo: recolhimento sobrevive a recarregar a página.
+    const secInicial=btn.closest('section');
+    if(secInicial&&!secInicial.dataset.collapseRestored){
+      secInicial.dataset.collapseRestored='1';
+      const nomeInicial=btn.dataset.sectionCollapse||'painel';
+      let salvo=null; try{salvo=localStorage.getItem(`dccp-collapse-${nomeInicial}`);}catch{}
+      if(salvo==='1'){
+        secInicial.classList.add('collapsed');
+        secInicial.dataset.collapsed='1';
+        btn.setAttribute('aria-expanded','false');
+        const txt=`Recolher ${nomeInicial}`;
+        btn.title=txt; btn.setAttribute('aria-label',txt);
+      }
+    }
+    // Redesenho do painel (trocar a seleção, mudar a U de um cabo) não pode devolver o
+    // conteúdo: observa a seção e reaplica o estado guardado.
+    const sec=btn.closest('section');
+    if(sec&&!sec.dataset.collapseWatch){
+      sec.dataset.collapseWatch='1';
+      const guard=()=>{
+        if(sec.dataset.collapsed==='1'&&!sec.classList.contains('collapsed'))sec.classList.add('collapsed');
+      };
+      // Qualquer redesenho do painel — troca de seleção, mudança de U, re-render da lista —
+      // passa por aqui e devolve o recolhimento. Sem isso o conteúdo voltava sozinho.
+      new MutationObserver(guard).observe(sec,{
+        childList:true, subtree:true, attributes:true, attributeFilter:['class'],
+      });
+      window.addEventListener('resize',guard);
+    }
+  });
+}
+// Modo foco: Ctrl/Cmd+B esconde os dois painéis e devolve a planta inteira.
+function setupFocusMode(){
+  if(window.__dccpFocusBound)return;
+  window.__dccpFocusBound=true;
+  const shell=document.querySelector('.app'); if(!shell)return;
+  window.addEventListener('keydown',ev=>{
+    if(!(ev.ctrlKey||ev.metaKey)||ev.altKey)return;
+    if(String(ev.key).toLowerCase()!=='b')return;
+    ev.preventDefault();
+    const hidden=shell.classList.toggle('panels-hidden');
+    requestAnimationFrame(()=>window.__updateMinimap?.());
+    toast(hidden?'Painéis ocultos — Ctrl+B para voltar':'Painéis de volta');
+  });
+}
 function openRenameRowModal(rowId){
   const row=state.rows.find(r=>r.id===rowId); if(!row)return;
   const racks=racksInRow(rowId); if(!racks.length){toast('Esta fileira não possui racks');return;}
@@ -1005,6 +1079,9 @@ function roomSummaryHtml({s,thermal,chips,items},{alerts,chips:chipCount}){
 function renderRoomSummary(p){
   const data=roomSummaryData();
   setPropTitleSticky(data.room?`Resumo · ${data.room.name}`:'Resumo da sala');
+  // Sem seleção o cabeçalho é o da sala. Sem esta linha ele ficava com o texto da seleção
+  // anterior ("3 racks selecionados") depois de limpar a seleção no canvas.
+  setPropHead('default','Propriedades','Selecione um rack, calha ou cabo.');
   // O resumo tem que caber sem barra de rolagem. Começa com todos os alertas e
   // os chips de tipo de cabo; se transbordar, tira primeiro os chips e depois
   // os alertas que não cabem (o botão "Mais N" leva à Central de alertas).
@@ -3190,11 +3267,16 @@ function setupPropSectionResize(){
   let startY=0,startH=0,dragging=false;
   const onMove=e=>{
     if(!dragging)return;
+    // Recolhido não redimensiona: a altura inline do arrasto venceria o recolhimento e o
+    // cartão voltaria a crescer com o corpo escondido.
+    if(propSection.classList.contains('collapsed'))return;
     const dy=e.clientY-startY;
     const maxAllowed=Math.max(120,right.clientHeight-140);
     const h=Math.max(120,Math.min(maxAllowed,startH+dy));
+    // O arrasto define o teto, não a altura: com conteúdo curto o cartão encolhe até ele em
+    // vez de guardar o vão do tamanho antigo.
     propSection.style.maxHeight=h+'px';
-    propSection.style.height=h+'px';
+    propSection.style.height='';
     if(!state.selected&&!state.multiSelected.length&&!state.trayMultiSelected.length)renderProperties();
   };
   const onUp=()=>{
@@ -3323,6 +3405,16 @@ function setupPan(){
   };
   wrap.addEventListener('pointerdown',begin,{passive:false});
   wrap.addEventListener('wheel',zoomAt,{passive:false});
+  // Clique no fundo do canvas limpa a seleção. O SVG só cobre a área do desenho: clicar na
+  // parte vazia ao lado dele deixava o painel preso no "N racks selecionados".
+  wrap.addEventListener('click',e=>{
+    const alvo=e.target;
+    if(alvo!==wrap&&alvo!==stage)return;
+    if(state.selected||state.multiSelected.length||state.trayMultiSelected.length){
+      state.selected=null; state.multiSelected=[]; state.trayMultiSelected=[];
+      renderAll();
+    }
+  });
   window.__applyCanvasPan=apply; window.__updateMinimap=()=>updateMinimap();
   window.__zoomAt=zoomAt;
   window.__zoomIn=()=>{const evt={clientX:wrap.clientWidth/2,clientY:wrap.clientHeight/2,deltaY:-1,ctrlKey:false,preventDefault(){}};zoomAt(evt);};
@@ -3473,9 +3565,14 @@ function minimapBox(g){
 }
 // Parte do canvas que aparece de fato: a barra lateral esquerda cobre o começo do #canvasWrap.
 function canvasVisible(wrap){
-  const sb=document.querySelector('.sidebar.left'), wr=wrap.getBoundingClientRect(), sr=sb?.getBoundingClientRect();
-  const left=sr&&sr.width>0&&sr.right>wr.left?Math.min(wr.width-1,Math.max(0,sr.right-wr.left)):0;
-  return {left,width:wrap.clientWidth-left,height:wrap.clientHeight};
+  // Os dois painéis flutuam sobre a planta: a área visível é o que sobra entre eles.
+  const wr=wrap.getBoundingClientRect();
+  const lado=sel=>{const el=document.querySelector(sel); if(!el||!el.offsetParent)return null;
+    const r=el.getBoundingClientRect(); return r.width>0?r:null;};
+  const lr=lado('.sidebar.left'), rr=lado('.sidebar.right');
+  const left=lr&&lr.right>wr.left?Math.min(wr.width-1,Math.max(0,lr.right-wr.left)):0;
+  const right=rr&&rr.left<wr.right?Math.min(wr.width-1-left,Math.max(0,wr.right-rr.left)):0;
+  return {left,width:Math.max(1,wrap.clientWidth-left-right),height:wrap.clientHeight};
 }
 function updateMinimap(){
   const box=$('minimap'),svg=$('minimapSvg'),wrap=$('canvasWrap'); if(!box||!svg||!wrap||!box.offsetParent)return;
@@ -3886,16 +3983,8 @@ function bind(){
   $('btnImportProject').onclick=()=>{if(structureBlocked())return;$('projectInput').click();};
   $('projectInput').onchange=e=>{const f=e.target.files[0];if(f&&!isStructureLocked())importProject(f);e.target.value='';};
   $('btnReset').onclick=newProject;
-  // Recolher o cartão de configuração: só esconde os campos, o cabeçalho fica.
-  $('envCollapse')?.addEventListener('click',ev=>{
-    ev.stopPropagation();
-    const sec=$('envCollapse').closest('section');
-    const open=sec.classList.toggle('collapsed');
-    $('envCollapse').setAttribute('aria-expanded',open?'false':'true');
-    const label=open?'Expandir configuração':'Recolher configuração';
-    $('envCollapse').title=label;
-    $('envCollapse').setAttribute('aria-label',label);
-  });
+  bindSectionCollapse();
+  setupFocusMode();
   $('renameApply').onclick=applyRenameRow;
   $('renameCancel').onclick=closeRenameRowModal;
   $('renameCancelTop').onclick=closeRenameRowModal;

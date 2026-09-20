@@ -264,9 +264,6 @@ input[type="radio"] {
 }
 /* O filete de luz no topo ficou só nos cartões de seção. No cabeçalho sticky da direita ele
    desenhava uma linha solta em cima de "Propriedades". */
-.sidebar .section-head {
-  box-shadow: inset 0 1px 0 var(--edge);
-}
 
 /* ---------- Janelas (sheets) ---------- */
 .modal-backdrop {
@@ -1010,7 +1007,8 @@ label {
   /* Centraliza por margem automática, em vez de transform: um transform aqui vira containing
      block e prenderia a barra de zoom (position: fixed) dentro desta caixa. */
   left: var(--sb-width);
-  right: 0;
+  /* Os dois painéis flutuam sobre a planta: a barra centraliza no que sobra entre eles. */
+  right: var(--right-w, 340px);
   margin-inline: auto;
   align-items: center;
   max-width: calc(100% - 24px);
@@ -1076,7 +1074,8 @@ label {
 /* ---------- Mini mapa: janela fixa e sempre aberta ---------- */
 .minimap {
   position: absolute;
-  right: 2px;
+  /* Fora da faixa do painel direito, que agora flutua sobre a planta. */
+  right: calc(var(--right-w, 340px) + 14px);
   /* Mesma linha da barra inferior (a barra é centrada no canvas e termina
      antes da faixa do minimapa). Em janela estreita eles se cruzariam, então
      a media query abaixo sobe o minimapa. Cresce ancorado no canto. */
@@ -2150,8 +2149,9 @@ label {
   box-shadow: inset 0 1px 0 var(--edge);
 }
 .sidebar.right > section:first-child .section-head-sticky {
-  /* Mesma altura da barra central de ferramentas. */
-  height: 56px;
+  /* A altura fixa de 56px era da barra antiga; com subtítulo em duas linhas o conteúdo
+     espremia. Deixa a faixa crescer com o texto. */
+  height: auto;
 }
 /* A seção da lateral esquerda é o cartão: o cabeçalho mora dentro dele, e os campos também.
    Antes eram dois blocos empilhados (cabeçalho-bar e cartão de campos). */
@@ -2188,16 +2188,181 @@ label {
   background: var(--panel);
   border-radius: var(--r-lg) var(--r-lg) 0 0;
 }
-/* Respiro da lateral: é ele que deixa o fundo aparecer em volta do cartão. Sem isso o
-   cartão encosta nas bordas e some como superfície. */
+/* Painéis flutuantes: a lateral deixa de ser coluna opaca e vira só o lugar onde os cartões
+   pousam. O respiro de 13px mostra a planta entre um cartão e outro, e o container não
+   captura ponteiro — dá para arrastar o canvas pelo vão. */
 .sidebar.left,
 .sidebar.right {
   padding: 13px;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  pointer-events: none;
+}
+.sidebar.left > section,
+.sidebar.right > section {
+  pointer-events: auto;
+  /* Sombra do tema: no escuro é funda, no claro é leve. Sombra fixa vira borrão no claro. */
+  /* Sem filete de luz na aresta: no topo do cartão ele lê como borda sobre o cabeçalho. */
+  /* Sem borda: quem separa o cartão da planta é a sombra. A borda de 1px desenhava uma
+     linha cinza no topo do cabeçalho. */
+  border: 0;
+  box-shadow: var(--shadow);
+}
+/* O puxador de redimensionar vive entre as seções, fora dos cartões. */
+.prop-section-resize {
+  pointer-events: auto;
+}
+/* Rolagem por cartão: a coluna não rola mais. Cada cartão rola dentro de si, com o
+   cabeçalho preso no topo — assim a barra de rolagem pertence ao cartão, não à lateral. */
+.sidebar.left,
+.sidebar.right {
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+.sidebar.left > section,
+.sidebar.right > section {
+  max-height: calc(50% - 12px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.sidebar.right > section:first-child {
+  max-height: calc(50% - 12px);
+}
+.sidebar.left > section > .prop-head,
+.sidebar.right > .cables-section > .cables-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+/* A seção da direita flutua sobre a planta, como a esquerda: o desenho ganha os 340px que
+   ela ocupava na grade. */
+.app {
+  grid-template-columns: 1fr;
+}
+.app > .sidebar.right,
+.app.sidebar-collapsed > .sidebar.right {
+  position: absolute;
+  /* Abaixo da barra de ferramentas: ela fica inteira, com os botões dela à vista. */
+  top: 56px;
+  right: 0;
+  bottom: 0;
+  width: var(--right-w, 340px);
+  height: auto;
+  z-index: 140;
+  border-left: 0;
+  box-shadow: none;
+}
+/* A barra de ferramentas não precisa mais ceder espaço ao painel da esquerda. */
+.app:not(.sidebar-collapsed) .toolbar-title {
+  padding-left: 0;
+}
+.app > .sidebar.left {
+  top: 56px;
+  height: auto;
+  /* A coluna não projeta mais sombra sobre a planta: quem projeta são os cartões. */
+  box-shadow: none;
+}
+/* Recolher por painel: o cartão some, o cabeçalho fica. */
+.sidebar.right > section.collapsed > *:not(.section-head-sticky):not(.cables-head) {
+  display: none;
+}
+.sidebar.right > section.collapsed .panel-step-toggle svg {
+  transform: rotate(-90deg);
+}
+/* Modo foco (Ctrl+B): some com os dois painéis e deixa a planta sozinha. */
+.app.panels-hidden > .sidebar.left,
+.app.panels-hidden > .sidebar.right {
+  display: none;
+}
+/* Com os painéis escondidos, planta inteira: barra e minimapa voltam para as bordas. */
+.app.panels-hidden .heat-control {
+  left: var(--sb-left, 0px);
+  right: 0;
+}
+.app.panels-hidden .minimap {
+  right: 14px;
 }
 .sidebar.left > section > .prop-head {
   height: auto;
   border: 0;
   box-shadow: none;
+}
+/* O respiro do cartão vai para a faixa e para o corpo, não para o cartão. Com o cabeçalho
+   sticky, margem negativa não sangra (o sticky não sai da caixa de conteúdo) e sobrava uma
+   tira do cartão acima da faixa. */
+.sidebar.left > section {
+  padding: 0;
+}
+.sidebar.left > section > .prop-head {
+  margin: 0;
+  padding: 9px;
+}
+.sidebar.left > section > .prop-card,
+.sidebar.left > section > #rowsPanel {
+  padding: 0 9px 9px;
+}
+/* Mesmo tratamento na direita: o respiro é da faixa e do corpo, não do cartão — assim a
+   faixa de Propriedades e de Cabos também começa na borda de cima. */
+.sidebar.right > section {
+  padding: 0;
+}
+/* app.css ainda tem a regra da coluna antiga para este cabeçalho — margem negativa de 15/14px,
+   borda embaixo e translateY(-15px) — com especificidade maior que a minha. Enquanto ela
+   ganhar, a faixa fica 15px acima do cartão e 28px mais larga: no estado recolhido o cartão
+   corta o título. Este seletor empata na especificidade e vence por vir depois. */
+.sidebar.right > section:first-child > .section-head-sticky {
+  margin: 0;
+  padding: 13px 13px 10px;
+  border-bottom: 0;
+  transform: none;
+  height: auto;
+}
+/* O texto do cabeçalho ocupa a linha inteira e a seta e a pílula descem para a segunda,
+   alinhadas à direita. Sem isso o texto fica com ~107px: o título quebra e o subtítulo vira
+   quatro linhas, e o cartão recolhido fica alto como se tivesse conteúdo. */
+.sidebar.right > section > .section-head-sticky {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+.sidebar.right > section > .section-head-sticky > .section-head {
+  /* Título na primeira linha, com a seta encostada à direita dela; a pílula desce. */
+  flex: 1 1 100%;
+  min-width: 0;
+  /* lugar para a seta, que fica fixa no canto da faixa */
+  padding-right: 26px;
+}
+.sidebar.right > section > .section-head-sticky > .panel-step-toggle {
+  position: absolute;
+  top: 13px;
+  right: 13px;
+  margin: 0;
+}
+.sidebar.right > section > .section-head-sticky > .prop-title-sticky {
+  /* Pílula na segunda linha, largura do próprio conteúdo — não estica com a linha. */
+  flex: 0 0 auto;
+  margin-left: 0;
+}
+.sidebar.right > section > .section-head-sticky,
+.sidebar.right > .cables-section > .cables-head {
+  margin: 0;
+  /* A faixa da direita tem título com subtítulo e pílula: precisa de mais respiro que a da
+     esquerda, senão o ícone encosta na borda e o bloco fica apertado. */
+  /* Folga lateral maior: o bloco (ícone, título, seta e pílula) respira na largura de 340px. */
+  padding: 13px 13px 10px;
+}
+.sidebar.right > section > #properties,
+.sidebar.right > .cables-section > .cables-io,
+.sidebar.right > .cables-section > .cables-toolbar,
+.sidebar.right > .cables-section > .cables-bulk-bar,
+.sidebar.right > .cables-section > #cablesList {
+  padding-left: 9px;
+  padding-right: 9px;
+}
+.sidebar.right > .cables-section > #cablesList {
+  padding-bottom: 9px;
 }
 .sidebar.left > section.collapsed > .prop-card,
 .sidebar.left > section.collapsed > #rowsPanel {
@@ -2287,6 +2452,12 @@ label {
   height: auto;
   border: 0;
   box-shadow: none;
+}
+/* O cartão de cabos cresce com a lista em vez de esticar até o fim da coluna: com poucos
+   cabos sobrava um vão morto embaixo. O teto continua sendo a metade da lateral, e aí a
+   lista rola dentro do cartão. */
+.sidebar.right > .cables-section {
+  flex: none;
 }
 /* Cabeçalho com subtítulo tem duas linhas de texto: a de cima carrega o leading da fonte e o
    respiro de cima fica 3px maior que o de baixo. Compensa só nesse caso (medido no pixel). */
