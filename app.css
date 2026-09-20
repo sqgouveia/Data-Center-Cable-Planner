@@ -5743,17 +5743,17 @@ button.bayface-rack-state:hover {
 }
 .catalog-editor-card {
   width: min(460px, calc(100vw - 28px));
-  padding: 18px;
+  padding: 14px;
 }
 .catalog-editor-card:has(#catalogEditorPortsWrap:not(.hidden)) {
   width: min(520px, calc(100vw - 28px));
 }
 .catalog-editor-card .modal-head {
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 .catalog-editor-help {
-  margin-top: 10px;
-  padding: 9px 10px;
+  margin-top: 8px;
+  padding: 7px 9px;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--panel2);
@@ -5762,7 +5762,7 @@ button.bayface-rack-state:hover {
   line-height: 1.4;
 }
 .catalog-editor-card .form-actions {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 .catalog-head-actions {
   display: flex;

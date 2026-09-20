@@ -813,6 +813,8 @@ label {
 }
 .sidebar-toggle {
   border-radius: 0 var(--r-md) var(--r-md) 0;
+  /* Fica rente à borda da barra: só o filete de luz, sem sombra projetada. */
+  box-shadow: inset 0 1px 0 var(--edge);
 }
 
 .canvas-zoom-bar {
@@ -1165,15 +1167,15 @@ label {
   width: min(680px, calc(100vw - 28px));
   max-height: min(92vh, 1140px);
   overflow-y: auto;
-  padding: 20px;
+  padding: 16px;
 }
 .catalog-editor-card .modal-head {
-  margin-bottom: 16px;
-  padding-bottom: 14px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
 }
 .catalog-editor-card .modal-icon {
-  width: 46px;
-  height: 46px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--r-md);
   background: linear-gradient(
     160deg,
@@ -1186,15 +1188,15 @@ label {
     0 6px 16px rgba(0, 0, 0, 0.18);
 }
 .catalog-editor-card .modal-icon svg {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
 }
 .catalog-editor-card .modal-head h3 {
-  font-size: 19px;
+  font-size: 17px;
   margin-bottom: 2px;
 }
 .catalog-editor-card .modal-head span {
-  font-size: 12px;
+  font-size: 11.5px;
   line-height: 1.45;
 }
 
@@ -1202,15 +1204,15 @@ label {
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: color-mix(in srgb, var(--panel2) 45%, transparent);
-  padding: 14px;
-  margin-bottom: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
 }
 .catalog-step-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding-bottom: 10px;
-  margin-bottom: 14px;
+  gap: 8px;
+  padding-bottom: 7px;
+  margin-bottom: 9px;
   border-bottom: 1px solid var(--border);
 }
 .catalog-step-num {
@@ -1250,9 +1252,9 @@ label {
 }
 .catalog-field-label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 600;
 }
 .catalog-field-label .req {
@@ -1265,17 +1267,17 @@ label {
 }
 .catalog-field-help {
   display: block;
-  margin-top: 6px;
+  margin-top: 4px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10.5px;
   line-height: 1.4;
 }
 .catalog-step-body .catalog-field + .grid2,
 .catalog-step-body .grid2 + .grid2 {
-  margin-top: 12px;
+  margin-top: 8px;
 }
 .catalog-step-body .grid2 {
-  gap: 12px;
+  gap: 8px;
 }
 .catalog-step .catalog-field {
   margin-bottom: 0;
@@ -1292,17 +1294,17 @@ label {
    nenhum wrapper extra é preciso e o <select> nativo segue intacto. */
 .catalog-editor-card .field-icon {
   width: 100%;
-  height: 42px;
-  padding-left: 36px;
+  height: 34px;
+  padding-left: 34px;
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background-color: var(--panel);
   background-image: var(--field-icon, none);
   background-repeat: no-repeat;
-  background-position: 11px center;
-  background-size: 16px 16px;
+  background-position: 10px center;
+  background-size: 15px 15px;
   color: var(--text);
-  font-size: 13px;
+  font-size: 12px;
   box-shadow: none;
 }
 
@@ -1414,7 +1416,7 @@ label {
 /* ---------- Portas: vazio, cartões e divisor ---------- */
 .catalog-step-body .port-defs-list {
   max-height: 200px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   gap: 6px;
 }
 .port-defs-list:empty {
@@ -1424,7 +1426,7 @@ label {
   display: grid;
   justify-items: center;
   gap: 3px;
-  padding: 20px 14px;
+  padding: 14px 12px;
   border: 1px dashed var(--border);
   border-radius: var(--r-md);
   background: color-mix(in srgb, var(--panel) 55%, transparent);
@@ -1451,7 +1453,7 @@ label {
 
 .port-def-form {
   margin: 0;
-  padding: 14px;
+  padding: 11px 12px;
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: color-mix(in srgb, var(--panel) 62%, transparent);
@@ -1459,12 +1461,12 @@ label {
 .port-def-card-head {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 .port-def-card-icon {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   flex: none;
   display: grid;
   place-items: center;
@@ -1474,8 +1476,8 @@ label {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 26%, transparent);
 }
 .port-def-card-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
@@ -1498,18 +1500,18 @@ label {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 12px;
+  gap: 10px;
+  margin-top: 10px;
 }
 .port-def-card-foot .btn {
-  height: 40px;
-  gap: 8px;
-  padding: 0 14px;
-  font-size: 12.5px;
+  height: 34px;
+  gap: 6px;
+  padding: 0 12px;
+  font-size: 12px;
 }
 .port-def-card-foot .btn .ic {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   margin: 0;
 }
 .port-def-form .port-poe-check span {
@@ -1523,7 +1525,7 @@ label {
 }
 .port-def-or {
   position: relative;
-  margin: 12px 0;
+  margin: 10px 0;
   color: var(--muted);
   font-size: 11.5px;
   text-align: center;
@@ -1548,9 +1550,9 @@ label {
 .catalog-editor-help {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-top: 4px;
-  padding: 12px 14px;
+  padding: 9px 11px;
   border: 1px solid color-mix(in srgb, var(--blue) 30%, var(--border));
   border-radius: var(--r-md);
   background: color-mix(in srgb, var(--blue) 10%, transparent);
@@ -1559,8 +1561,8 @@ label {
   line-height: 1.4;
 }
 .catalog-editor-help svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   flex: none;
   fill: none;
   stroke: var(--blue-ink);
@@ -1568,19 +1570,19 @@ label {
   stroke-linecap: round;
 }
 .catalog-editor-card .form-actions {
-  margin-top: 14px;
-  gap: 10px;
+  margin-top: 10px;
+  gap: 8px;
 }
 .catalog-editor-card .form-actions .btn {
-  height: 46px;
-  gap: 8px;
+  height: 38px;
+  gap: 6px;
   justify-content: center;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
 }
 .catalog-editor-card .form-actions .btn .ic {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
   margin: 0;
 }
 
