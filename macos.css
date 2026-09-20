@@ -72,33 +72,25 @@ textarea {
   transform: none;
 }
 
-/* primário: superfície acesa */
+/* Primário: azul tingido sobre a superfície, sem preenchimento aceso e sem halo. Medido da
+   referência do cliente: pílula da barra de ferramentas #253953, botão de seção #23354c. */
 .btn.primary:not(#\9) {
-  border-color: color-mix(in srgb, var(--blue) 82%, black);
-  color: var(--on-accent);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--blue) 88%, white),
-    var(--blue)
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 4px 14px color-mix(in srgb, var(--blue) 26%, transparent);
+  border-color: color-mix(in srgb, var(--blue) 34%, var(--border));
+  color: color-mix(in srgb, var(--blue) 85%, var(--text));
+  background: color-mix(in srgb, var(--blue) 16%, var(--panel2));
+  box-shadow: none;
+}
+.btn.primary.full:not(#\9) {
+  color: var(--text);
 }
 .btn.primary:not(#\9):hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--blue) 82%, black);
-  background: linear-gradient(
-    180deg,
-    var(--blue),
-    color-mix(in srgb, var(--blue) 88%, black)
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.24),
-    0 6px 20px color-mix(in srgb, var(--blue) 34%, transparent);
+  border-color: color-mix(in srgb, var(--blue) 52%, var(--border));
+  background: color-mix(in srgb, var(--blue) 24%, var(--panel2));
+  box-shadow: none;
 }
 .btn.primary:not(#\9):active:not(:disabled) {
-  background: color-mix(in srgb, var(--blue) 84%, black);
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+  background: color-mix(in srgb, var(--blue) 32%, var(--panel2));
+  box-shadow: none;
 }
 .btn.primary:not(#\9):focus-visible {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 38%, transparent);
@@ -409,11 +401,27 @@ label {
   font-weight: 500;
   letter-spacing: 0;
 }
-.sidebar.right > section:first-child .section-head-sticky {
+/* Cada seção da lateral direita é um cartão, como as da esquerda: cabeçalho e conteúdo
+   dentro da mesma moldura. */
+.sidebar.right > section {
+  margin: 0 0 12px;
+  padding: 9px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: inset 0 1px 0 var(--edge);
+}
+.sidebar.right > section > .section-head-sticky {
+  height: auto;
+  margin: 0 0 8px;
+  padding: 0;
   /* Opaco de propósito: este cabeçalho é sticky dentro da seção que rola, então transparente
-     deixaria o conteúdo passar por baixo. Mesmo tom da lateral, sem o degradê. */
-  background: var(--panel);
-  border-bottom-color: var(--border);
+     deixaria o conteúdo passar por baixo. Mesmo tom do cartão. */
+  background: var(--panel2);
+}
+/* A seção de propriedades rola na vertical; sem isto o conteúdo largo cria rolagem lateral. */
+.sidebar.right > section:first-child {
+  overflow-x: hidden;
 }
 
 /* ---------- Interruptor ---------- */
@@ -1741,7 +1749,7 @@ label {
 .prop-head-text small {
   display: block;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.25;
 }
 .prop-title-sticky {
@@ -2145,23 +2153,140 @@ label {
   /* Mesma altura da barra central de ferramentas. */
   height: 56px;
 }
-/* Cabeçalho de seção veste o cartão, não a barra sangrada: mesmo fundo, borda, raio e respiro
-   dos cartões da seção (as margens negativas alinham com eles: -5px à esquerda, -8px à direita).
-   Vale para as seções da lateral esquerda e para a de cabos, na direita. */
-.sidebar.left > section > .prop-head,
-.sidebar.right > .cables-section > .cables-head {
-  height: auto;
-  margin: 0 -8px 9px -5px;
+/* A seção da lateral esquerda é o cartão: o cabeçalho mora dentro dele, e os campos também.
+   Antes eram dois blocos empilhados (cabeçalho-bar e cartão de campos). */
+.sidebar.left > section {
+  margin: 0 0 12px;
   padding: 9px;
   background: var(--panel2);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   box-shadow: inset 0 1px 0 var(--edge);
 }
-/* Na lateral direita os blocos vizinhos usam a largura do conteúdo, sem sangria: o cabeçalho
-   de cabos segue a mesma régua, senão fica 5px mais largo de um lado e 8px do outro. */
+/* Cartão dentro de cartão: dentro de uma seção que já é a moldura, o cartão de campos não
+   repete borda e fundo — quem desenha a caixa é a seção. Os sub-cartões (Origem, Destino)
+   continuam com a pele deles. */
+.sidebar .prop-card {
+  margin-left: 0;
+  margin-right: 0;
+}
+.sidebar.left > section > .prop-card,
+.sidebar.right #properties > .prop-card {
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+/* Faixa do cabeçalho: o mesmo tom do cabeçalho de Propriedades (--panel), um degrau abaixo do
+   corpo do cartão. */
+.sidebar.left > section > .prop-head,
+.sidebar.right > .cables-section > .cables-head,
+.sidebar.right > section > .section-head-sticky {
+  margin: -9px -9px 8px;
+  padding: 9px;
+  background: var(--panel);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+/* Respiro da lateral: é ele que deixa o fundo aparecer em volta do cartão. Sem isso o
+   cartão encosta nas bordas e some como superfície. */
+.sidebar.left,
+.sidebar.right {
+  padding: 13px;
+}
+.sidebar.left > section > .prop-head {
+  height: auto;
+  border: 0;
+  box-shadow: none;
+}
+.sidebar.left > section.collapsed > .prop-card,
+.sidebar.left > section.collapsed > #rowsPanel {
+  display: none;
+}
+.sidebar.left > section.collapsed .panel-step-toggle svg {
+  transform: rotate(-90deg);
+}
+/* Fileira: título, alça e ações na primeira linha; campos abaixo. */
+.prop-row-card {
+  gap: 6px;
+  padding: 7px;
+  background: color-mix(in srgb, var(--panel) 55%, transparent);
+}
+.row-del {
+  color: var(--muted);
+}
+.row-del:hover {
+  color: var(--red);
+}
+/* Adicionar fileira é ação secundária: contorno, não superfície acesa. */
+.btn.rows-add:not(#\9) {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--panel) 55%, transparent);
+  color: color-mix(in srgb, var(--blue) 52%, var(--muted));
+  box-shadow: none;
+}
+.btn.rows-add:not(#\9):hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--blue) 40%, var(--border));
+  background: color-mix(in srgb, var(--panel3) 60%, transparent);
+  color: color-mix(in srgb, var(--blue) 70%, var(--muted));
+}
+.sidebar.left > section > .prop-head .iconbtn {
+  color: var(--muted);
+}
+.row-card-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.row-handle {
+  flex: none;
+  width: 18px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: grab;
+  touch-action: none;
+}
+.row-handle:hover {
+  color: var(--text);
+}
+.row-handle.is-dragging {
+  cursor: grabbing;
+  color: var(--blue);
+}
+.row-handle .prop-ico {
+  width: 14px;
+  height: 14px;
+}
+.row-title {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 2px 4px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  font-size: 12.5px;
+}
+.row-title:hover,
+.row-title:focus {
+  background: color-mix(in srgb, var(--panel3) 60%, transparent);
+  border-radius: var(--r-xs);
+  outline: 0;
+}
+.prop-row-card.is-drop-target {
+  border-color: color-mix(in srgb, var(--blue) 55%, var(--border));
+}
+/* O cabeçalho de cabos é só o topo do cartão da seção: sem pele própria. */
 .sidebar.right > .cables-section > .cables-head {
-  margin-inline: 0;
+  height: auto;
+  border: 0;
+  box-shadow: none;
 }
 /* Cabeçalho com subtítulo tem duas linhas de texto: a de cima carrega o leading da fonte e o
    respiro de cima fica 3px maior que o de baixo. Compensa só nesse caso (medido no pixel). */
@@ -2206,8 +2331,8 @@ label {
   padding: 0 10px;
   gap: 7px;
   border-radius: var(--r-md);
-  font-size: 12.5px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
 }
 /* Dentro do cartão o espaçamento é do próprio cartão. */
 .prop-card .rows-add {
@@ -2244,11 +2369,12 @@ label {
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  font-size: 11.5px;
-  font-weight: 650;
+  /* Rótulo de campo é cinza e leve: quem carrega hierarquia é o valor, não o nome. */
+  font-size: 11px;
+  font-weight: 550;
   letter-spacing: -0.01em;
   line-height: 1.2;
-  color: var(--text);
+  color: var(--muted);
   white-space: nowrap;
 }
 .prop-card .prop-field-text {

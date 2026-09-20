@@ -624,19 +624,23 @@ function buildRowsPanel(){
   }
   state.rows.forEach((row,index)=>{
     const d=document.createElement('div'); d.className='prop-card prop-row-card';
+    d.dataset.rowCard=row.id;
     const racksField=`<label class="prop-field" title="Quantidade de racks"><span class="prop-field-label">${propIcon('rack')}<span class="prop-field-text">Racks</span></span><span class="prop-field-box"><input data-row-count="${row.id}" type="number" min="0" max="100" value="${row.rackCount}"></span></label>`;
     // A primeira fileira não tem fileira anterior: sem campo de distância, o
     // campo de racks ocupa a linha inteira em vez de deixar meia coluna vazia.
     const gapField=index>0?`<label class="prop-field" title="Distância para a fileira anterior (m)"><span class="prop-field-label">${propIcon('gap')}<span class="prop-field-text">Dist. (m)</span></span><span class="prop-field-box"><input data-row-gap="${row.id}" type="number" min="0" step="0.01" value="${row.gap||0}"></span></label>`:'';
-    d.innerHTML=`<label class="prop-field"><span class="prop-field-label">${propIcon('name')}<span class="prop-field-text">Nome da fileira</span></span><span class="prop-field-box"><input data-row-name="${row.id}" value="${esc(row.name)}"></span></label>
-      ${gapField?`<div class="grid2">${racksField}${gapField}</div>`:racksField}
-      <div class="grid2">
-        <button type="button" class="btn ghost" data-rename-row="${row.id}" title="Renomear os racks desta fileira automaticamente" aria-label="Renomear racks automaticamente">${propIcon('pencil')}Renomear</button>
-        <button type="button" class="btn danger" data-del-row="${row.id}" title="Excluir fileira" aria-label="Excluir fileira">${propIcon('trash')}Excluir</button>
-      </div>`;
+    d.innerHTML=`<header class="row-card-head">
+        <button type="button" class="row-handle" data-drag-row="${row.id}" title="Arrastar para reordenar" aria-label="Arrastar para reordenar">${propIcon('grip')}</button>
+        <input class="row-title" data-row-name="${row.id}" value="${esc(row.name)}" aria-label="Nome da fileira">
+        <button type="button" class="iconbtn" data-rename-row="${row.id}" title="Renomear os racks desta fileira automaticamente" aria-label="Renomear racks automaticamente">${propIcon('pencil')}</button>
+        <button type="button" class="iconbtn row-del" data-del-row="${row.id}" title="Excluir fileira" aria-label="Excluir fileira">${propIcon('trash')}</button>
+      </header>
+      ${gapField?`<div class="grid2">${racksField}${gapField}</div>`:racksField}`;
     p.appendChild(d);
   });
-  p.querySelector('.prop-row-card')?.insertAdjacentHTML('afterbegin',rowAddButtonHtml());
+  // Adicionar fileira fica acima das fileiras, não dentro da primeira: o botão vale
+  // para a lista inteira.
+  p.insertAdjacentHTML('afterbegin',rowAddButtonHtml());
   p.querySelector('#btnAddRow').onclick=addRowFromPanel;
   bindPropPanel(p);
   p.querySelectorAll('[data-row-name]').forEach(e=>e.onchange=()=>{if(structureBlocked())return;
@@ -660,6 +664,51 @@ function buildRowsPanel(){
   p.querySelectorAll('[data-row-gap]').forEach(e=>e.onchange=()=>{if(structureBlocked())return;const r=state.rows.find(x=>x.id===e.dataset.rowGap);if(!r)return;r.gap=Math.max(0,num(e.value,0));renderAll();});
   p.querySelectorAll('[data-rename-row]').forEach(e=>e.onclick=ev=>{if(structureBlocked())return;ev.stopPropagation();openRenameRowModal(e.dataset.renameRow);});
   p.querySelectorAll('[data-del-row]').forEach(e=>e.onclick=ev=>{if(structureBlocked())return;ev.stopPropagation();deleteRow(e.dataset.delRow);});
+  bindRowReorder(p);
+}
+
+// Reordenar fileiras: a alça arrasta, a troca acontece ao soltar (assim o painel é
+// redesenhado uma vez só, e não a cada quadro do arraste).
+let rowDrag=null;
+function bindRowReorder(panel){
+  panel.querySelectorAll('[data-drag-row]').forEach(handle=>{
+    handle.addEventListener('pointerdown',ev=>{
+      if(structureBlocked())return;
+      ev.preventDefault(); ev.stopPropagation();
+      const cards=[...panel.querySelectorAll('.prop-row-card')];
+      rowDrag={id:handle.dataset.dragRow,cards,
+        from:cards.findIndex(c=>c.dataset.rowCard===handle.dataset.dragRow),to:null};
+      try{handle.setPointerCapture(ev.pointerId);}catch{}
+      panel.classList.add('is-reordering');
+      handle.classList.add('is-dragging');
+    });
+    handle.addEventListener('pointermove',ev=>{
+      if(!rowDrag)return;
+      const y=ev.clientY;
+      let to=rowDrag.cards.findIndex(c=>{const r=c.getBoundingClientRect();return y<r.top+r.height/2;});
+      if(to<0)to=rowDrag.cards.length-1;
+      rowDrag.to=to;
+      rowDrag.cards.forEach((c,i)=>c.classList.toggle('is-drop-target',i===to&&i!==rowDrag.from));
+    });
+    const end=()=>{
+      if(!rowDrag)return;
+      const {from,to}=rowDrag;
+      rowDrag.cards.forEach(c=>c.classList.remove('is-drop-target'));
+      panel.classList.remove('is-reordering');
+      panel.querySelectorAll('.is-dragging').forEach(h=>h.classList.remove('is-dragging'));
+      rowDrag=null;
+      if(to==null||to===from||from<0)return;
+      const row=state.rows.splice(from,1)[0];
+      state.rows.splice(to,0,row);
+      // A primeira fileira não tem fileira anterior: distância zero.
+      state.rows.forEach((r,i)=>{if(i===0)r.gap=0;});
+      normalizeIndices();
+      renderAll();
+      toast(`${row.name||'Fileira'} movida`);
+    };
+    handle.addEventListener('pointerup',end);
+    handle.addEventListener('pointercancel',end);
+  });
 }
 
 function openRenameRowModal(rowId){
@@ -2543,6 +2592,7 @@ const PROP_FIELD_ICONS={
   bayfaceFrame:'<rect x="4" y="4" width="16" height="16" rx="3.6"/>',
   chevronUp:'<path d="M6 14.5 12 8.5l6 6"/>',
   chevronDown:'<path d="M6 9.5 12 15.5l6-6"/>',
+  grip:'<path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"/>',
   trash:'<path d="M4.5 7h15M9.5 7V4.8h5V7M6.6 7l.8 11.9a1.7 1.7 0 0 0 1.7 1.6h5.8a1.7 1.7 0 0 0 1.7-1.6L17.4 7"/><path d="M10.3 10.8v6M13.7 10.8v6"/>'
 };
 function propIcon(name,extra){
@@ -3836,6 +3886,16 @@ function bind(){
   $('btnImportProject').onclick=()=>{if(structureBlocked())return;$('projectInput').click();};
   $('projectInput').onchange=e=>{const f=e.target.files[0];if(f&&!isStructureLocked())importProject(f);e.target.value='';};
   $('btnReset').onclick=newProject;
+  // Recolher o cartão de configuração: só esconde os campos, o cabeçalho fica.
+  $('envCollapse')?.addEventListener('click',ev=>{
+    ev.stopPropagation();
+    const sec=$('envCollapse').closest('section');
+    const open=sec.classList.toggle('collapsed');
+    $('envCollapse').setAttribute('aria-expanded',open?'false':'true');
+    const label=open?'Expandir configuração':'Recolher configuração';
+    $('envCollapse').title=label;
+    $('envCollapse').setAttribute('aria-label',label);
+  });
   $('renameApply').onclick=applyRenameRow;
   $('renameCancel').onclick=closeRenameRowModal;
   $('renameCancelTop').onclick=closeRenameRowModal;

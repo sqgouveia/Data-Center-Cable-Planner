@@ -29,36 +29,40 @@
    neutro frio, não papel quente. */
 :root {
   color-scheme: dark;
-  --bg: #1c2431;
-  --panel: #232d3c;
-  --panel2: #2b3746;
-  --panel3: #354254;
-  --border: #45536a;
-  --border-strong: #586a85;
-  --edge: rgba(255, 255, 255, 0.08);
-  --text: #edf2f9;
-  --muted: #aab7cb;
-  --blue: #5b96ff;
-  --green: #3ecb92;
-  --orange: #f2ab57;
-  --red: #ff8375;
-  --route: #5b96ff;
-  --grid: #2d3a52;
+  /* Paleta do console: azul-noite em camadas curtas (o fundo e o painel ficam a 2 pontos um do
+     outro), azul de sinal mais saturado e estados vivos. Valores medidos da referência do
+     cliente: fundo #141e28, painel #16202a, cartão #19242f, sinal #397ff5. */
+  --bg: #141e28;
+  --panel: #16202a;
+  --panel2: #19242f;
+  --panel3: #22303c;
+  --border: #26333f;
+  --border-strong: #35485a;
+  --edge: rgba(255, 255, 255, 0.06);
+  --text: #e9f0f6;
+  --muted: #8b9dae;
+  --blue: #397ff5;
+  --green: #35e48d;
+  --orange: #f0a24a;
+  --red: #ef4f3b;
+  --route: #397ff5;
+  --grid: #1e2b36;
   --shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
-  --glow: 0 0 0 1px rgba(91, 150, 255, 0.42), 0 8px 22px rgba(91, 150, 255, 0.22);
-  --blue2: #5b96ff;
-  --chrome-1: #333f52;
-  --chrome-2: #232d3c;
+  --glow: 0 0 0 1px rgba(57, 127, 245, 0.42), 0 8px 22px rgba(57, 127, 245, 0.22);
+  --blue2: #397ff5;
+  --chrome-1: #16202a;
+  --chrome-2: #16202a;
   --on-accent: #0b1220;
   --r-xs: 3px;
   --r-sm: 5px;
   --r-md: 8px;
   --r-lg: 12px;
-  --font-display: "Titillium Web", Inter, Segoe UI, Arial, sans-serif;
+  /* Titillium nunca foi carregada (só Inter e IBM Plex Mono entram); a lista só criava dúvida. */
+  --font-display: Inter, "Segoe UI", Arial, sans-serif;
   --fs-micro: 11px;
   --fs-bf-micro: 9px;
-  --red-ink: #ffa79c;
-  --blue-ink: #b3ceff;
+  --red-ink: #ff9d8f;
+  --blue-ink: #a9c6ff;
   --yellow: #e7ce5d;
   --purple: #a98cf5;
   /* Ícone neutro dos estados vazios (máscara, herda a cor do texto). */

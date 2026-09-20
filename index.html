@@ -13,27 +13,27 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=245" />
-    <link rel="stylesheet" href="macos.css?v=110" />
+    <link rel="stylesheet" href="app.css?v=254" />
+    <link rel="stylesheet" href="macos.css?v=119" />
     <script type="importmap">
       {
         "imports": {
-          "./js/bulk-assets.js": "./js/bulk-assets.js?v=249",
-          "./js/cables.js": "./js/cables.js?v=249",
-          "./js/catalogs.js": "./js/catalogs.js?v=249",
-          "./js/cloud-sync.js": "./js/cloud-sync.js?v=249",
-          "./js/dialogs.js": "./js/dialogs.js?v=249",
-          "./js/geometry.js": "./js/geometry.js?v=249",
-          "./js/inventory-import.js": "./js/inventory-import.js?v=249",
-          "./js/occupancy.js": "./js/occupancy.js?v=249",
-          "./js/pdf-report.js": "./js/pdf-report.js?v=249",
-          "./js/plant-export.js": "./js/plant-export.js?v=249",
-          "./js/rack-metrics.js": "./js/rack-metrics.js?v=249",
-          "./js/routing.js": "./js/routing.js?v=249",
-          "./js/runtime.js": "./js/runtime.js?v=249",
-          "./js/state.js": "./js/state.js?v=249",
-          "./js/styled-select.js": "./js/styled-select.js?v=249",
-          "./js/utils.js": "./js/utils.js?v=249"
+          "./js/bulk-assets.js": "./js/bulk-assets.js?v=258",
+          "./js/cables.js": "./js/cables.js?v=258",
+          "./js/catalogs.js": "./js/catalogs.js?v=258",
+          "./js/cloud-sync.js": "./js/cloud-sync.js?v=258",
+          "./js/dialogs.js": "./js/dialogs.js?v=258",
+          "./js/geometry.js": "./js/geometry.js?v=258",
+          "./js/inventory-import.js": "./js/inventory-import.js?v=258",
+          "./js/occupancy.js": "./js/occupancy.js?v=258",
+          "./js/pdf-report.js": "./js/pdf-report.js?v=258",
+          "./js/plant-export.js": "./js/plant-export.js?v=258",
+          "./js/rack-metrics.js": "./js/rack-metrics.js?v=258",
+          "./js/routing.js": "./js/routing.js?v=258",
+          "./js/runtime.js": "./js/runtime.js?v=258",
+          "./js/state.js": "./js/state.js?v=258",
+          "./js/styled-select.js": "./js/styled-select.js?v=258",
+          "./js/utils.js": "./js/utils.js?v=258"
         }
       }
     </script>
@@ -602,8 +602,20 @@
               </svg>
             </span>
             <div class="prop-head-text">
-              <h2>Ambiente</h2>
+              <h2>Configuração</h2>
             </div>
+            <button
+              id="envCollapse"
+              class="panel-step-toggle"
+              type="button"
+              aria-expanded="true"
+              title="Recolher configuração"
+              aria-label="Recolher configuração"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 9.5 12 15.5l6-6" />
+              </svg>
+            </button>
             <button
               id="btnReset"
               class="iconbtn"
@@ -4063,6 +4075,6 @@
       <span class="task-bar-fill" aria-hidden="true"></span>
       <span class="task-bar-label" id="taskBarLabel">Processando…</span>
     </div>
-    <script type="module" src="app.js?v=249"></script>
+    <script type="module" src="app.js?v=258"></script>
   </body>
 </html>
