@@ -613,19 +613,31 @@ let rowsSearchQuery='';
 // O que a busca de fileiras enxerga: o nome quando existe, a identidade posicional — #2,
 // fileira 2, row 2, 2 — e o que a fileira tem dentro, racks e equipamentos. Sem a parte
 // posicional, uma fileira sem nome não teria por onde ser encontrada.
-function rowMatchesSearch(row,numero,termo){
+function rowMatchesSearch(row,numero,termo,soPosicao){
   const racks=racksInRow(row.id);
   const ids=new Set(racks.map(r=>r.id));
   const assets=state.assets.filter(a=>ids.has(a.rackId)).map(a=>a.name);
   const posicionais=[`${numero}`,`#${numero}`,`fileira ${numero}`,`row ${numero}`,`f ${numero}`]
     .map(catalogNormalize);
-  // Número puro procura a fileira pela posição: "2" não pode trazer a fileira 1 só porque um
-  // rack dela se chama "-02".
-  if(/^\d+$/.test(termo))return posicionais.includes(termo);
-  const texto=[row.name,...racks.map(r=>r.name),...assets]
+  if(posicionais.includes(termo))return true;
+  // Com "#" na frente a busca é só posição ("#2" = a fileira 2), sem olhar o que ela tem
+  // dentro — é o que evita "#2" trazer a fileira 1 por causa de um rack "-02".
+  if(soPosicao)return false;
+  // Sem "#", o número procura o número do rack: com racks 201..210, "202" acha a fileira do
+  // 202 — e "2" não traz a fileira 1 só porque um rack dela se chama "-02" (o fim do nome tem
+  // que ser o número, não um pedaço qualquer).
+  if(/^\d+$/.test(termo)){
+    const n=Number(termo);
+    return racks.some(r=>{
+      if(catalogNormalize(r.name)===termo)return true;
+      const fim=String(r.name||'').match(/(\d+)\D*$/);
+      return !!fim&&Number(fim[1])===n;
+    });
+  }
+  const texto=[row.name,...racks.map(r=>rackDisplayName(r)),...racks.map(r=>r.name),...assets]
     .filter(v=>v!==undefined&&v!==null&&v!=='')
     .map(catalogNormalize).join(' ');
-  return posicionais.includes(termo)||texto.includes(termo);
+  return texto.includes(termo);
 }
 function addRowFromPanel(){
   if(structureBlocked())return;
@@ -646,10 +658,12 @@ function buildRowsPanel(){
   // com a busca ativa, o #2 tem que continuar sendo a mesma fileira.
   const numeradas=state.rows.map((row,i)=>({row,numero:i+1}));
   const termo=catalogNormalize(rowsSearchQuery);
-  const visiveis=(termo?numeradas.filter(({row,numero})=>rowMatchesSearch(row,numero,termo)):numeradas);
+  const soPosicao=rowsSearchQuery.trim().startsWith('#');
+  const visiveis=(termo?numeradas.filter(({row,numero})=>rowMatchesSearch(row,numero,termo,soPosicao)):numeradas);
   p.classList.toggle('is-filtered',!!termo);
   if(!visiveis.length){
-    p.innerHTML=`<div class="empty">Nenhuma fileira encontrada para “${esc(rowsSearchQuery.trim())}”.</div>${rowAddButtonHtml()}`;
+    // O botão de adicionar fica em cima, como na lista normal — não embaixo do aviso.
+    p.innerHTML=`${rowAddButtonHtml()}<div class="empty">Nenhuma fileira encontrada para “${esc(rowsSearchQuery.trim())}”.</div>`;
     p.querySelector('#btnAddRow').onclick=addRowFromPanel;
     return;
   }
