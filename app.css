@@ -989,14 +989,18 @@ select:disabled {
   padding: 10px 13px;
   border-radius: var(--r-md);
   opacity: 0;
+  transform: translateY(10px) scale(0.98);
   pointer-events: none;
-  transition: 0.2s;
+  transition:
+    opacity 0.18s ease,
+    transform 0.22s cubic-bezier(0.2, 0.8, 0.25, 1);
   z-index: 10000 !important;
   border-color: var(--border);
   font-weight: 600;
 }
 #toast.show {
   opacity: 1;
+  transform: none;
 }
 .svg-label {
   font-size: 11px;
@@ -1412,6 +1416,47 @@ select:disabled {
 }
 .modal-backdrop.open {
   display: flex;
+}
+/* Abertura e fechamento das janelas.
+   `display` entra na transição com `allow-discrete`: o navegador mantém a
+   janela desenhada durante a saída, então a classe `.hidden` continua sendo
+   aplicada na hora (nenhum código precisa esperar animação) e a animação
+   acontece por conta do `@starting-style`. */
+.modal-backdrop {
+  opacity: 0;
+  transition:
+    opacity 0.16s ease,
+    display 0.16s allow-discrete;
+}
+.modal-backdrop.open {
+  opacity: 1;
+}
+.modal-backdrop > .modal-card,
+.modal-backdrop > .quick-search-card,
+.modal-backdrop > .summary-card {
+  opacity: 0;
+  transform: translateY(10px) scale(0.985);
+  transition:
+    opacity 0.18s ease,
+    transform 0.22s cubic-bezier(0.2, 0.8, 0.25, 1),
+    display 0.22s allow-discrete;
+}
+.modal-backdrop.open > .modal-card,
+.modal-backdrop.open > .quick-search-card,
+.modal-backdrop.open > .summary-card {
+  opacity: 1;
+  transform: none;
+}
+@starting-style {
+  .modal-backdrop.open {
+    opacity: 0;
+  }
+  .modal-backdrop.open > .modal-card,
+  .modal-backdrop.open > .quick-search-card,
+  .modal-backdrop.open > .summary-card {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
 }
 .modal-card {
   width: min(460px, 100%);
@@ -8104,6 +8149,22 @@ select:focus-visible {
   padding: 16px 16px 14px;
   z-index: 145;
   backdrop-filter: blur(8px);
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity 0.2s ease,
+    transform 0.24s cubic-bezier(0.2, 0.8, 0.25, 1),
+    display 0.24s allow-discrete;
+}
+.canvas-empty-hint:not(.hidden) {
+  opacity: 1;
+  transform: none;
+}
+@starting-style {
+  .canvas-empty-hint:not(.hidden) {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 }
 .app.sidebar-collapsed .canvas-empty-hint {
   left: 24px;
