@@ -71,7 +71,8 @@ export function setCloudStatus(status){
   cloudStatus=status;
   const el=$('cloudStatus');
   if(!el)return;
-  const map={saved:['check','Salvo na nuvem','saved'],saving:['refresh','Salvando...','saving'],pending:['dot','Alterações não salvas','pending'],error:['warn','Não sincronizado','error']};
+  // Texto curto: na barra ele divide espaço com os botões (a referência mostra só "Salvo").
+  const map={saved:['check','Salvo','saved'],saving:['refresh','Salvando...','saving'],pending:['dot','Alterações não salvas','pending'],error:['warn','Não sincronizado','error']};
   const v=map[status]||map.saved;
   const changed=el.dataset.status!==v[2];
   el.innerHTML=`${uiIcon(v[0])}<span>${v[1]}</span>`; el.dataset.status=v[2]; el.title=v[1];

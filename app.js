@@ -179,7 +179,9 @@ function applyTheme(){
   if(themeMeta)themeMeta.setAttribute('content',light?'#dfe6f1':'#1c2431');
   const icon=light?THEME_ICON_SUN:THEME_ICON_MOON;
   const b=$('btnTheme');
-  if(b){ b.innerHTML=icon+' Tema'; b.title=light?'Alternar para tema escuro':'Alternar para tema claro'; }
+  // Só o ícone: o rótulo ocupava ~50px na barra e o print de referência mostra o botão
+  // sozinho (o nome fica no title/aria-label).
+  if(b){ b.innerHTML=icon; b.title=light?'Alternar para tema escuro':'Alternar para tema claro'; b.setAttribute('aria-label',b.title); }
   const db=$('dashboardTheme'); if(db){ db.innerHTML=icon+' Tema'; db.title=light?'Alternar para tema escuro':'Alternar para tema claro'; }
   const ab=$('authTheme'); if(ab){ ab.innerHTML=icon; ab.title=light?'Alternar para tema escuro':'Alternar para tema claro'; ab.setAttribute('aria-label',ab.title); }
 }
@@ -1114,7 +1116,7 @@ function roomSummaryHtml({s,thermal,chips,items},{alerts,chips:chipCount}){
       ?summaryMeter('Refrigeração',`${thermal.watts}/${thermal.capacity} W · ${thermal.pct}%`,thermal.watts/thermal.capacity)
       :summaryMeter('Refrigeração',`${thermal.watts} W`,null,'Sem capacidade de refrigeração definida na sala.')
   ].join('');
-  const facts=`<div class="rs-facts"><span><b>${s.racks}</b> racks</span><span><b>${s.assetCount}</b> assets</span><span><b>${state.cables.length}</b> cabos</span><span><b>${state.trays.length}</b> calhas</span></div>`;
+  const facts=`<div class="rs-facts"><span><b>${state.rows.length}</b> fileiras</span><span><b>${s.racks}</b> racks</span><span><b>${s.assetCount}</b> assets</span><span><b>${state.cables.length}</b> cabos</span><span><b>${state.trays.length}</b> calhas</span></div>`;
   const chipHtml=chipCount>0&&chips.length?`<div class="rs-chips">${chips.slice(0,chipCount).map(([t,n])=>`<span class="rs-chip">${esc(t)} <b>${n}</b></span>`).join('')}</div>`:'';
   const shown=items.slice(0,alerts);
   let alertHtml;
@@ -3666,18 +3668,101 @@ function closeProjectSummary(){}
 function searchableItems(query){
   const q=String(query||'').trim().toLowerCase(); if(!q)return [];
   const items=[];
-  state.racks.forEach(r=>{const row=rowForRack(r); const hay=[r.name,row?.name,`rack ${r.name}`,`rack ${rackDisplayName(r)}`].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q))items.push({type:'rack',id:r.id,label:rackDisplayName(r),meta:row?.name||'Fileira'});});
-  state.trays.forEach(t=>{const hay=[t.name,`calha ${t.name}`].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q))items.push({type:'tray',id:t.id,label:t.name||'Calha',meta:'Calha'});});
-  state.cables.forEach(c=>{const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack); const hay=[c.name,`cabo ${c.name}`,o?.name,d?.name].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q))items.push({type:'cable',id:c.id,label:c.name||'Cabo',meta:`${o?.name||'?'} → ${d?.name||'?'}`});});
-  return items.slice(0,30);
+  // Peso: primeiro o que casa direto no rótulo, depois o que casa no conteúdo. No mesmo nível
+  // os objetos (rack, calha, cabo, asset) vêm antes da fileira, que só casou pelo que tem dentro.
+  const peso={row:1,rack:0,tray:0,cable:0,asset:0};
+  const score=(label,extras)=>{
+    const l=String(label||'').trim().toLowerCase();
+    const hay=[l,...extras.filter(Boolean).map(v=>String(v).toLowerCase())];
+    if(l===q)return 0;
+    if(l.startsWith(q))return 1;
+    if(hay.some(v=>v===q))return 2;
+    if(hay.some(v=>v.startsWith(q)))return 3;
+    return 4;
+  };
+  const add=(type,id,label,meta,extras=[])=>items.push({type,id,label,meta,_s:score(label,extras)*10+(peso[type]||0)});
+  // Digitar o tipo ("rack", "calha", "asset"...) mostra todos os itens daquele tipo. Só a partir
+  // de 3 letras: com "a" ou "ck" isso traria a lista inteira, porque as palavras do tipo entram
+  // no texto de busca.
+  const tipoHit=palavra=>q.length>=3&&palavra.startsWith(q);
+  // Fileira: casa pelo nome, pelo número (#2, fileira 2, 2) e pelos racks que ela contém.
+  state.rows.forEach((row,i)=>{
+    const rs=racksInRow(row.id);
+    // Sem a palavra "fileira" aqui dentro: quem faz a busca por tipo é o tipoHit, senão
+    // qualquer letra de "fileira" (o "a", por exemplo) traria todas as fileiras.
+    const hay=[row.name,`#${i+1}`,`${i+1}`,...rs.map(r=>r.name),...rs.map(r=>rackDisplayName(r))].filter(Boolean).join(' ').toLowerCase();
+    if(!hay.includes(q)&&!tipoHit('fileira'))return;
+    add('row',row.id,row.name||`#${i+1}`,`${rs.length} ${rs.length===1?'rack':'racks'} · fileira #${i+1}`,[`#${i+1}`,`fileira ${i+1}`,`${i+1}`,...rs.map(r=>r.name)]);
+  });
+  state.racks.forEach(r=>{const row=rowForRack(r); const hay=[r.name,row?.name,rackDisplayName(r)].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q)||tipoHit('rack'))add('rack',r.id,rackDisplayName(r),row?.name||'Fileira',[r.name]);});
+  state.trays.forEach(t=>{const hay=[t.name].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q)||tipoHit('calha'))add('tray',t.id,t.name||'Calha','Calha');});
+  state.cables.forEach(c=>{const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack); const hay=[c.name,o?.name,d?.name].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q)||tipoHit('cabo'))add('cable',c.id,c.name||'Cabo',`${o?.name||'?'} → ${d?.name||'?'}`);});
+  // Asset: casa pelo nome, tag, serial, modelo, fabricante, tipo e pelo rack onde está.
+  state.assets.forEach(a=>{
+    const rack=assetRack(a.rackId);
+    const hay=[a.name,a.assetTag,a.serial,a.model,a.manufacturer,a.type,rack?rackDisplayName(rack):''].filter(Boolean).join(' ').toLowerCase();
+    if(!hay.includes(q)&&!tipoHit('asset'))return;
+    const meta=[rack?rackDisplayName(rack):'Sem rack',a.uStart?`U${a.uStart}`:'',a.type||''].filter(Boolean).join(' · ');
+    add('asset',a.id,a.name||a.assetTag||'Asset',meta,[a.assetTag,a.serial]);
+  });
+  return items.sort((x,y)=>x._s-y._s).slice(0,30);
+}
+const SEARCH_TYPE_LABEL={row:'Fileira',rack:'Rack',tray:'Calha',cable:'Cabo',asset:'Asset'};
+const SEARCH_TYPE_ICON={row:'▤',rack:'▥',tray:'━',cable:'⌁',asset:'▣'};
+// Uma lista só para as duas superfícies de busca: o painel do Ctrl+K e a caixa da barra.
+function searchListHtml(items,index){
+  if(!items.length)return '<div class="empty">Nenhum resultado encontrado.</div>';
+  return items.map((x,i)=>`<button type="button" class="quick-result ${i===index?'active':''}" data-search-type="${x.type}" data-search-id="${esc(x.id)}"><span class="quick-result-icon">${SEARCH_TYPE_ICON[x.type]||'•'}</span><span><strong>${esc(x.label)}</strong><small>${esc(x.meta)}</small></span><b>${SEARCH_TYPE_LABEL[x.type]||''}</b></button>`).join('');
 }
 let quickSearchIndex=0, quickSearchItems=[];
 function renderQuickSearchResults(query){
   const el=$('quickSearchResults'); if(!el)return; quickSearchItems=searchableItems(query);quickSearchIndex=Math.max(0,Math.min(quickSearchIndex,quickSearchItems.length-1));
   if(!String(query||'').trim()){el.innerHTML='<div class="empty">Digite para pesquisar.</div>';return;}
-  if(!quickSearchItems.length){el.innerHTML='<div class="empty">Nenhum resultado encontrado.</div>';return;}
-  el.innerHTML=quickSearchItems.map((x,i)=>`<button type="button" class="quick-result ${i===quickSearchIndex?'active':''}" data-search-type="${x.type}" data-search-id="${esc(x.id)}"><span class="quick-result-icon">${x.type==='rack'?'▥':x.type==='tray'?'━':'⌁'}</span><span><strong>${esc(x.label)}</strong><small>${esc(x.meta)}</small></span><b>${x.type==='rack'?'Rack':x.type==='tray'?'Calha':'Cabo'}</b></button>`).join('');
+  el.innerHTML=searchListHtml(quickSearchItems,quickSearchIndex);
   el.querySelectorAll('[data-search-id]').forEach(b=>b.addEventListener('click',()=>activateSearchResult(b.dataset.searchType,b.dataset.searchId)));
+}
+// Busca geral da barra de topo: a mesma lista do Ctrl+K, logo abaixo do campo. Sem comandos —
+// é busca de projeto: fileira, rack, calha, cabo e asset.
+let topSearchItems=[], topSearchIndex=0;
+function closeTopSearch(){
+  const box=$('topSearchResults'); if(!box)return;
+  box.classList.add('hidden'); box.innerHTML='';
+  $('topSearch')?.setAttribute('aria-expanded','false');
+}
+function renderTopSearchResults(query){
+  const box=$('topSearchResults'); if(!box)return;
+  if(!String(query||'').trim()){closeTopSearch();return;}
+  topSearchItems=searchableItems(query);
+  topSearchIndex=Math.max(0,Math.min(topSearchIndex,topSearchItems.length-1));
+  box.innerHTML=searchListHtml(topSearchItems,topSearchIndex);
+  box.classList.remove('hidden');
+  $('topSearch')?.setAttribute('aria-expanded','true');
+  box.querySelectorAll('[data-search-id]').forEach(b=>b.onclick=()=>{
+    const t=b.dataset.searchType, id=b.dataset.searchId;
+    clearTopSearch();
+    activateSearchResult(t,id);
+  });
+}
+function clearTopSearch(){const i=$('topSearch');if(i)i.value='';closeTopSearch();}
+function bindTopSearch(){
+  const input=$('topSearch'); if(!input||input.dataset.topSearchBound)return; input.dataset.topSearchBound='1';
+  input.addEventListener('input',()=>{topSearchIndex=0;renderTopSearchResults(input.value);});
+  input.addEventListener('focus',()=>{if(input.value.trim())renderTopSearchResults(input.value);});
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){e.preventDefault();clearTopSearch();input.blur();return;}
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      if(!topSearchItems.length)return; e.preventDefault();
+      topSearchIndex=(topSearchIndex+(e.key==='ArrowDown'?1:-1)+topSearchItems.length)%topSearchItems.length;
+      renderTopSearchResults(input.value); return;
+    }
+    if(e.key==='Enter'&&topSearchItems[topSearchIndex]){
+      e.preventDefault();
+      const it=topSearchItems[topSearchIndex];
+      clearTopSearch();
+      activateSearchResult(it.type,it.id);
+    }
+  });
+  document.addEventListener('pointerdown',e=>{if(!e.target.closest?.('#topSearchWrap'))closeTopSearch();});
 }
 function centerOnPoint(pt){
   const wrap=$('canvasWrap'),p=window.__canvasPan;if(!wrap||!p||!pt)return;
@@ -3691,8 +3776,28 @@ function activateSearchResult(type,id){
   const g=geometry(); state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];
   if(type==='rack'){const r=state.racks.find(x=>x.id===id);if(!r)return;state.selected={type:'rack',id};state.multiSelected=[id];centerOnPoint(rackCenter(r,g));}
   else if(type==='tray'){const t=state.trays.find(x=>x.id===id);if(!t)return;state.selected={type:'tray',id};state.trayMultiSelected=[id];centerOnPoint({x:(t.x1+t.x2)/2,y:(t.y1+t.y2)/2});}
+  else if(type==='row'){
+    // Fileira: leva o canvas até ela e pisca o cartão no painel, que é onde ela se edita.
+    const idx=state.rows.findIndex(r=>r.id===id); if(idx<0)return;
+    const racks=racksInRow(id);
+    if(racks.length)centerOnPoint(rackCenter(racks[0],g));
+    else{
+      const pan=window.__canvasPan||{x:0,y:0,zoom:1}, wrap=$('canvasWrap');
+      centerOnPoint({x:(-pan.x+wrap.clientWidth/2)/pan.zoom,y:rowCenterY(idx,g)});
+    }
+    const card=document.querySelector(`[data-row-card="${id}"]`);
+    if(card){card.scrollIntoView({block:'nearest'});card.classList.add('is-found');setTimeout(()=>card.classList.remove('is-found'),1400);}
+  }
+  else if(type==='asset'){
+    // Asset: centraliza no rack dele e abre o inventário já filtrado pelo nome.
+    const a=state.assets.find(x=>x.id===id); if(!a)return;
+    const rack=a.rackId?state.racks.find(r=>r.id===a.rackId):null;
+    if(rack){state.selected={type:'rack',id:rack.id};state.multiSelected=[rack.id];centerOnPoint(rackCenter(rack,g));}
+    openAssetsModal();
+    const s=$('assetsSearch'); if(s){s.value=a.name||'';s.dispatchEvent(new Event('input',{bubbles:true}));}
+  }
   else {const c=state.cables.find(x=>x.id===id);if(!c)return;state.selected={type:'cable',id};const pts=computeRoute(c,g);if(pts.length)centerOnPoint({x:pts.reduce((a,p)=>a+p.x,0)/pts.length,y:pts.reduce((a,p)=>a+p.y,0)/pts.length});}
-  closeQuickSearch();renderAll(false);requestAnimationFrame(()=>window.__applyCanvasPan?.());
+  closeQuickSearch();closeTopSearch();renderAll(false);requestAnimationFrame(()=>window.__applyCanvasPan?.());
 }
 function openHelpModal(){const m=$('helpModal');if(!m)return;m.classList.remove('hidden');m.classList.add('open');m.setAttribute('aria-hidden','false');}
 function closeHelpModal(){const m=$('helpModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
@@ -4070,6 +4175,7 @@ function bind(){
   // A barra lateral já foi inicializada por setupSidebarToggle().
   $('btnQuickSearch')?.addEventListener('click',openQuickSearch);
   $('quickSearchClose')?.addEventListener('click',closeQuickSearch); $('summaryClose')?.addEventListener('click',closeProjectSummary);
+  bindTopSearch();
   
   $('quickSearchInput')?.addEventListener('input',e=>{quickSearchIndex=0;renderQuickSearchResults(e.target.value);});
   $('quickSearchInput')?.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();if(quickSearchItems.length){quickSearchIndex=(quickSearchIndex+1)%quickSearchItems.length;renderQuickSearchResults(e.target.value);}}else if(e.key==='ArrowUp'){e.preventDefault();if(quickSearchItems.length){quickSearchIndex=(quickSearchIndex-1+quickSearchItems.length)%quickSearchItems.length;renderQuickSearchResults(e.target.value);}}else if(e.key==='Enter'&&quickSearchItems[quickSearchIndex]){e.preventDefault();activateSearchResult(quickSearchItems[quickSearchIndex].type,quickSearchItems[quickSearchIndex].id);}});

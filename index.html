@@ -13,27 +13,27 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=291" />
-    <link rel="stylesheet" href="macos.css?v=156" />
+    <link rel="stylesheet" href="app.css?v=294" />
+    <link rel="stylesheet" href="macos.css?v=159" />
     <script type="importmap">
       {
         "imports": {
-          "./js/bulk-assets.js": "./js/bulk-assets.js?v=295",
-          "./js/cables.js": "./js/cables.js?v=295",
-          "./js/catalogs.js": "./js/catalogs.js?v=295",
-          "./js/cloud-sync.js": "./js/cloud-sync.js?v=295",
-          "./js/dialogs.js": "./js/dialogs.js?v=295",
-          "./js/geometry.js": "./js/geometry.js?v=295",
-          "./js/inventory-import.js": "./js/inventory-import.js?v=295",
-          "./js/occupancy.js": "./js/occupancy.js?v=295",
-          "./js/pdf-report.js": "./js/pdf-report.js?v=295",
-          "./js/plant-export.js": "./js/plant-export.js?v=295",
-          "./js/rack-metrics.js": "./js/rack-metrics.js?v=295",
-          "./js/routing.js": "./js/routing.js?v=295",
-          "./js/runtime.js": "./js/runtime.js?v=295",
-          "./js/state.js": "./js/state.js?v=295",
-          "./js/styled-select.js": "./js/styled-select.js?v=295",
-          "./js/utils.js": "./js/utils.js?v=295"
+          "./js/bulk-assets.js": "./js/bulk-assets.js?v=298",
+          "./js/cables.js": "./js/cables.js?v=298",
+          "./js/catalogs.js": "./js/catalogs.js?v=298",
+          "./js/cloud-sync.js": "./js/cloud-sync.js?v=298",
+          "./js/dialogs.js": "./js/dialogs.js?v=298",
+          "./js/geometry.js": "./js/geometry.js?v=298",
+          "./js/inventory-import.js": "./js/inventory-import.js?v=298",
+          "./js/occupancy.js": "./js/occupancy.js?v=298",
+          "./js/pdf-report.js": "./js/pdf-report.js?v=298",
+          "./js/plant-export.js": "./js/plant-export.js?v=298",
+          "./js/rack-metrics.js": "./js/rack-metrics.js?v=298",
+          "./js/routing.js": "./js/routing.js?v=298",
+          "./js/runtime.js": "./js/runtime.js?v=298",
+          "./js/state.js": "./js/state.js?v=298",
+          "./js/styled-select.js": "./js/styled-select.js?v=298",
+          "./js/utils.js": "./js/utils.js?v=298"
         }
       }
     </script>
@@ -420,33 +420,54 @@
         </div>
         <button
           id="btnTheme"
-          class="btn ghost ui-icon-label"
-          title="Alternar tema"
+          class="btn ghost"
+          title="Alternar tema claro/escuro"
+          aria-label="Alternar tema claro/escuro"
         >
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.5 8.5 0 1 0 20.5 15.2Z"
             /></svg
-          ><span>Tema</span>
+          >
         </button>
         <button
           id="btnProjects"
-          class="btn ghost ui-icon-label"
+          class="btn ghost"
           title="Meus projetos"
+          aria-label="Meus projetos"
         >
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
             <rect x="3" y="3" width="7" height="7" rx="1.5" />
             <rect x="14" y="3" width="7" height="7" rx="1.5" />
             <rect x="3" y="14" width="7" height="7" rx="1.5" />
             <rect x="14" y="14" width="7" height="7" rx="1.5" /></svg
-          ><span>Projetos</span>
+          >
         </button>
+        <div class="topbar-search" id="topSearchWrap">
+          <svg class="topbar-search-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            id="topSearch"
+            type="search"
+            autocomplete="off"
+            spellcheck="false"
+            role="combobox"
+            aria-expanded="false"
+            aria-controls="topSearchResults"
+            aria-label="Buscar fileira, rack, calha, cabo ou asset"
+            placeholder="Buscar"
+          />
+          <div
+            id="topSearchResults"
+            class="topbar-search-results hidden"
+            role="listbox"
+            aria-label="Resultados da busca"
+          ></div>
+        </div>
         <div class="room-control" title="Localização e sala">
           <div class="room-pick">
-          <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 20V7l8-4 8 4v13" />
-            <path d="M9 20v-5h6v5" />
-          </svg>
           <select
             id="locationSelect"
             aria-hidden="true"
@@ -461,12 +482,14 @@
             aria-expanded="false"
             aria-label="Selecionar localização"
           >
-            <span class="dc-select-label">—</span
-            ><svg class="ic-chevron" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M6 9l6 6 6-6" />
-            </svg>
+            <svg class="ui-icon room-pick-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 20V7l8-4 8 4v13" />
+              <path d="M9 20v-5h6v5" /></svg
+            ><span class="dc-select-label">—</span
+          ><svg class="ic-chevron" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
           </button>
-          <span class="room-control-separator">/</span>
           <select
             id="roomSelect"
             aria-hidden="true"
@@ -487,17 +510,18 @@
             </svg>
           </button>
           </div>
-          <button
-            id="btnLocations"
-            class="btn ghost topbar-location-btn"
-            type="button"
-            title="Gerenciar localizações"
+        <button
+          id="btnLocations"
+          class="btn ghost topbar-location-btn"
+          type="button"
+          title="Gerenciar localizações"
+          aria-label="Gerenciar localizações"
+        >
+          <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 21s7-5.2 7-12A7 7 0 1 0 5 9c0 6.8 7 12 7 12Z" />
+            <circle cx="12" cy="9" r="2.5" /></svg
           >
-            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 21s7-5.2 7-12A7 7 0 1 0 5 9c0 6.8 7 12 7 12Z" />
-              <circle cx="12" cy="9" r="2.5" /></svg
-            ><span>Localizações</span>
-          </button>
+        </button>
         </div>
         <div class="autosave-control" title="Salvamento automático na nuvem">
           <span id="autosaveLabel">Autosave</span
@@ -528,34 +552,71 @@
         </button>
         <button
           id="btnImportProject"
-          class="btn ghost ui-icon-label"
-          title="Importar projeto"
+          class="btn ghost"
+          title="Importar projeto (arquivo JSON)"
           aria-label="Importar projeto (arquivo JSON)"
         >
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 3v12M7 10l5 5 5-5M5 20h14" /></svg
-          ><span>Importar</span>
+          >
         </button>
         <button
           id="btnExport"
-          class="btn ghost ui-icon-label"
-          title="Exportar projeto"
+          class="btn ghost"
+          title="Exportar projeto (arquivo JSON)"
           aria-label="Exportar projeto (arquivo JSON)"
         >
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 21V9M7 12l5-5 5 5M5 4h14" /></svg
-          ><span>Exportar</span>
+          >
         </button>
         <button
           id="btnPdfReport"
-          class="btn ghost ui-icon-label"
+          class="btn ghost"
           type="button"
           title="Gerar relatório em PDF"
+          aria-label="Gerar relatório em PDF"
         >
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M6 3h9l3 3v15H6z" />
             <path d="M9 13h6M9 17h4" /></svg
-          ><span>Relatório PDF</span>
+          >
+        </button>
+        <button id="btnAddTray" class="btn primary ui-icon-label" type="button">
+          <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" /></svg
+          >Calha</button
+        ><button
+          id="btnAssets"
+          class="btn ghost ui-icon-label"
+          type="button"
+          title="Abrir inventário de assets"
+        >
+          <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 8 12 3 3 8v8l9 5 9-5Z" /><path d="M3 8l9 5 9-5M12 13v8" />
+          </svg
+          ><span>Assets</span></button
+        ><button
+          id="btnCatalogs"
+          class="btn ghost ui-icon-label"
+          type="button"
+          title="Gerenciar cadastros do sistema"
+        >
+          <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.3-.6-.6-2.3Z" />
+          </svg
+          ><span>Cadastros</span></button
+        ><button
+          id="btnAlertsCenter"
+          class="btn lifecycle-alert-btn hidden"
+          type="button"
+          title="Central de alertas — ciclo de vida e capacidade"
+        >
+          <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" /></svg
+          ><span id="alertsCenterCount">0</span>
         </button>
         <button id="btnHelp" class="btn ghost" type="button" title="Ajuda">
           ?
@@ -841,74 +902,6 @@
         <span id="sidebarToggleIcon">‹</span>
       </button>
       <main class="workspace">
-        <div class="toolbar">
-          <div class="toolbar-title">
-            <div class="modal-icon planner-project-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M4 21V5.5L12 3l8 2.5V21" />
-                <path
-                  d="M9 21v-5h6v5M8 9h.01M12 9h.01M16 9h.01M8 13h.01M12 13h.01M16 13h.01"
-                />
-              </svg>
-            </div>
-            <div class="planner-project-info">
-              <div class="planner-project-main">
-                <strong id="plannerProjectName">Data Center</strong
-                ><span class="planner-room-separator">/</span
-                ><strong id="plannerLocationName" class="planner-location-name"
-                  >DC AZ1</strong
-                ><span class="planner-room-separator">/</span
-                ><strong id="plannerRoomName" class="planner-room-name"
-                  >Sala 1</strong
-                >
-              </div>
-              <div id="plannerProjectSummary" class="planner-project-summary">
-                <span>0 fileiras</span><span>0 racks</span><span>0 calhas</span
-                ><span>0 cabos</span>
-              </div>
-            </div>
-          </div>
-          <div class="toolbar-actions">
-            <button id="btnAddTray" class="btn primary ui-icon-label">
-              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 5v14M5 12h14" /></svg
-              >Calha</button
-            ><button
-              id="btnAssets"
-              class="btn ghost ui-icon-label"
-              type="button"
-              title="Abrir inventário de assets"
-            >
-              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M21 8 12 3 3 8v8l9 5 9-5Z" /><path d="M3 8l9 5 9-5M12 13v8" />
-              </svg
-              ><span>Assets</span></button
-            ><button
-              id="btnCatalogs"
-              class="btn ghost ui-icon-label"
-              type="button"
-              title="Gerenciar cadastros do sistema"
-            >
-              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.3-.6-.6-2.3Z" />
-              </svg
-              ><span>Cadastros</span></button
-            ><button
-              id="btnAlertsCenter"
-              class="btn lifecycle-alert-btn hidden"
-              type="button"
-              title="Central de alertas — ciclo de vida e capacidade"
-            >
-              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
-                />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" /></svg
-              ><span id="alertsCenterCount">0</span>
-            </button>
-          </div>
-        </div>
         <div id="canvasWrap">
           <div id="canvasStage">
             <svg id="layout" xmlns="http://www.w3.org/2000/svg"></svg>
@@ -4129,6 +4122,6 @@
       <span class="task-bar-fill" aria-hidden="true"></span>
       <span class="task-bar-label" id="taskBarLabel">Processando…</span>
     </div>
-    <script type="module" src="app.js?v=295"></script>
+    <script type="module" src="app.js?v=298"></script>
   </body>
 </html>
