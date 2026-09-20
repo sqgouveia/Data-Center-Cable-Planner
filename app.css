@@ -202,6 +202,14 @@ body {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+/* O `stroke: currentColor` é resolvido no <path>, não no <svg>: regras de
+   contêiner (`.modal-card *`) davam cor própria ao path, então o "+" saía
+   claro mesmo com o botão em tinta escura. */
+.btn .ic *,
+.btn .ui-icon *,
+.iconbtn svg * {
+  color: inherit;
+}
 /* `.ic` fora de botão (pílula de nuvem, faixas de aviso, listas) e os ícones
    que substituíram os glifos de texto. */
 .ic {
@@ -2412,12 +2420,6 @@ body.guest-mode #btnSave {
   .app.sidebar-collapsed > .sidebar-toggle {
     left: 0 !important;
   }
-  .app:not(.sidebar-collapsed) .canvas-zoom-bar {
-    left: 278px;
-  }
-  .app.sidebar-collapsed .canvas-zoom-bar {
-    left: 12px;
-  }
   .app:not(.sidebar-collapsed) .toolbar-title {
     padding-left: 266px;
   }
@@ -2677,8 +2679,6 @@ body.guest-mode #btnSave {
     height: 40px;
   }
   .canvas-zoom-bar {
-    left: 12px;
-    bottom: 12px;
     height: 40px;
   }
   .zoom-range {
@@ -3297,9 +3297,9 @@ body.guest-mode #btnSave {
   padding: 4px 0;
 }
 .canvas-zoom-bar {
-  position: absolute;
-  left: 18px;
-  bottom: 18px;
+  /* Item da barra inferior: o zoom anda junto com colorir / exportar / busca /
+     cadeado, e o conjunto inteiro é que fica centralizado. */
+  position: relative;
   height: 42px;
   display: flex;
   align-items: center;
@@ -7647,6 +7647,23 @@ body {
   font-weight: 600;
   box-shadow: var(--shadow);
 }
+/* Ícones da barra inferior (busca e cadeado): SVG do conjunto, no lugar dos
+   glifos ⌕ e 🔒. */
+#btnQuickSearch > svg,
+#structureLockIcon > svg,
+#structureLockIcon .ic,
+#canvasZoomBar .zoom-btn > svg,
+#canvasZoomBar .zoom-fit > svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  color: inherit;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 @media (max-width: 900px) {
   .ah-row {
     grid-template-columns: 74px 16px minmax(0, 1fr);
@@ -8003,12 +8020,6 @@ body {
 }
 .app.sidebar-collapsed > .sidebar-toggle {
   left: 0 !important;
-}
-.app:not(.sidebar-collapsed) .canvas-zoom-bar {
-  left: 313px;
-}
-.app.sidebar-collapsed .canvas-zoom-bar {
-  left: 18px;
 }
 #bayfaceAssetPickerModal {
   z-index: 1220 !important;

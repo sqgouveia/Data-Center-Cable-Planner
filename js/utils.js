@@ -40,6 +40,8 @@ export const UI_ICONS = {
   hourglass:'<path d="M7 3h10v4l-5 5 5 5v4H7v-4l5-5-5-5V3Z"/>',
   refresh:'<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4.6h-4.6"/>',
   dot:'<circle cx="12" cy="12" r="4.6" fill="currentColor" stroke="none"/>'
+  ,lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'
+  ,unlock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.4-2.1"/>'
 };
 export function uiIcon(name,cls='ic'){
   return `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${UI_ICONS[name]||UI_ICONS.dot}</svg>`;

@@ -971,6 +971,10 @@ label {
    ===================================================================== */
 .app {
   --sb-left: 295px;
+  /* Largura da barra lateral esquerda quando aberta — constante, ao contrário
+     de --sb-left (que vira 0 no colapso). É o que mantém a barra inferior no
+     meio da área visível sem que ela ande ao recolher a lateral. */
+  --sb-width: 295px;
   --bar-h: 36px;
 }
 .app.sidebar-collapsed {
@@ -979,6 +983,7 @@ label {
 @media (max-width: 900px) {
   .app {
     --sb-left: 260px;
+    --sb-width: 260px;
   }
 }
 .canvas-zoom-bar {
@@ -987,10 +992,13 @@ label {
   box-sizing: border-box;
 }
 .heat-control {
-  left: calc(50% + var(--sb-left) / 2);
+  /* Meio da área visível considerando a barra lateral ABERTA — e sempre a
+     mesma posição, porque --sb-width é constante: recolher a lateral não move
+     a barra. */
+  left: calc(50% + var(--sb-width) / 2);
   transform: translateX(-50%);
   align-items: center;
-  max-width: calc(100% - var(--sb-left) - 24px);
+  max-width: calc(100% - 24px);
 }
 .heat-row {
   justify-content: center;
@@ -1020,11 +1028,8 @@ label {
     padding: 0 10px;
   }
 }
-@media (max-width: 1724px) {
-  .heat-control {
-    bottom: calc(18px + 150px + 12px);
-  }
-}
+/* A folga da barra inferior virou padrão em .heat-control — ver o comentário
+   lá: em qualquer largura a barra precisa ficar acima da faixa do minimapa. */
 
 /* ---------- Tema claro: racks um pouco mais escuros ---------- */
 :root.light .rack-body:not([class*="heat-"]),
@@ -1045,15 +1050,47 @@ label {
 /* ---------- Mini mapa: janela fixa e sempre aberta ---------- */
 .minimap {
   position: absolute;
-  right: 18px;
+  right: 2px;
+  /* Mesma linha da barra inferior (a barra é centrada no canvas e termina
+     antes da faixa do minimapa). Em janela estreita eles se cruzariam, então
+     a media query abaixo sobe o minimapa. Cresce ancorado no canto. */
   bottom: 18px;
   top: auto;
   left: auto;
-  width: 260px;
-  height: 150px;
+  /* 80% do tamanho do desenho (viewBox 260×150) — a proporção é a mesma, então
+     o SVG não deforma; no hover volta ao tamanho cheio. */
+  width: 208px;
+  height: 120px;
+  opacity: 0.7;
   z-index: 101;
   padding: 0;
   overflow: hidden;
+  transition:
+    width 0.22s cubic-bezier(0.2, 0.8, 0.25, 1),
+    height 0.22s cubic-bezier(0.2, 0.8, 0.25, 1),
+    opacity 0.18s ease;
+}
+.minimap:hover,
+.minimap:focus-within,
+.minimap.is-dragging {
+  width: 260px;
+  height: 150px;
+  opacity: 1;
+}
+/* Os dois cabem na mesma linha a partir de ~1830px de largura — a barra tem
+   755px e o minimapa 208px. Abaixo disso o minimapa sobe uma linha em vez de
+   cruzar o fim da barra. */
+@media (max-width: 1829px) {
+  .minimap {
+    bottom: 66px;
+  }
+}
+/* Entre 1910px e 1919px os rótulos da barra aparecem (~90px a mais de largura)
+   e não sobra espaço na mesma linha: o minimapa sobe nessa faixa. */
+@media (min-width: 1910px) and (max-width: 1919px) {
+  .minimap {
+    bottom: 66px;
+  }
 }
 .minimap::before {
   content: "";

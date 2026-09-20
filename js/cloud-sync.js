@@ -13,12 +13,12 @@ export const cloud = { cloudProjectId: null, cloudDirty: false, loading: false }
 let applyRoomData, syncActiveRoom, migrateGlobalAssets, ensureRooms, updateRoomUI, setStructureLock,
   updateStructureControls, applyTheme, initHistory, toast, normalizeState, assetRack,
   DEFAULT_ASSET_TYPES, DEFAULT_ASSET_STATUSES, DEFAULT_ASSET_SUBSTATUSES, renderAll, openHelpModal,
-  closeHelpModal, switchHelpSection, bind;
+  closeHelpModal, switchHelpSection, bind, canvasVisible;
 export function configureCloudSync(deps){
   ({ applyRoomData, syncActiveRoom, migrateGlobalAssets, ensureRooms, updateRoomUI,
     setStructureLock, updateStructureControls, applyTheme, initHistory, toast, normalizeState,
     assetRack, DEFAULT_ASSET_TYPES, DEFAULT_ASSET_STATUSES, DEFAULT_ASSET_SUBSTATUSES, renderAll,
-    openHelpModal, closeHelpModal, switchHelpSection, bind } = deps);
+    openHelpModal, closeHelpModal, switchHelpSection, bind, canvasVisible } = deps);
 }
 
 // --- Supabase authentication -------------------------------------------------
@@ -873,11 +873,17 @@ function centerCanvasOnContent(){
     const zoom=window.__canvasPan?.zoom||1;
     const contentCx=(box.x+box.right)/2, contentCy=(box.y+box.bottom)/2;
     const p=window.__canvasPan||(window.__canvasPan={x:0,y:0,zoom:1});
-    p.x=wrap.clientWidth/2-contentCx*zoom;
+    // A barra lateral esquerda cobre o começo do canvas: centralizar pelo
+    // clientWidth deixava a planta deslocada como se a barra estivesse fechada.
+    const vis=canvasVisible?canvasVisible(wrap):{left:0,width:wrap.clientWidth};
+    p.x=vis.left+vis.width/2-contentCx*zoom;
     p.y=wrap.clientHeight/2-contentCy*zoom;
     window.__applyCanvasPan?.();
   });
 }
+// Mesmo gancho de depuração dos outros comandos de câmera (__fitCanvas,
+// __applyCanvasPan): permite medir a centralização sem abrir um projeto real.
+if(typeof window!=='undefined') window.__centerCanvasOnContent=centerCanvasOnContent;
 
 async function openCloudProject(id){
   closeProjectMenus();

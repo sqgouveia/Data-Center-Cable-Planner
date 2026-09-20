@@ -118,7 +118,7 @@ function setStructureLock(locked, persist=true){
     btn.title=state.structureLocked?'Desbloquear estrutura':'Bloquear estrutura';
     btn.setAttribute('aria-label',btn.title);
   }
-  if(icon) icon.textContent=state.structureLocked?'🔒':'🔓';
+  if(icon) icon.innerHTML=uiIcon(state.structureLocked?'lock':'unlock','ic structure-lock-icon');
   document.body.classList.toggle('structure-is-locked',state.structureLocked);
   updateStructureControls();
   renderProperties();
@@ -132,7 +132,7 @@ function updateStructureControls(){
   document.querySelectorAll('#properties input:not(#cbName):not(#cbType):not(#cbOR):not(#cbOU):not(#cbDR):not(#cbDU):not(#cbSlack), #properties select:not(#cbType):not(#cbOR):not(#cbDR), #properties button#delRack, #properties button#delTray, #properties button#applyBulkRack, #properties button#delSelectedRacks, #properties button#delSelectedTrays').forEach(el=>{el.disabled=disabled;});
   const btn=$('structureLock'), icon=$('structureLockIcon');
   if(btn){btn.classList.toggle('locked',disabled);btn.title=disabled?'Desbloquear estrutura':'Bloquear estrutura';btn.setAttribute('aria-label',btn.title);}
-  if(icon)icon.textContent=disabled?'🔒':'🔓';
+  if(icon)icon.innerHTML=uiIcon(disabled?'lock':'unlock','ic structure-lock-icon');
 }
 function structureBlocked(){
   if(isStructureLocked()){ toast('🔒 Estrutura bloqueada. Desbloqueie para alterar racks ou calhas.'); return true; }
@@ -1523,7 +1523,7 @@ function cablePortConflict(cable,side,portId){
   return state.cables.find(c=>c.id!==cable.id && c[field]===portId && ((side==='origin'?c.originRack:c.destRack)===(side==='origin'?cable.originRack:cable.destRack)))||null;
 }
 configureCatalogs({ applyRoomData, updateRoomUI, normalizeCableCatalogs, cableTypeNames, defaultCableType, toast, save, render, normalizeLocations, assetSubstatusValues, renderAssetsList, bayfaceAssetTypeClass, openBayface, renderAll });
-configureCloudSync({ applyRoomData, syncActiveRoom, migrateGlobalAssets, ensureRooms, updateRoomUI, setStructureLock, updateStructureControls, applyTheme, initHistory, toast, normalizeState, assetRack, DEFAULT_ASSET_TYPES, DEFAULT_ASSET_STATUSES, DEFAULT_ASSET_SUBSTATUSES, renderAll, openHelpModal, closeHelpModal, switchHelpSection, bind });
+configureCloudSync({ applyRoomData, syncActiveRoom, migrateGlobalAssets, ensureRooms, updateRoomUI, setStructureLock, updateStructureControls, applyTheme, initHistory, toast, normalizeState, assetRack, DEFAULT_ASSET_TYPES, DEFAULT_ASSET_STATUSES, DEFAULT_ASSET_SUBSTATUSES, renderAll, openHelpModal, closeHelpModal, switchHelpSection, bind, canvasVisible });
 function normalizeLocations(){
   state.locations=Array.isArray(state.locations)?state.locations:[];
   if(!state.locations.length){
@@ -3281,7 +3281,8 @@ function setupPan(){
   const setZoomAtCenter=(z)=>{
     const newZoom=clampZoom(Number(z)||1), oldZoom=p.zoom||1;
     if(newZoom===oldZoom){syncZoomUI();return;}
-    const mx=wrap.clientWidth/2, my=wrap.clientHeight/2;
+    const vis=canvasVisible(wrap);
+    const mx=vis.left+vis.width/2, my=wrap.clientHeight/2;
     const localX=(mx-p.x)/oldZoom, localY=(my-p.y)/oldZoom;
     p.zoom=newZoom; p.x=mx-localX*newZoom; p.y=my-localY*newZoom; apply(); syncZoomUI();
   };
@@ -3300,9 +3301,12 @@ function setupPan(){
     if(!box)return;
     const margin=56;
     const bw=Math.max(1,box.x2-box.x), bh=Math.max(1,box.y2-box.y);
-    const z=clampZoom(Math.min((wrap.clientWidth-margin*2)/bw,(wrap.clientHeight-margin*2)/bh));
+    // O enquadramento usa a área visível (sem a faixa coberta pela barra
+    // lateral), senão a planta abre deslocada para a esquerda.
+    const vis=canvasVisible(wrap);
+    const z=clampZoom(Math.min((vis.width-margin*2)/bw,(wrap.clientHeight-margin*2)/bh));
     p.zoom=z;
-    p.x=(wrap.clientWidth-(box.x+box.x2)*z)/2;
+    p.x=vis.left+(vis.width-(box.x+box.x2)*z)/2;
     p.y=(wrap.clientHeight-(box.y+box.y2)*z)/2;
     apply(); syncZoomUI();
   };
@@ -3365,7 +3369,12 @@ function renderQuickSearchResults(query){
   el.querySelectorAll('[data-search-id]').forEach(b=>b.addEventListener('click',()=>activateSearchResult(b.dataset.searchType,b.dataset.searchId)));
 }
 function centerOnPoint(pt){
-  const wrap=$('canvasWrap'),p=window.__canvasPan;if(!wrap||!p||!pt)return; const zoom=p.zoom||1; p.x=wrap.clientWidth/2-pt.x*zoom;p.y=wrap.clientHeight/2-pt.y*zoom; window.__applyCanvasPan?.();
+  const wrap=$('canvasWrap'),p=window.__canvasPan;if(!wrap||!p||!pt)return;
+  // Centraliza na área que aparece de fato: a barra lateral esquerda cobre o
+  // começo do canvas, então o meio do wrap não é o meio visível.
+  const vis=canvasVisible(wrap);
+  const zoom=p.zoom||1;
+  p.x=vis.left+vis.width/2-pt.x*zoom;p.y=wrap.clientHeight/2-pt.y*zoom; window.__applyCanvasPan?.();
 }
 function activateSearchResult(type,id){
   const g=geometry(); state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];

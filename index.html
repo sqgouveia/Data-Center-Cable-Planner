@@ -13,27 +13,27 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=227" />
-    <link rel="stylesheet" href="macos.css?v=92" />
+    <link rel="stylesheet" href="app.css?v=236" />
+    <link rel="stylesheet" href="macos.css?v=101" />
     <script type="importmap">
       {
         "imports": {
-          "./js/bulk-assets.js": "./js/bulk-assets.js?v=229",
-          "./js/cables.js": "./js/cables.js?v=229",
-          "./js/catalogs.js": "./js/catalogs.js?v=229",
-          "./js/cloud-sync.js": "./js/cloud-sync.js?v=229",
-          "./js/dialogs.js": "./js/dialogs.js?v=229",
-          "./js/geometry.js": "./js/geometry.js?v=229",
-          "./js/inventory-import.js": "./js/inventory-import.js?v=229",
-          "./js/occupancy.js": "./js/occupancy.js?v=229",
-          "./js/pdf-report.js": "./js/pdf-report.js?v=229",
-          "./js/plant-export.js": "./js/plant-export.js?v=229",
-          "./js/rack-metrics.js": "./js/rack-metrics.js?v=229",
-          "./js/routing.js": "./js/routing.js?v=229",
-          "./js/runtime.js": "./js/runtime.js?v=229",
-          "./js/state.js": "./js/state.js?v=229",
-          "./js/styled-select.js": "./js/styled-select.js?v=229",
-          "./js/utils.js": "./js/utils.js?v=229"
+          "./js/bulk-assets.js": "./js/bulk-assets.js?v=238",
+          "./js/cables.js": "./js/cables.js?v=238",
+          "./js/catalogs.js": "./js/catalogs.js?v=238",
+          "./js/cloud-sync.js": "./js/cloud-sync.js?v=238",
+          "./js/dialogs.js": "./js/dialogs.js?v=238",
+          "./js/geometry.js": "./js/geometry.js?v=238",
+          "./js/inventory-import.js": "./js/inventory-import.js?v=238",
+          "./js/occupancy.js": "./js/occupancy.js?v=238",
+          "./js/pdf-report.js": "./js/pdf-report.js?v=238",
+          "./js/plant-export.js": "./js/plant-export.js?v=238",
+          "./js/rack-metrics.js": "./js/rack-metrics.js?v=238",
+          "./js/routing.js": "./js/routing.js?v=238",
+          "./js/runtime.js": "./js/runtime.js?v=238",
+          "./js/state.js": "./js/state.js?v=238",
+          "./js/styled-select.js": "./js/styled-select.js?v=238",
+          "./js/utils.js": "./js/utils.js?v=238"
         }
       }
     </script>
@@ -880,6 +880,64 @@
             aria-label="Colorir racks por"
           >
             <div class="heat-row">
+              <div
+                id="canvasZoomBar"
+                class="canvas-zoom-bar"
+                aria-label="Controle de zoom"
+              >
+                <button
+                  id="zoomOut"
+                  class="zoom-btn"
+                  type="button"
+                  title="Diminuir zoom"
+                  aria-label="Diminuir zoom"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 12h14" />
+                  </svg>
+                </button>
+                <input
+                  id="zoomRange"
+                  class="zoom-range"
+                  type="range"
+                  min="55"
+                  max="250"
+                  value="100"
+                  step="1"
+                  aria-label="Zoom"
+                />
+                <button
+                  id="zoomIn"
+                  class="zoom-btn"
+                  type="button"
+                  title="Aumentar zoom"
+                  aria-label="Aumentar zoom"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                </button>
+                <button
+                  id="zoomReset"
+                  class="zoom-value"
+                  type="button"
+                  title="Restaurar zoom para 100%"
+                  aria-label="Restaurar zoom para 100%"
+                >
+                  100%
+                </button>
+                <button
+                  id="zoomFit"
+                  class="zoom-fit"
+                  type="button"
+                  title="Ajustar planta à tela"
+                  aria-label="Ajustar planta à tela"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 9V4h5M20 15v5h-5M15 4h5v5M9 20H4v-5" />
+                  </svg>
+                </button>
+              </div>
               <div class="heat-modes">
               <span class="heat-pill" aria-hidden="true"></span>
               <span class="heat-label">Colorir por</span>
@@ -906,7 +964,10 @@
             title="Buscar (Ctrl+K)"
             aria-label="Buscar (Ctrl+K)"
           >
-            ⌕
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="6" />
+              <path d="M20 20l-4.2-4.2" />
+            </svg>
           </button>
               <button
             id="structureLock"
@@ -915,7 +976,11 @@
             title="Bloquear estrutura"
             aria-label="Bloquear estrutura"
           >
-            <span id="structureLockIcon">🔓</span>
+            <span id="structureLockIcon"
+              ><svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="5" y="11" width="14" height="9" rx="2" />
+                <path d="M8 11V8a4 4 0 0 1 7.4-2.1" /></svg
+            ></span>
           </button>
             </div>
             <div id="heatLegend" class="heat-legend hidden"></div>
@@ -945,58 +1010,6 @@
           </div>
           <div id="minimap" class="minimap" aria-label="Visão geral da planta">
             <svg id="minimapSvg" xmlns="http://www.w3.org/2000/svg"></svg>
-          </div>
-          <div
-            id="canvasZoomBar"
-            class="canvas-zoom-bar"
-            aria-label="Controle de zoom"
-          >
-            <button
-              id="zoomOut"
-              class="zoom-btn"
-              type="button"
-              title="Diminuir zoom"
-              aria-label="Diminuir zoom"
-            >
-              −
-            </button>
-            <input
-              id="zoomRange"
-              class="zoom-range"
-              type="range"
-              min="55"
-              max="250"
-              value="100"
-              step="1"
-              aria-label="Zoom"
-            />
-            <button
-              id="zoomIn"
-              class="zoom-btn"
-              type="button"
-              title="Aumentar zoom"
-              aria-label="Aumentar zoom"
-            >
-              +
-            </button>
-            <button
-              id="zoomReset"
-              class="zoom-value"
-              type="button"
-              title="Restaurar zoom para 100%"
-              aria-label="Restaurar zoom para 100%"
-            >
-              100%
-            </button>
-            <button
-              id="zoomFit"
-              class="zoom-fit"
-              type="button"
-              title="Ajustar planta à tela"
-              aria-label="Ajustar planta à tela"
-            >
-              ⤢
-            </button>
           </div>
         </div>
       </main>
@@ -4051,6 +4064,6 @@
       <span class="task-bar-fill" aria-hidden="true"></span>
       <span class="task-bar-label" id="taskBarLabel">Processando…</span>
     </div>
-    <script type="module" src="app.js?v=229"></script>
+    <script type="module" src="app.js?v=238"></script>
   </body>
 </html>
