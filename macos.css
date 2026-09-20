@@ -2367,6 +2367,9 @@ label {
   /* Pílula na segunda linha, largura do próprio conteúdo — não estica com a linha. */
   flex: 0 0 auto;
   margin-left: 0;
+  /* Na linha própria não há com o que dividir espaço: o teto de 46% do app.css cortava o
+     texto ("2 racks seleciona..."). */
+  max-width: 100%;
 }
 .sidebar.right > section > .section-head-sticky,
 .sidebar.right > .cables-section > .cables-head {
@@ -2385,6 +2388,11 @@ label {
   padding-right: 9px;
 }
 .sidebar.right > .cables-section > #cablesList {
+  padding-bottom: 9px;
+}
+/* O miolo do cartão de Propriedades também precisa de respiro embaixo: sem ele o último
+   botão encosta na borda do cartão (era o caso de "Excluir calha" e "Limpar seleção"). */
+.sidebar.right > section > #properties {
   padding-bottom: 9px;
 }
 .sidebar.left > section.collapsed > .prop-card,

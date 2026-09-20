@@ -2747,28 +2747,48 @@ function renderProperties(){
   p.dataset.propKey=propKey;
   if(state.trayMultiSelected.length>1){
     const count=state.trayMultiSelected.length;
-    setPropTitleSticky(`${count} calhas selecionadas`);
+    setPropTitleSticky(`${count} calhas`);
     setPropHead('tray',`${count} calhas selecionadas`,'Somente exclusão em lote.');
-    p.innerHTML=`<div class="help">Várias calhas selecionadas. Para evitar alterações acidentais na geometria e nas conexões, somente a exclusão em lote está disponível.</div>
-      <button class="btn danger full" id="delSelectedTrays">Excluir ${count} calhas selecionadas</button>
-      <button class="btn ghost full" id="clearSelectedTrays">Limpar seleção</button>`;
+    p.innerHTML=`<div class="prop-card">
+      <div class="help">Várias calhas selecionadas. Para evitar alterações acidentais na geometria e nas conexões, somente a exclusão em lote está disponível.</div>
+      <button class="btn danger full" id="delSelectedTrays">${propIcon('trash')}Excluir ${count} calhas selecionadas</button>
+      <button class="btn ghost full" id="clearSelectedTrays">${uiIcon('close','prop-ico ic-close')}Limpar seleção</button>
+    </div>`;
     $('delSelectedTrays').onclick=deleteSelectedTrays;
     $('clearSelectedTrays').onclick=()=>{state.trayMultiSelected=[];state.selected=null;renderAll();};
     return;
   }
   if(state.multiSelected.length>1){
     const count=state.multiSelected.length;
-    setPropTitleSticky(`${count} racks selecionados`);
+    // A pílula é a etiqueta curta da seleção, como o nome do rack no painel de um só: o
+    // texto longo já está no título.
+    setPropTitleSticky(`${count} racks`);
     setPropHead('multi',`${count} racks selecionados`,'Alterações aplicadas a todos os selecionados.');
-    p.innerHTML=`${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. As propriedades dos racks estão somente para consulta.</div>':''}
-      <div class="help">As propriedades abaixo serão aplicadas a todos os racks selecionados. Deixe um campo vazio para não alterá-lo. Largura e profundidade mantêm cada rack centrado.</div>
-      <div class="grid2"><label>Qtd. U<input id="bulkUnits" type="number" min="1" max="60" placeholder="Não alterar"></label><label>Largura (m)<input id="bulkWidth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label></div>
-      <div class="grid2"><label>Profundidade (m)<input id="bulkDepth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label><label>Distância próx. (m)<input id="bulkGap" type="number" min="0" step="0.01" placeholder="Não alterar"></label></div>
-      <label>Altura da última U → calha (m)<input id="bulkRise" type="number" min="0" step="0.01" placeholder="Não alterar"></label>
-      <div class="grid2"><label>Capacidade elétrica (W)<input id="bulkPowerCapacity" type="number" min="0" step="1" placeholder="Não alterar"></label><label>Capacidade do piso (kg)<input id="bulkWeightCapacity" type="number" min="0" step="1" placeholder="Não alterar"></label></div>
-      <button class="btn primary full" id="applyBulkRack">${uiIcon('check')} Aplicar propriedades</button>
-      <button class="btn danger full" id="delSelectedRacks">Excluir ${count} racks selecionados</button>
-      <button class="btn ghost full" id="clearSelectedRacks">Limpar seleção</button>`;
+    p.innerHTML=`<div class="prop-card">
+      ${isStructureLocked()?'<div class="structure-lock-note">🔒 Estrutura bloqueada. As propriedades dos racks estão somente para consulta.</div>':''}
+      <div class="grid2">
+        <label class="prop-field"><span class="prop-field-label">${propIcon('units')}<span class="prop-field-text">Qtd. U</span></span><span class="prop-field-box"><input id="bulkUnits" type="number" min="1" max="60" placeholder="Não alterar"></span></label>
+        <label class="prop-field"><span class="prop-field-label">${propIcon('width')}<span class="prop-field-text">Largura (m)</span></span><span class="prop-field-box"><input id="bulkWidth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></span></label>
+      </div>
+      <div class="grid2">
+        <label class="prop-field"><span class="prop-field-label">${propIcon('depth')}<span class="prop-field-text">Profund. (m)</span></span><span class="prop-field-box"><input id="bulkDepth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></span></label>
+        <label class="prop-field"><span class="prop-field-label">${propIcon('gap')}<span class="prop-field-text">Dist. próx. (m)</span></span><span class="prop-field-box"><input id="bulkGap" type="number" min="0" step="0.01" placeholder="Não alterar"></span></label>
+      </div>
+      <label class="prop-field"><span class="prop-field-label">${propIcon('rise')}<span class="prop-field-text">Última U → calha (m)</span></span><span class="prop-field-box"><input id="bulkRise" type="number" min="0" step="0.01" placeholder="Não alterar"></span></label>
+      <div class="prop-card-sub">
+        <span class="prop-field-label">${propIcon('power')}<span class="prop-field-text">Cap. elétrica (W) <span class="prop-field-opt">(opcional)</span></span></span>
+        <span class="prop-field-box"><input id="bulkPowerCapacity" type="number" min="0" step="1" placeholder="Não alterar" aria-label="Capacidade elétrica (W)"></span>
+      </div>
+      <div class="prop-card-sub">
+        <span class="prop-field-label">${propIcon('weight')}<span class="prop-field-text">Carga do piso (kg) <span class="prop-field-opt">(opcional)</span></span></span>
+        <span class="prop-field-box"><input id="bulkWeightCapacity" type="number" min="0" step="1" placeholder="Não alterar" aria-label="Capacidade de carga do piso (kg)"></span>
+      </div>
+      <button class="btn primary full" id="applyBulkRack">${uiIcon('check','prop-ico ic-check')}Aplicar propriedades</button>
+      <button class="btn danger full" id="delSelectedRacks">${propIcon('trash')}Excluir ${count} racks selecionados</button>
+      <button class="btn ghost full" id="clearSelectedRacks">${uiIcon('close','prop-ico ic-close')}Limpar seleção</button>
+      <div class="prop-footnote">${propIcon('info')}Campo vazio não altera nada. Largura e profundidade mantêm cada rack centrado.</div>
+    </div>`;
+    bindPropPanel(p);
     $('applyBulkRack').onclick=()=>{if(structureBlocked())return;
       const ids=new Set(state.multiSelected);
       const unitsVal=$('bulkUnits').value.trim(), widthVal=$('bulkWidth').value.trim(), depthVal=$('bulkDepth').value.trim(), gapVal=$('bulkGap').value.trim(), riseVal=$('bulkRise').value.trim(), powerCapVal=$('bulkPowerCapacity').value.trim(), weightCapVal=$('bulkWeightCapacity').value.trim();
