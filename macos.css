@@ -371,6 +371,54 @@ input[type="radio"] {
 .asset-row:hover {
   background: color-mix(in srgb, var(--panel3) 70%, transparent);
 }
+/* Excluir um cabo na própria linha: alvo de 24px na altura do título, com o ícone menor que
+   o dos botões de barra — dentro de uma lista de 340px um ícone de 18px pesa mais que o nome
+   do cabo. */
+.cable-item .cable-del {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: color-mix(in srgb, var(--muted) 82%, transparent);
+}
+.cable-item .cable-del svg {
+  width: 15px;
+  height: 15px;
+}
+.cable-item .cable-del:hover {
+  color: var(--red-ink);
+  background: color-mix(in srgb, var(--red) 14%, transparent);
+}
+/* O botão vive no canto de baixo da linha: ele fecha a última linha do trajeto, encostado na
+   direita, sem cobrir o texto do destino (que encurta com reticências, como já fazia). */
+.cable-item .cable-route-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cable-item .cable-route-foot .cable-end {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cable-item .cable-route-foot .cable-del {
+  margin: -2px -2px -2px 0;
+}
+/* O nome é a identidade do cabo: a linha do título reserva espaço para ele e quem cede é a
+   etiqueta de tipo. Sem isso, uma etiqueta longa (FIBRA MULTI MODE, 128px numa linha de
+   250px) espremia o nome para "C..." assim que o botão de excluir entrou na linha. */
+.cable-item .cable-item-title {
+  min-width: 112px;
+}
+.cable-item .cable-type-tag {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* =====================================================================
    Tipografia de painel e barras laterais

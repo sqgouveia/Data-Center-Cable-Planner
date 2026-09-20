@@ -446,7 +446,10 @@ export function renderCables(){
           </div>
           <div class="cable-route">
             ${endBox('origin',o)}
-            ${endBox('dest',d)}
+            <div class="cable-route-foot">
+              ${endBox('dest',d)}
+              <button type="button" class="iconbtn cable-del" data-cable-del="${c.id}" title="Excluir ${esc(c.name)}" aria-label="Excluir o cabo ${esc(c.name)}">${uiIcon('trash')}</button>
+            </div>
           </div>
         </div>
       </div>`;
@@ -458,6 +461,11 @@ export function renderCables(){
     if(cb.checked){if(!cables.cableMultiSelected.includes(id))cables.cableMultiSelected.push(id);}
     else cables.cableMultiSelected=cables.cableMultiSelected.filter(x=>x!==id);
     renderCables();
+  });
+  // Excluir um cabo pela própria linha: o clique não pode virar seleção, então para aqui.
+  el.querySelectorAll('[data-cable-del]').forEach(btn=>btn.onclick=e=>{
+    e.stopPropagation();
+    deleteCableById(btn.dataset.cableDel);
   });
   const selectAll=$('cablesSelectAll');
   if(selectAll){
@@ -472,6 +480,16 @@ function updateCablesBulkBar(){
   const bar=$('cablesBulkBar'); if(!bar)return;
   bar.classList.toggle('hidden',cables.cableMultiSelected.length===0);
   if($('cablesBulkCount'))$('cablesBulkCount').textContent=String(cables.cableMultiSelected.length);
+}
+// Excluir um cabo só, direto da lista. Sem confirmação: a barra de ferramentas tem
+// Desfazer, e o mesmo caminho do painel de propriedades também remove na hora.
+export function deleteCableById(id){
+  const c=state.cables.find(x=>x.id===id); if(!c)return;
+  state.cables=state.cables.filter(x=>x.id!==id);
+  cables.cableMultiSelected=cables.cableMultiSelected.filter(x=>x!==id);
+  if(state.selected?.type==='cable'&&state.selected.id===id)state.selected=null;
+  renderAll();
+  toast(`Cabo ${c.name} exclu\u00eddo`);
 }
 export async function deleteCablesBulk(){
   const ids=[...cables.cableMultiSelected];
