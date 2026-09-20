@@ -39,7 +39,7 @@ Simplicidade sem infraestrutura pesada: roda como site estático (HTML/CSS/JS pu
 ## Brand Commitments
 
 - Nome do produto: **Stratum**.
-- Tagline existente: "Planejamento e gestão de data center".
+- Tagline: "Data Center Planner".
 - Logo já existe (`logo.png`) — usado como marca em todas as telas (auth, dashboard, topbar).
 
 ## Evidence on Hand
