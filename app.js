@@ -3261,42 +3261,107 @@ async function deleteSelectedRacks(){
 
 function setupPropSectionResize(){
   const handle=$('propSectionResize');
-  const propSection=handle?.previousElementSibling;
-  const right=handle?.closest('.sidebar.right');
-  if(!handle||!propSection||!right)return;
-  let startY=0,startH=0,dragging=false;
+  if(!handle||handle.dataset.splitBound)return;
+  const propSection=handle.previousElementSibling;
+  const right=handle.closest('.sidebar.right');
+  const cables=handle.nextElementSibling;
+  if(!propSection||!right||!cables)return;
+  handle.dataset.splitBound='1';
+
+  const MIN_PROPS=54;   // mínimo de Propriedades: sobra só o cabeçalho
+  const KEY='dccp-split-cabos';
+  let pinnedTop=null;   // topo do cartão de Cabos durante o arrasto, em px
+  let pinnedRatio=null; // o mesmo topo como fração da coluna: sobrevive ao recarregar
+  try{
+    const salvo=localStorage.getItem(KEY);
+    if(salvo!=null){const v=parseFloat(salvo); if(Number.isFinite(v)&&v>=0&&v<=1)pinnedRatio=v;}
+  }catch{}
+  let bounds={min:0,max:0,usable:0};
+
+  // A divisão tem uma variável só: o topo do cartão de Cabos. Propriedades fica com o espaço
+  // que sobra até ele, sem passar do próprio conteúdo — assim o cartão nunca estica com vão
+  // por dentro, e o arrasto de Cabos para cima encolhe Propriedades (que passa a rolar).
+  const layout=()=>{
+    const cs=getComputedStyle(right);
+    const avail=right.clientHeight-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);
+    if(avail<120)return; // painel escondido: não há o que dividir
+    // Medir sempre sem as travas do próprio layout.
+    propSection.style.height='';
+    cables.style.height='';
+    cables.style.marginTop='';
+    const nProp=propSection.offsetHeight;
+    const nCab=cables.offsetHeight;
+    // Vão que já existe entre os cartões: margem da seção mais a barra do puxador (~21px).
+    const baseGap=cables.offsetTop-propSection.offsetTop-nProp;
+    const usable=avail-(parseFloat(getComputedStyle(cables).marginBottom)||0);
+    const propFloor=Math.min(MIN_PROPS,nProp);
+    const minTop=propFloor+baseGap;
+    // Até onde Cabos desce: com o cartão inteiro à vista, encostado no fim da coluna. Se o
+    // conteúdo dele não couber na coluna, ele já não tem para onde descer.
+    const maxTop=Math.max(minTop,usable-nCab);
+    const want=pinnedTop!=null?pinnedTop:(pinnedRatio!=null?pinnedRatio*usable:nProp+baseGap);
+    const top=Math.max(minTop,Math.min(maxTop,want));
+    const propH=Math.max(propFloor,Math.min(nProp,top-baseGap));
+    cables.style.marginTop=Math.max(0,top-baseGap-propH)+'px';
+    cables.style.height=Math.max(0,Math.min(nCab,usable-top))+'px';
+    propSection.style.height=propH+'px';
+    bounds={min:minTop,max:maxTop,usable};
+    window.__dccpSplit={nProp,nCab,baseGap,usable,minTop,maxTop,top,propH};
+  };
+  window.__dccpRightSplit=layout;
+
+  let dragY=0,dragTop=0,dragging=false;
   const onMove=e=>{
     if(!dragging)return;
-    // Recolhido não redimensiona: a altura inline do arrasto venceria o recolhimento e o
-    // cartão voltaria a crescer com o corpo escondido.
-    if(propSection.classList.contains('collapsed'))return;
-    const dy=e.clientY-startY;
-    const maxAllowed=Math.max(120,right.clientHeight-140);
-    const h=Math.max(120,Math.min(maxAllowed,startH+dy));
-    // O arrasto define o teto, não a altura: com conteúdo curto o cartão encolhe até ele em
-    // vez de guardar o vão do tamanho antigo.
-    propSection.style.maxHeight=h+'px';
-    propSection.style.height='';
-    if(!state.selected&&!state.multiSelected.length&&!state.trayMultiSelected.length)renderProperties();
+    pinnedTop=Math.max(bounds.min,Math.min(bounds.max,dragTop+(e.clientY-dragY)));
+    layout();
   };
   const onUp=()=>{
+    if(!dragging)return;
     dragging=false;
     handle.classList.remove('is-dragging');
     document.removeEventListener('pointermove',onMove);
     document.removeEventListener('pointerup',onUp);
+    if(pinnedTop!=null&&bounds.usable>0){
+      pinnedRatio=Math.max(0,Math.min(1,pinnedTop/bounds.usable));
+      try{localStorage.setItem(KEY,pinnedRatio.toFixed(4));}catch{}
+    }
+    pinnedTop=null;
+    layout();
   };
-  // Duplo clique devolve o painel ao tamanho automático.
-  handle.addEventListener('dblclick',()=>{propSection.style.height='';propSection.style.maxHeight='';if(!state.selected)renderProperties();});
+  // Duplo clique devolve Cabos para logo abaixo de Propriedades.
+  handle.addEventListener('dblclick',()=>{
+    pinnedTop=null;pinnedRatio=null;
+    try{localStorage.removeItem(KEY);}catch{}
+    layout();
+  });
   handle.addEventListener('pointerdown',e=>{
     if(e.button!==0)return;
+    // Recolhido não redimensiona: a altura inline do arrasto venceria o recolhimento.
+    if(propSection.classList.contains('collapsed'))return;
     dragging=true;
-    startY=e.clientY;
-    startH=propSection.getBoundingClientRect().height;
+    dragY=e.clientY;
+    dragTop=Math.round(cables.getBoundingClientRect().top-propSection.getBoundingClientRect().top);
     handle.classList.add('is-dragging');
     document.addEventListener('pointermove',onMove);
     document.addEventListener('pointerup',onUp);
     e.preventDefault();
   });
+
+  if(!right.dataset.splitWatch){
+    right.dataset.splitWatch='1';
+    let raf=0;
+    const schedule=()=>{
+      if(raf)return;
+      raf=requestAnimationFrame(()=>{raf=0;layout();});
+    };
+    // Trocar a seleção, mudar a U de um cabo ou redesenhar a lista muda as alturas naturais dos
+    // dois cartões. O observador olha só o conteúdo; o layout escreve estilo, então não há laço.
+    new MutationObserver(schedule).observe(right,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+    window.addEventListener('resize',schedule);
+    if(window.ResizeObserver)new ResizeObserver(schedule).observe(right);
+  }
+  layout();
 }
 function setupPan(){
   const wrap=$('canvasWrap'), stage=$('canvasStage');

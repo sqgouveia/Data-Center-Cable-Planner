@@ -2212,6 +2212,11 @@ label {
 /* O puxador de redimensionar vive entre as seções, fora dos cartões. */
 .prop-section-resize {
   pointer-events: auto;
+  /* Barra fixa: o arrasto movimenta o cartão de Cabos, não a folga. A posição de Cabos fica na
+     margem dele, escrita pelo JS (__dccpRightSplit). */
+  flex: 0 0 auto;
+  min-height: 9px;
+  height: 9px;
 }
 /* Rolagem por cartão: a coluna não rola mais. Cada cartão rola dentro de si, com o
    cabeçalho preso no topo — assim a barra de rolagem pertence ao cartão, não à lateral. */
@@ -2242,7 +2247,10 @@ label {
   min-height: 0;
 }
 .sidebar.right > section:first-child {
-  max-height: calc(50% - 12px);
+  /* Propriedades não tem teto próprio: a altura é a do conteúdo, limitada pelo espaço até o
+     cartão de Cabos. Quem escreve a altura é o JS do puxador (__dccpRightSplit). */
+  max-height: none;
+  min-height: 0;
 }
 .sidebar.left > section > .prop-head,
 .sidebar.right > .cables-section > .cables-head {
@@ -2472,7 +2480,10 @@ label {
    metade da lateral a lista ganhava barra de rolagem mesmo com espaço livre na coluna. Agora
    ele usa o que sobra abaixo das propriedades e só rola quando o espaço acaba. */
 .sidebar.right > .cables-section {
-  flex: 0 1 auto;
+  /* O cartão de Cabos não cede nem estica sozinho: ele fica onde o arrasto deixou, com a
+     altura do próprio conteúdo, e só encolhe (rolando dentro) quando a coluna inteira não
+     couber. O JS do puxador escreve as duas medidas. */
+  flex: 0 0 auto;
   min-height: 0;
   max-height: none;
 }
