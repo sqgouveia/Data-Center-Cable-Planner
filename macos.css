@@ -2220,11 +2220,26 @@ label {
   overflow: visible;
   scrollbar-gutter: auto;
 }
+.sidebar.left {
+  /* Coluna em flex, como a direita: o cartão de fileiras usa o espaço que sobra abaixo do
+     cartão de configuração em vez de parar no teto de metade da lateral. */
+  display: flex;
+  flex-direction: column;
+}
 .sidebar.left > section,
 .sidebar.right > section {
   max-height: calc(50% - 12px);
   overflow-y: auto;
   overflow-x: hidden;
+}
+.sidebar.left > section {
+  /* Cartões de altura natural; o último (fileiras) cede espaço e rola quando a coluna enche. */
+  max-height: none;
+  flex: none;
+}
+.sidebar.left > section:last-child {
+  flex: 0 1 auto;
+  min-height: 0;
 }
 .sidebar.right > section:first-child {
   max-height: calc(50% - 12px);
@@ -2453,11 +2468,13 @@ label {
   border: 0;
   box-shadow: none;
 }
-/* O cartão de cabos cresce com a lista em vez de esticar até o fim da coluna: com poucos
-   cabos sobrava um vão morto embaixo. O teto continua sendo a metade da lateral, e aí a
-   lista rola dentro do cartão. */
+/* O cartão de cabos cresce com a lista: com poucos cabos sobrava vão morto, e com o teto de
+   metade da lateral a lista ganhava barra de rolagem mesmo com espaço livre na coluna. Agora
+   ele usa o que sobra abaixo das propriedades e só rola quando o espaço acaba. */
 .sidebar.right > .cables-section {
-  flex: none;
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: none;
 }
 /* Cabeçalho com subtítulo tem duas linhas de texto: a de cima carrega o leading da fonte e o
    respiro de cima fica 3px maior que o de baixo. Compensa só nesse caso (medido no pixel). */
