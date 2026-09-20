@@ -153,6 +153,7 @@ function formatAssetHistoryChange(change,row){
   const oldValue=change?.old_value_raw!==undefined ? change.old_value_raw : change?.old_value;
   const newValue=change?.new_value_raw!==undefined ? change.new_value_raw : change?.new_value;
   return {
+    field,
     field_label:change?.field_label||ASSET_LOG_FIELDS[field]||field||'Campo',
     old_value:assetLogDisplayValue(field,oldValue,row?.asset_snapshot),
     new_value:assetLogDisplayValue(field,newValue,row?.asset_snapshot)
@@ -216,6 +217,253 @@ function assetHistoryFormatValue(v){
   if(v===null||v===undefined||v==='')return '—';
   return String(v);
 }
+
+// --- Histórico do asset: timeline, filtros e detalhe ------------------------
+const AH_MONTHS=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const AH_ACTION_LABEL={CREATE:'Criação',UPDATE:'Atualização',DELETE:'Exclusão',RESTORE:'Restauração'};
+const AH_ACTION_TONE={CREATE:'green',UPDATE:'blue',DELETE:'red',RESTORE:'amber'};
+const AH_ICONS={
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
+  search:'<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.2-4.2"/>',
+  user:'<circle cx="12" cy="8" r="3.4"/><path d="M5.5 19.5a6.5 6.5 0 0 1 13 0"/>',
+  arrow:'<path d="M4 12h14M12.5 6.5 18 12l-5.5 5.5"/>',
+  chevron:'<path d="M6 9.5l6 6 6-6"/>',
+  tag:'<path d="M11 3H4v7l9.5 9.5a2 2 0 0 0 2.8 0l4.2-4.2a2 2 0 0 0 0-2.8L11 3Z"/><path d="M7.5 7.5h.01"/>',
+  layers:'<rect x="3" y="4" width="18" height="6" rx="1.6"/><rect x="3" y="14" width="18" height="6" rx="1.6"/><path d="M7 7h.01M7 17h.01"/>',
+  factory:'<path d="M4 20V6l7-3v17M11 20h9V10l-9-4"/><path d="M7 9h.01M7 13h.01M15 12h.01M15 16h.01"/>',
+  box:'<rect x="4" y="6" width="16" height="14" rx="1.6"/><path d="M4 10.5h16M12 6v4.5"/>',
+  barcode:'<path d="M4 6v12M8 6v12M12 6v12M16 6v12M20 6v12"/>',
+  pin:'<path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/>',
+  rack:'<rect x="4" y="4" width="16" height="6" rx="1.4"/><rect x="4" y="14" width="16" height="6" rx="1.4"/><path d="M7.5 7h.01M7.5 17h.01"/>',
+  ruler:'<path d="M4 7h16M4 12h16M4 17h10"/>',
+  badge:'<rect x="4" y="5" width="16" height="12" rx="2"/><path d="M9.5 20h5"/>',
+  server:'<rect x="3" y="8" width="18" height="8" rx="1.6"/><path d="M8 12h.01M12 12h.01M16 12h.01"/>',
+  bolt:'<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/>',
+  scale:'<path d="M4.5 8h15l-1.3 10.6a2 2 0 0 1-2 1.7H7.8a2 2 0 0 1-2-1.7L4.5 8Z"/><path d="M9 8V6.2a3 3 0 0 1 6 0V8"/>',
+  calendar:'<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3.5v3M16 3.5v3"/>',
+  note:'<path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/>'
+};
+// Cada campo do log tem um glifo próprio; a cor agrupa a família do dado
+// (identidade/rede, localização/data, classificação, medida física).
+const AH_FIELD_ICON={name:'tag',type:'layers',manufacturer:'factory',model:'box',assetTag:'tag',serial:'barcode',locationType:'pin',locationName:'pin',locationId:'pin',stockId:'pin',roomId:'pin',rackId:'rack',uStart:'ruler',uHeight:'ruler',status:'badge',substatus:'badge',ports:'server',powerW:'bolt',weightKg:'scale',purchaseDate:'calendar',warrantyExpiration:'calendar',endOfLife:'calendar',notes:'note'};
+const AH_ICON_TONE={tag:'blue',layers:'blue',factory:'blue',box:'blue',barcode:'blue',rack:'blue',server:'blue',pin:'amber',calendar:'amber',badge:'purple',note:'purple',bolt:'green',scale:'green',ruler:'green'};
+const AH_MEASURE_FIELDS=new Set(['powerW','weightKg','uStart','uHeight']);
+const AH_LOCATION_FIELDS=['locationName','roomId','rackId','locationType','stockId'];
+const AH_DATE_RANGES=[['all','Todas as datas'],['7','Últimos 7 dias'],['30','Últimos 30 dias'],['90','Últimos 90 dias'],['year','Este ano'],['custom','Período personalizado']];
+function ahIcon(name,cls=''){return `<svg${cls?` class="${cls}"`:''} viewBox="0 0 24 24" aria-hidden="true">${AH_ICONS[name]||AH_ICONS.tag}</svg>`;}
+function ahFieldIcon(field){return AH_FIELD_ICON[field]||'note';}
+function ahFieldTone(field){return AH_ICON_TONE[ahFieldIcon(field)]||'blue';}
+function ahActionLabel(action){return AH_ACTION_LABEL[action]||String(action||'Registro');}
+function ahStatusTone(status){
+  const s=String(status||'').toLowerCase();
+  if(!s)return 'blue';
+  if(/ativ|instalad/.test(s))return 'green';
+  if(/estoque|reserv|manut|pendente/.test(s))return 'amber';
+  if(/desativ|inativ|baixad|vencid|descart/.test(s))return 'red';
+  return 'blue';
+}
+function ahAgo(date){
+  const diff=Date.now()-date.getTime();
+  if(!Number.isFinite(diff))return '';
+  const days=Math.floor(diff/86400000);
+  if(days<=0){const hours=Math.floor(diff/3600000);if(hours<=0)return 'agora';return `há ${hours} ${hours===1?'hora':'horas'}`;}
+  return `há ${days} ${days===1?'dia':'dias'}`;
+}
+function ahDateParts(value){
+  const d=new Date(value);
+  if(!Number.isFinite(d.getTime()))return {day:String(value||'—'),time:'',ago:''};
+  const day=`${String(d.getDate()).padStart(2,'0')} ${AH_MONTHS[d.getMonth()]}. ${d.getFullYear()}`;
+  const time=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  return {day,time,ago:ahAgo(d)};
+}
+const ahFilters={q:'',action:'all',field:'all',range:'all',from:'',to:''};
+const ahExpanded=new Set();
+let ahEntries=[];
+function ahEntriesFrom(rows){
+  return (rows||[]).map(row=>({
+    row,
+    changes:(Array.isArray(row.changes)?row.changes:[]).map(c=>formatAssetHistoryChange(c,row)),
+    at:new Date(row.changed_at)
+  }));
+}
+// O período aceita tanto os atalhos ("últimos 7 dias") quanto um intervalo
+// escolhido à mão — nesse caso as duas datas entram no filtro, com o dia final
+// valendo até 23:59.
+function ahRangeBounds(){
+  const days=Number(ahFilters.range);
+  if(ahFilters.range==='custom'){
+    // A ordem é normalizada antes de virar intervalo: trocar as datas já
+    // ajustadas (início do dia × fim do dia) criaria uma janela de 1 ms.
+    let fromRaw=ahFilters.from, toRaw=ahFilters.to;
+    if(fromRaw&&toRaw&&fromRaw>toRaw){const swap=fromRaw;fromRaw=toRaw;toRaw=swap;}
+    let from=fromRaw?new Date(`${fromRaw}T00:00:00`):null;
+    let to=toRaw?new Date(`${toRaw}T23:59:59.999`):null;
+    if(from&&!Number.isFinite(from.getTime()))from=null;
+    if(to&&!Number.isFinite(to.getTime()))to=null;
+    return {from,to};
+  }
+  if(Number.isFinite(days)&&days>0)return {from:new Date(Date.now()-days*86400000),to:null};
+  if(ahFilters.range==='year')return {from:new Date(new Date().getFullYear(),0,1),to:null};
+  return {from:null,to:null};
+}
+function ahEntryVisible(e){
+  if(ahFilters.action!=='all'&&String(e.row.action||'')!==ahFilters.action)return false;
+  if(ahFilters.field!=='all'&&!e.changes.some(c=>c.field===ahFilters.field))return false;
+  const {from,to}=ahRangeBounds();
+  if(from&&!(e.at.getTime()>=from.getTime()))return false;
+  if(to&&!(e.at.getTime()<=to.getTime()))return false;
+  const q=ahFilters.q.trim().toLowerCase();
+  if(q){
+    const hay=[e.row.action||'',e.row.user_email||'',e.row.user_id||'',...e.changes.flatMap(c=>[c.field_label,c.old_value,c.new_value])].join(' ').toLowerCase();
+    if(!hay.includes(q))return false;
+  }
+  return true;
+}
+function ahEntryHtml(e,first,last){
+  const parts=ahDateParts(e.row.changed_at);
+  const primary=e.changes[0]||null;
+  const extra=e.changes.slice(1);
+  const action=String(e.row.action||'');
+  const user=e.row.user_email||e.row.user_id||'—';
+  const open=ahExpanded.has(String(e.row.id));
+  const title=primary?`Alteração no campo: ${primary.field_label}`:`${ahActionLabel(action)} do asset`;
+  const values=primary?`<div class="ah-card-values">
+        <span class="ah-value-label">Valor anterior</span>
+        <code class="ah-value">${esc(assetHistoryFormatValue(primary.old_value))}</code>
+        ${ahIcon('arrow','ah-arrow')}
+        <span class="ah-value-label">Novo valor</span>
+        <code class="ah-value is-new${AH_MEASURE_FIELDS.has(primary.field)?' is-measure':''}">${esc(assetHistoryFormatValue(primary.new_value))}</code>
+        ${extra.length?`<span class="ah-more">+${extra.length} ${extra.length===1?'campo':'campos'}</span>`:''}
+      </div>`:'';
+  const details=open?`<div class="ah-card-extra">
+        ${extra.map(c=>`<div class="ah-extra-row"><span class="ah-value-label">${esc(c.field_label)}</span><code class="ah-value">${esc(assetHistoryFormatValue(c.old_value))}</code>${ahIcon('arrow','ah-arrow')}<code class="ah-value is-new${AH_MEASURE_FIELDS.has(c.field)?' is-measure':''}">${esc(assetHistoryFormatValue(c.new_value))}</code></div>`).join('')}
+        <div class="ah-card-meta">
+          <span>${ahIcon('user')}${esc(user)}</span>
+          <span>${esc(formatProjectDate(e.row.changed_at))}</span>
+          <span>Registro ${esc(String(e.row.id??'—'))}</span>
+        </div>
+      </div>`:'';
+  return `<div class="ah-row${first?' is-first':''}${last?' is-last':''}">
+      <div class="ah-date"><b>${esc(parts.day)}</b><span>${esc(parts.time)}</span><span>${esc(parts.ago)}</span></div>
+      <div class="ah-rail"><i></i></div>
+      <div class="ah-card">
+        <div class="ah-card-head">
+          <span class="ah-card-icon ah-tone-${primary?ahFieldTone(primary.field):'blue'}">${ahIcon(primary?ahFieldIcon(primary.field):'note')}</span>
+          <div class="ah-card-title">
+            <b>${esc(title)}</b>
+            <span class="ah-card-user">${ahIcon('user')}${esc(user)}</span>
+          </div>
+          <span class="ah-action-pill ah-tone-${AH_ACTION_TONE[action]||'blue'}">${esc(action||ahActionLabel(action))}</span>
+          <button type="button" class="ah-card-toggle" data-ah-toggle="${esc(String(e.row.id))}" aria-expanded="${open?'true':'false'}" aria-label="${open?'Ocultar detalhes':'Ver detalhes'}">${ahIcon('chevron')}</button>
+        </div>
+        ${values}${details}
+      </div>
+    </div>`;
+}
+function ahRenderList(){
+  const list=$('assetHistoryList'); if(!list)return;
+  const count=$('assetHistoryCount');
+  if(!ahEntries.length){
+    if(count)count.textContent='0 alterações';
+    list.innerHTML='<div class="ah-empty">Nenhuma alteração registrada para este asset.</div>';
+    return;
+  }
+  const shown=ahEntries.filter(ahEntryVisible);
+  if(count)count.textContent=shown.length===ahEntries.length?`${shown.length} ${shown.length===1?'alteração':'alterações'}`:`${shown.length} de ${ahEntries.length} alterações`;
+  if(!shown.length){
+    list.innerHTML='<div class="ah-empty">Nenhum registro corresponde aos filtros selecionados.</div>';
+    return;
+  }
+  list.innerHTML=shown.map((e,i)=>ahEntryHtml(e,i===0,i===shown.length-1)).join('');
+}
+function ahPopulateFilters(rows){
+  const actions=[...new Set(rows.map(r=>String(r.action||'')).filter(Boolean))];
+  const typeSel=$('assetHistoryType');
+  if(typeSel){
+    typeSel.innerHTML='<option value="all">Todos os tipos</option>'+actions.map(a=>`<option value="${esc(a)}">${esc(ahActionLabel(a))}</option>`).join('');
+    // Num único asset quase todo o histórico é UPDATE: o filtro por tipo só
+    // aparece quando existem de fato dois ou mais tipos distintos de registro.
+    typeSel.classList.toggle('hidden',actions.length<2);
+    typeSel.value=actions.length>1&&actions.includes(ahFilters.action)?ahFilters.action:'all';
+    ahFilters.action=typeSel.value;
+  }
+  const fields=[...new Set(rows.flatMap(r=>(Array.isArray(r.changes)?r.changes:[]).map(c=>c.field||'')).filter(Boolean))];
+  const fieldSel=$('assetHistoryField');
+  if(fieldSel){
+    fieldSel.innerHTML='<option value="all">Todos os campos</option>'+fields.map(f=>`<option value="${esc(f)}">${esc(ASSET_LOG_FIELDS[f]||f)}</option>`).join('');
+    fieldSel.value=fields.includes(ahFilters.field)?ahFilters.field:'all';
+    ahFilters.field=fieldSel.value;
+  }
+  const dateSel=$('assetHistoryDate');
+  if(dateSel){
+    dateSel.innerHTML=AH_DATE_RANGES.map(([v,label])=>`<option value="${v}">${esc(label)}</option>`).join('');
+    dateSel.value=AH_DATE_RANGES.some(([v])=>v===ahFilters.range)?ahFilters.range:'all';
+    ahFilters.range=dateSel.value;
+  }
+  ahSyncRangeInputs();
+}
+function ahSyncRangeInputs(){
+  const wrap=$('assetHistoryRange');
+  if(!wrap)return;
+  wrap.classList.toggle('hidden',ahFilters.range!=='custom');
+  const from=$('assetHistoryDateFrom'), to=$('assetHistoryDateTo');
+  if(from)from.value=ahFilters.from||'';
+  if(to)to.value=ahFilters.to||'';
+}
+function ahBindControls(){
+  const search=$('assetHistorySearch');
+  if(search&&!search.dataset.bound){
+    search.dataset.bound='1';
+    search.addEventListener('input',()=>{ahFilters.q=search.value;ahRenderList();});
+  }
+  [['assetHistoryType','action'],['assetHistoryField','field'],['assetHistoryDate','range']].forEach(([id,key])=>{
+    const el=$(id); if(!el||el.dataset.bound)return;
+    el.dataset.bound='1';
+    el.addEventListener('change',()=>{
+      ahFilters[key]=el.value;
+      if(key==='range')ahSyncRangeInputs();
+      ahRenderList();
+    });
+  });
+  // Escolher uma data à mão troca o atalho por "Período personalizado".
+  [['assetHistoryDateFrom','from'],['assetHistoryDateTo','to']].forEach(([id,key])=>{
+    const el=$(id); if(!el||el.dataset.bound)return;
+    el.dataset.bound='1';
+    el.addEventListener('change',()=>{
+      ahFilters[key]=el.value;
+      if(el.value){
+        ahFilters.range='custom';
+        const dateSel=$('assetHistoryDate'); if(dateSel)dateSel.value='custom';
+      }
+      // Datas invertidas são reordenadas no próprio campo, para o que está na
+      // tela ser exatamente o que o filtro aplica.
+      if(ahFilters.from&&ahFilters.to&&ahFilters.from>ahFilters.to){
+        const swap=ahFilters.from;ahFilters.from=ahFilters.to;ahFilters.to=swap;
+      }
+      ahSyncRangeInputs();
+      ahRenderList();
+    });
+  });
+  const list=$('assetHistoryList');
+  if(list&&!list.dataset.boundToggle){
+    list.dataset.boundToggle='1';
+    list.addEventListener('click',ev=>{
+      const btn=ev.target.closest('[data-ah-toggle]'); if(!btn)return;
+      const id=btn.dataset.ahToggle;
+      if(ahExpanded.has(id))ahExpanded.delete(id); else ahExpanded.add(id);
+      ahRenderList();
+    });
+  }
+}
+function ahAssetFactLocation(asset,rows){
+  for(const row of rows||[]){
+    const change=(Array.isArray(row.changes)?row.changes:[]).find(c=>AH_LOCATION_FIELDS.includes(c.field));
+    if(change){const f=formatAssetHistoryChange(change,row);return `${assetHistoryFormatValue(f.old_value)} → ${assetHistoryFormatValue(f.new_value)}`;}
+  }
+  const room=(state.rooms||[]).find(r=>String(r.id)===String(asset.roomId));
+  if(asset.locationType==='stock')return 'Estoque';
+  return room?.name||asset.locationName||'Sem localização';
+}
 async function fetchAssetHistory(assetId){
   if(!cloud.cloudProjectId)throw new Error('Projeto não está salvo na nuvem.');
   const {data:{user}}=await supabaseClient.auth.getUser();
@@ -227,25 +475,38 @@ async function fetchAssetHistory(assetId){
 export async function openAssetHistory(assetId){
   const m=$('assetHistoryModal'),list=$('assetHistoryList'),a=state.assets.find(x=>x.id===assetId);
   if(!m||!list||!a)return;
-  $('assetHistorySubtitle').textContent=`${a.name||'Asset'} · histórico de alterações`;
+  const nameEl=$('assetHistoryAssetName'); if(nameEl)nameEl.textContent=a.name||'Asset';
+  const userEl=$('assetHistoryUser');
+  if(userEl)userEl.textContent=($('authUserEmail')?.textContent||'').trim()||'—';
+  const locEl=$('assetHistoryLocation');
+  const room=(state.rooms||[]).find(r=>String(r.id)===String(a.roomId));
+  if(locEl)locEl.textContent=a.locationType==='stock'?'Estoque':(room?.name||a.locationName||'Sem localização');
+  const statusEl=$('assetHistoryStatus'); if(statusEl)statusEl.textContent=a.status||'—';
+  const statusIcon=$('assetHistoryStatusIcon');
+  if(statusIcon)statusIcon.className=`ah-fact-icon is-status ah-tone-${ahStatusTone(a.status)}`;
+  const searchEl=$('assetHistorySearch'); if(searchEl)searchEl.value='';
+  ahFilters.q='';ahFilters.action='all';ahFilters.field='all';ahFilters.range='all';ahFilters.from='';ahFilters.to='';ahExpanded.clear();
+  const fromEl=$('assetHistoryDateFrom'), toEl=$('assetHistoryDateTo');
+  if(fromEl)fromEl.value='';
+  if(toEl)toEl.value='';
+  ahBindControls();
   m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');
-  list.innerHTML='<div class="empty">Carregando histórico...</div>';
+  const countEl=$('assetHistoryCount'); if(countEl)countEl.textContent='—';
+  list.innerHTML='<div class="ah-empty">Carregando histórico...</div>';
   try{
     const rows=await fetchAssetHistory(assetId);
     currentAssetHistoryAssetId=assetId;
     currentAssetHistoryRows=rows;
-    if(!rows.length){list.innerHTML='<div class="empty">Nenhuma alteração registrada para este asset.</div>';return;}
-    list.innerHTML=rows.map(row=>{
-      const changes=Array.isArray(row.changes)?row.changes:[];
-      const changeHtml=changes.length?changes.map(c=>{const f=formatAssetHistoryChange(c,row);return `<div class="asset-history-change"><b>${esc(f.field_label)}</b>: <code>${esc(assetHistoryFormatValue(f.old_value))}</code> → <code>${esc(assetHistoryFormatValue(f.new_value))}</code></div>`}).join(''):'<div class="asset-history-change">Registro de criação/remoção sem comparação de campos.</div>';
-      const email=row.user_email||row.user_id||'—';
-      const actionLabel=row.action==='CREATE'?'Criação':row.action==='UPDATE'?'Alteração':row.action==='DELETE'?'Exclusão':row.action==='RESTORE'?'Restauração':row.action;
-      return `<div class="asset-history-item"><div class="asset-history-head"><strong>${esc(actionLabel)}</strong><span>${esc(formatProjectDate(row.changed_at))}</span></div><div class="asset-history-meta"><span>Usuário: ${esc(email)}</span><span class="asset-history-action">${esc(row.action)}</span></div>${changeHtml}</div>`;
-    }).join('');
+    ahEntries=ahEntriesFrom(rows);
+    ahPopulateFilters(rows);
+    if(locEl&&rows.length)locEl.textContent=ahAssetFactLocation(a,rows);
+    ahRenderList();
   }catch(err){
     console.error(err);
-    if(!cloud.cloudProjectId){list.innerHTML=`<div class="empty">Histórico indisponível: você está no modo convidado, sem conexão com a nuvem. Faça login com uma conta pra acompanhar o histórico de alterações.</div>`;}
-    else list.innerHTML=`<div class="empty">Não foi possível carregar o histórico. Execute o SQL de migração da v16 no Supabase.</div>`;
+    ahEntries=[];
+    if(countEl)countEl.textContent='0 alterações';
+    if(!cloud.cloudProjectId){list.innerHTML=`<div class="ah-empty">Histórico indisponível: você está no modo convidado, sem conexão com a nuvem. Faça login com uma conta pra acompanhar o histórico de alterações.</div>`;}
+    else list.innerHTML=`<div class="ah-empty">Não foi possível carregar o histórico. Execute o SQL de migração da v16 no Supabase.</div>`;
   }
 }
 export function closeAssetHistory(){const m=$('assetHistoryModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');currentAssetHistoryAssetId=null;currentAssetHistoryRows=[];}
@@ -802,4 +1063,3 @@ function friendlyAuthError(error){
   if(low.includes('rate limit'))return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
   return m;
 }
-
