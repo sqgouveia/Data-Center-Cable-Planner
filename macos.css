@@ -365,7 +365,7 @@ input[type="radio"] {
   border-radius: var(--r-sm);
 }
 .project-card {
-  border-radius: 0;
+  border-radius: 2px;
 }
 .catalog-section {
   border-radius: var(--r-md);
