@@ -764,6 +764,50 @@ function bindRowReorder(panel){
 
 // Recolher por painel: cada cabeçalho com [data-section-collapse] esconde o corpo da sua
 // seção. O cabeçalho fica, com a seta virada.
+// Altura do cabeçalho da seção: é o que sobra quando o cartão está recolhido.
+function sectionHeadHeight(sec){
+  const head=sec.querySelector(':scope > .section-head-sticky, :scope > .prop-head, :scope > .rows-head, :scope > .cables-head');
+  return Math.round((head?head.getBoundingClientRect().height:0)+2);
+}
+// Recolher/expandir animando a altura. Antes o corpo ia para display:none, que não tem
+// transição: o cartão fechava de uma vez. Aqui a seção recebe um teto de altura explícito
+// (--collapsed-h) e o corpo fica recortado, então a altura interpola até o cabeçalho.
+function animateSectionCollapse(sec,collapsed,animate=true){
+  if(!sec)return;
+  sec.style.setProperty('--collapsed-h',sectionHeadHeight(sec)+'px');
+  if(!animate){sec.classList.toggle('collapsed',collapsed);return;}
+  // Enquanto a altura está animando, o layout da coluna direita não pode medir a seção: ele
+  // leria a altura recortada (a do recolhido) e gravaria essa altura inline, travando a
+  // expansão. A flag desliga o layout até o fim da transição.
+  sec.dataset.animating='1';
+  const inicio=sec.offsetHeight;
+  // Alvo: aplica o estado final, deixa o layout da coluna recalcular as alturas e mede o que
+  // o cartão ocupa de verdade (o conteúdo de Propriedades é mais alto que o espaço que ele
+  // recebe, então medir o conteúdo daria um salto no fim).
+  sec.classList.toggle('collapsed',collapsed);
+  sec.style.height='';
+  sec.style.maxHeight='none';
+  if(!collapsed){delete sec.dataset.animating;window.__dccpRightSplit?.();sec.dataset.animating='1';}
+  const fim=collapsed?sectionHeadHeight(sec):sec.offsetHeight;
+  // Volta ao ponto de partida sem transição e anima até o alvo.
+  sec.style.transition='none';
+  sec.style.maxHeight=inicio+'px';
+  void sec.offsetHeight;
+  sec.style.transition='';
+  sec.style.maxHeight=fim+'px';
+  const terminar=()=>{
+    sec.style.transition='';
+    sec.style.maxHeight='';
+    delete sec.dataset.animating;
+    sec.removeEventListener('transitionend',terminar);
+    // A altura do arrasto volta só agora: se voltasse no clique, a seção daria um salto e a
+    // transição não apareceria. Depois disso o layout da coluna direita assume o valor.
+    if(sec.dataset.keepHeight!==undefined)sec.style.height=sec.dataset.keepHeight||'';
+    requestAnimationFrame(()=>window.__dccpRightSplit?.());
+  };
+  sec.addEventListener('transitionend',terminar,{once:true});
+  setTimeout(terminar,420); // rede de segurança quando não há transição (ex.: prefers-reduced-motion)
+}
 function bindSectionCollapse(){
   document.querySelectorAll('[data-section-collapse]').forEach(btn=>{
     if(btn.dataset.collapseBound)return;
@@ -771,18 +815,15 @@ function bindSectionCollapse(){
     btn.addEventListener('click',ev=>{
       ev.stopPropagation();
       const sec=btn.closest('section'); if(!sec)return;
-      const collapsed=sec.classList.toggle('collapsed');
       const nome=btn.dataset.sectionCollapse||'painel';
+      const collapsed=!sec.classList.contains('collapsed');
+      animateSectionCollapse(sec,collapsed);
       // O puxador de redimensionar grava altura inline na seção, e inline vence o CSS: sem
       // guardar e limpar isso, o cartão recolhido continuaria com a altura do arrasto.
       if(collapsed){
         sec.dataset.keepHeight=sec.style.height||'';
         sec.dataset.keepMaxHeight=sec.style.maxHeight||'';
         sec.style.height='';
-        sec.style.maxHeight='';
-      }else{
-        sec.style.height=sec.dataset.keepHeight||'';
-        sec.style.maxHeight=sec.dataset.keepMaxHeight||'';
       }
       // O estado fica no dataset: se o painel for redesenhado, a seção volta recolhida.
       sec.dataset.collapsed=collapsed?'1':'0';
@@ -798,7 +839,7 @@ function bindSectionCollapse(){
       const nomeInicial=btn.dataset.sectionCollapse||'painel';
       let salvo=null; try{salvo=localStorage.getItem(`dccp-collapse-${nomeInicial}`);}catch{}
       if(salvo==='1'){
-        secInicial.classList.add('collapsed');
+        animateSectionCollapse(secInicial,true,false);
         secInicial.dataset.collapsed='1';
         btn.setAttribute('aria-expanded','false');
         const txt=`Recolher ${nomeInicial}`;
@@ -3360,6 +3401,9 @@ function setupPropSectionResize(){
     const cs=getComputedStyle(right);
     const avail=right.clientHeight-(parseFloat(cs.paddingTop)||0)-(parseFloat(cs.paddingBottom)||0);
     if(avail<120)return; // painel escondido: não há o que dividir
+    // Seção recolhendo/expandindo: a altura está no meio de uma transição, então qualquer
+    // medida agora seria a altura recortada. O layout volta no fim da animação.
+    if(propSection.dataset.animating==='1'||cables.dataset.animating==='1')return;
     // Medir sempre sem as travas do próprio layout.
     propSection.style.height='';
     cables.style.height='';

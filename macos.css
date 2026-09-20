@@ -2555,9 +2555,18 @@ label {
   /* A coluna não projeta mais sombra sobre a planta: quem projeta são os cartões. */
   box-shadow: none;
 }
-/* Recolher por painel: o cartão some, o cabeçalho fica. */
-.sidebar.right > section.collapsed > *:not(.section-head-sticky):not(.cables-head) {
-  display: none;
+/* Recolher por painel: o cartão fecha animando a altura até sobrar o cabeçalho. A altura do
+   cabeçalho vem do JS em --collapsed-h (cada cartão tem a sua), e o corpo fica recortado — o
+   display:none antigo não tinha transição e o cartão fechava de uma vez. */
+.sidebar.left > section,
+.sidebar.right > section,
+.sidebar.right > .cables-section {
+  transition: max-height 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.sidebar.left > section.collapsed,
+.sidebar.right > section.collapsed {
+  max-height: var(--collapsed-h, 56px);
+  overflow: hidden;
 }
 .sidebar.right > section.collapsed .panel-step-toggle svg {
   transform: rotate(-90deg);
@@ -2663,11 +2672,6 @@ label {
    botão encosta na borda do cartão (era o caso de "Excluir calha" e "Limpar seleção"). */
 .sidebar.right > section > #properties {
   padding-bottom: 9px;
-}
-.sidebar.left > section.collapsed > .prop-card,
-.sidebar.left > section.collapsed > #rowsPanel,
-.sidebar.left > section.collapsed > .rows-io {
-  display: none;
 }
 .sidebar.left > section.collapsed .panel-step-toggle svg {
   transform: rotate(-90deg);
