@@ -2325,8 +2325,11 @@ function assignBayfaceAsset(assetId,rackId,uStart){
   const asset=state.assets.find(a=>a.id===assetId); const rack=assetRack(rackId); if(!asset||!rack)return;
   const height=Math.max(1,Math.floor(num(asset.uHeight,1))); const units=Math.max(1,Math.floor(num(rack.units,state.rackUnits)));
   if(uStart<1||uStart+height-1>units){toast(`O asset ocupa ${height}U e não cabe a partir da U${uStart}.`);return;}
-  const used=new Set();
-  state.assets.filter(a=>a.rackId===rackId&&!isAssetArchived(a)&&a.id!==assetId).forEach(a=>{const o=assetOccupancy(a);for(let u=o.start;u<=o.end;u++)used.add(u);});
+  // Ocupação por face: a traseira não disputa U com a frente. A checagem manual que
+  // existia aqui somava as duas faces e barrava a traseira de uma U ocupada na frente.
+  const used=occupiedUnits(state.assets,rackId,bayfaceFace);
+  const own=assetOccupancy(asset);
+  for(let u=own.start;u<=own.end;u++)used.delete(u);
   for(let u=uStart;u<uStart+height;u++)if(used.has(u)){toast(`Não é possível colocar o asset: U${u} já está ocupada.`);return;}
   const before={...asset};
   const room=assetRackRoom({rackId});
@@ -3170,7 +3173,10 @@ function setupPan(){
   if(!window.__canvasPan) window.__canvasPan={x:-VIEW_PAD+40,y:-VIEW_PAD+40,zoom:1};
   const p=window.__canvasPan;
   if(!Number.isFinite(p.zoom))p.zoom=1;
-  const clampZoom=z=>Math.max(0.55,Math.min(2.5,z));
+  // Faixa do zoom. Fecha em 0,4× e 2,5× porque o slider usa escala logarítmica: os dois lados
+  // têm o mesmo fator e 100% fica exatamente no meio da barra.
+  const ZOOM_MIN=0.4, ZOOM_MAX=2.5, ZOOM_LOG=Math.log(ZOOM_MAX/ZOOM_MIN);
+  const clampZoom=z=>Math.max(ZOOM_MIN,Math.min(ZOOM_MAX,z));
   // Movimento livre: sem limite de posição — o canvas se comporta como uma
   // superfície "infinita" pra planejar quantos racks/fileiras quiser, sem
   // travar numa borda artificial.
@@ -3271,11 +3277,18 @@ function setupPan(){
   window.__zoomAt=zoomAt;
   window.__zoomIn=()=>{const evt={clientX:wrap.clientWidth/2,clientY:wrap.clientHeight/2,deltaY:-1,ctrlKey:false,preventDefault(){}};zoomAt(evt);};
 
+  // O slider é uma posição 0..100, não o zoom: com escala logarítmica o polegar anda igual
+  // para os dois lados e 100% cai no meio.
+  const zoomFromSlider=v=>clampZoom(ZOOM_MIN*Math.exp(ZOOM_LOG*(Number(v)||0)/100));
+  const sliderFromZoom=z=>Math.max(0,Math.min(100,100*Math.log(z/ZOOM_MIN)/ZOOM_LOG));
   const zoomRange=$('zoomRange'), zoomValue=$('zoomReset');
   const syncZoomUI=()=>{
     const pct=Math.round((p.zoom||1)*100);
-    if(zoomRange) zoomRange.value=String(Math.max(55,Math.min(250,pct)));
-    if(zoomRange) zoomRange.style.setProperty('--fill',`${((Math.max(55,Math.min(250,pct))-55)/195*100).toFixed(1)}%`);
+    const pos=sliderFromZoom(p.zoom||1);
+    if(zoomRange) zoomRange.value=pos.toFixed(2);
+    if(zoomRange) zoomRange.style.setProperty('--fill',`${pos.toFixed(1)}%`);
+    // Sem isto o leitor de tela anuncia a posição (0..100), não o zoom.
+    if(zoomRange) zoomRange.setAttribute('aria-valuetext',`${pct}%`);
     if(zoomValue) zoomValue.textContent=`${pct}%`;
   };
   const setZoomAtCenter=(z)=>{
@@ -3323,7 +3336,7 @@ function setupPan(){
     const ae=document.activeElement;
     if(ae && zoomBar.contains(ae) && typeof ae.blur==='function') ae.blur();
   });
-  zoomRange?.addEventListener('input',e=>setZoomAtCenter(Number(e.target.value)/100));
+  zoomRange?.addEventListener('input',e=>setZoomAtCenter(zoomFromSlider(e.target.value)));
   $('zoomOut')?.addEventListener('click',()=>setZoomAtCenter((p.zoom||1)/1.12));
   $('zoomIn')?.addEventListener('click',()=>setZoomAtCenter((p.zoom||1)*1.12));
   zoomValue?.addEventListener('click',()=>setZoomAtCenter(1));
@@ -3397,6 +3410,9 @@ function closeQuickSearch(){const m=$('quickSearchModal');if(!m)return;m.classLi
 // que acompanha o zoom e o arraste do canvas. Arrastar a moldura move o canvas; a roda do mouse
 // dá zoom, como no próprio canvas.
 const MINIMAP_W=260, MINIMAP_H=150;
+// Folga em volta do desenho, em fração do tamanho da planta: é o espaço que a moldura da área
+// visível percorre quando o canvas é arrastado.
+const MINIMAP_SLACK=0.25;
 function minimapBox(g){
   // Caixa do desenho em coordenadas da planta.
   let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
@@ -3428,8 +3444,13 @@ function updateMinimap(){
   const vis=canvasVisible(wrap), view={x:(vis.left-p.x)/z,y:-p.y/z,w:vis.width/z,h:vis.height/z};
   // O mapa cobre o desenho com uma folga fixa (não depende de onde o canvas está), então a moldura
   // da área visível cresce e encolhe com o zoom e anda com o arraste; fora do mapa ela é recortada.
-  const cw=c.x2-c.x1,ch=c.y2-c.y1,mx=cw*0.5,my=ch*0.5,pad=6;
-  const bx1=c.x1-mx,by1=c.y1-my,bw=cw+mx*2,bh=ch+my*2;
+  // A caixa é esticada até a proporção da janela (260×150): sem isso, uma planta mais quadrada
+  // que a janela era reduzida para caber e a sobra virava faixa morta nas laterais.
+  const cw=Math.max(c.x2-c.x1,1e-6),ch=Math.max(c.y2-c.y1,1e-6),pad=6;
+  const ccx=(c.x1+c.x2)/2,ccy=(c.y1+c.y2)/2,aspect=(w-pad*2)/(h-pad*2);
+  let bw=cw*(1+MINIMAP_SLACK*2),bh=ch*(1+MINIMAP_SLACK*2);
+  if(bw/bh>aspect)bh=bw/aspect;else bw=bh*aspect;
+  const bx1=ccx-bw/2,by1=ccy-bh/2;
   const sc=Math.min((w-pad*2)/bw,(h-pad*2)/bh), ox=(w-bw*sc)/2-bx1*sc, oy=(h-bh*sc)/2-by1*sc;
   const X=x=>ox+x*sc,Y=y=>oy+y*sc;
   let out=`<rect class="minimap-bg" x="0" y="0" width="${w}" height="${h}"/>`;
@@ -3445,7 +3466,7 @@ function updateMinimap(){
   const minV=6/sc, ex1=bx1, ey1=by1, ex2=bx1+bw, ey2=by1+bh;
   const vx1=Math.min(Math.max(view.x,ex1),ex2-minV), vy1=Math.min(Math.max(view.y,ey1),ey2-minV);
   const vx2=Math.max(vx1+minV,Math.min(view.x+view.w,ex2)), vy2=Math.max(vy1+minV,Math.min(view.y+view.h,ey2));
-  out+=`<rect class="minimap-viewport" x="${X(vx1)}" y="${Y(vy1)}" width="${(vx2-vx1)*sc}" height="${(vy2-vy1)*sc}"/>`;
+  out+=`<rect class="minimap-viewport" rx="4" x="${X(vx1)}" y="${Y(vy1)}" width="${(vx2-vx1)*sc}" height="${(vy2-vy1)*sc}"/>`;
   svg.innerHTML=out;svg.dataset.ox=ox;svg.dataset.oy=oy;svg.dataset.scale=sc;
 }
 function setupMinimap(){

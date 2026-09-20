@@ -224,7 +224,7 @@ input[type="radio"] {
    em cima), separados por régua de 1px. A "barra óptica" — o filete
    aceso sob a topbar — é o motivo assinatura do sistema. */
 .topbar {
-  background: linear-gradient(180deg, var(--chrome-1), var(--chrome-2));
+  background: var(--panel);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border-bottom: 1px solid var(--border);
@@ -248,7 +248,7 @@ input[type="radio"] {
   pointer-events: none;
 }
 .workspace .toolbar {
-  background: linear-gradient(180deg, var(--chrome-1), var(--chrome-2));
+  background: var(--panel);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border-bottom: 1px solid var(--border);
@@ -270,8 +270,9 @@ input[type="radio"] {
      mesma, espelhada. */
   box-shadow: -8px 0 24px rgba(0, 0, 0, 0.1);
 }
-.sidebar .section-head,
-.section-head-sticky {
+/* O filete de luz no topo ficou só nos cartões de seção. No cabeçalho sticky da direita ele
+   desenhava uma linha solta em cima de "Propriedades". */
+.sidebar .section-head {
   box-shadow: inset 0 1px 0 var(--edge);
 }
 
@@ -409,7 +410,9 @@ label {
   letter-spacing: 0;
 }
 .sidebar.right > section:first-child .section-head-sticky {
-  background: linear-gradient(180deg, var(--chrome-1), var(--chrome-2));
+  /* Opaco de propósito: este cabeçalho é sticky dentro da seção que rola, então transparente
+     deixaria o conteúdo passar por baixo. Mesmo tom da lateral, sem o degradê. */
+  background: var(--panel);
   border-bottom-color: var(--border);
 }
 
@@ -909,6 +912,7 @@ label {
    app.js. */
 .canvas-zoom-bar .zoom-range {
   --fill: 23%;
+  width: 64px;
   -webkit-appearance: none;
   appearance: none;
   height: 18px;
@@ -995,10 +999,24 @@ label {
   /* Meio da área visível considerando a barra lateral ABERTA — e sempre a
      mesma posição, porque --sb-width é constante: recolher a lateral não move
      a barra. */
-  left: calc(50% + var(--sb-width) / 2);
-  transform: translateX(-50%);
+  /* Centraliza por margem automática, em vez de transform: um transform aqui vira containing
+     block e prenderia a barra de zoom (position: fixed) dentro desta caixa. */
+  left: var(--sb-width);
+  right: 0;
+  margin-inline: auto;
   align-items: center;
   max-width: calc(100% - 24px);
+}
+/* A barra de zoom saiu da barra inferior: fica no canto inferior esquerdo, na mesma linha da
+   barra central (as duas são absolutas no #canvasWrap, então usam o mesmo rodapé). Segue
+   --sb-left, que zera no colapso: acompanha a borda visível. */
+.canvas-zoom-bar {
+  position: absolute;
+  left: calc(var(--sb-left, 295px) + 18px);
+  bottom: 18px;
+  gap: 4px;
+  padding: 0 8px;
+  z-index: 101;
 }
 .heat-row {
   justify-content: center;
@@ -1010,6 +1028,10 @@ label {
   padding-top: 0;
   padding-bottom: 0;
 }
+/* Só ícone: a folga lateral é a mesma que a barra já usava quando o rótulo sumia. */
+.plant-export-btn {
+  padding-inline: 10px;
+}
 .heat-modes button {
   height: calc(var(--bar-h) - 8px);
   padding-top: 0;
@@ -1020,12 +1042,8 @@ label {
   right: 0;
 }
 @media (max-width: 1909px) {
-  .heat-label,
-  .plant-export-btn span {
+  .heat-label {
     display: none;
-  }
-  .plant-export-btn {
-    padding: 0 10px;
   }
 }
 /* A folga da barra inferior virou padrão em .heat-control — ver o comentário
@@ -1057,10 +1075,11 @@ label {
   bottom: 18px;
   top: auto;
   left: auto;
-  /* 80% do tamanho do desenho (viewBox 260×150) — a proporção é a mesma, então
-     o SVG não deforma; no hover volta ao tamanho cheio. */
-  width: 208px;
-  height: 120px;
+  /* Mesma proporção da janela (viewBox 260×150): a altura manda no tamanho e a largura segue,
+     senão volta a sobrar faixa vazia nas laterais. O hover sobe um degrau. */
+  --mm-h: 104px;
+  width: calc(var(--mm-h) * 260 / 150);
+  height: var(--mm-h);
   opacity: 0.7;
   z-index: 101;
   padding: 0;
@@ -1073,8 +1092,7 @@ label {
 .minimap:hover,
 .minimap:focus-within,
 .minimap.is-dragging {
-  width: 260px;
-  height: 150px;
+  --mm-h: 130px;
   opacity: 1;
 }
 /* Os dois cabem na mesma linha a partir de ~1830px de largura — a barra tem
@@ -2120,13 +2138,35 @@ label {
   height: 56px;
   margin: -15px -14px 9px;
   padding: 11px 14px 9px;
-  background: linear-gradient(180deg, var(--chrome-1), var(--chrome-2));
   border-bottom: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
   box-shadow: inset 0 1px 0 var(--edge);
 }
 .sidebar.right > section:first-child .section-head-sticky {
   /* Mesma altura da barra central de ferramentas. */
   height: 56px;
+}
+/* Cabeçalho de seção veste o cartão, não a barra sangrada: mesmo fundo, borda, raio e respiro
+   dos cartões da seção (as margens negativas alinham com eles: -5px à esquerda, -8px à direita).
+   Vale para as seções da lateral esquerda e para a de cabos, na direita. */
+.sidebar.left > section > .prop-head,
+.sidebar.right > .cables-section > .cables-head {
+  height: auto;
+  margin: 0 -8px 9px -5px;
+  padding: 9px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: inset 0 1px 0 var(--edge);
+}
+/* Na lateral direita os blocos vizinhos usam a largura do conteúdo, sem sangria: o cabeçalho
+   de cabos segue a mesma régua, senão fica 5px mais largo de um lado e 8px do outro. */
+.sidebar.right > .cables-section > .cables-head {
+  margin-inline: 0;
+}
+/* Cabeçalho com subtítulo tem duas linhas de texto: a de cima carrega o leading da fonte e o
+   respiro de cima fica 3px maior que o de baixo. Compensa só nesse caso (medido no pixel). */
+.sidebar.left > section > .prop-head:has(.prop-head-text small) {
+  padding-top: 6px;
 }
 .prop-head > .iconbtn,
 .prop-head > .cables-count,
