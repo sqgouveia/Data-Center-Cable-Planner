@@ -3,16 +3,51 @@
 // app-level side effects (toast, renderAll, etc.) live here on purpose —
 // this is the part of the app whose numbers must be physically correct.
 import { state } from './state.js';
-import { num, uid, $ } from './utils.js';
+import { num, uid, $, catalogNormalize } from './utils.js';
 
 export const VIEW_PAD = 2500;
 const ROW_GAP_VISUAL = 1.00;
 
 export function rowForRack(r){ return r?state.rows.find(x=>x.id===r.rowId):null; }
+// Nome do rack fora do cadastro: a fileira na frente, o rack atrás — fileira "A" com racks
+// "101" a "110" aparece como A-101, A-102... Fileira sem nome não prefixa nada, e rack que já
+// carrega o prefixo (nasceu com o nome da fileira) não é prefixado duas vezes.
+export function rackDisplayName(rack,rowName){
+  const nome=String(rack?.name||'').trim()||'Rack';
+  const fileira=String((rowName===undefined?rowForRack(rack)?.name:rowName)||'').trim();
+  if(!fileira)return nome;
+  return nome.startsWith(`${fileira}-`)?nome:`${fileira}-${nome}`;
+}
+// Todo rótulo que a importação aceita para um rack: o nome dele, o rótulo com a fileira
+// (A-101) e o formato antigo da planilha (Sala / Rack). É o que faz o arquivo exportado voltar
+// a casar com o rack na hora de importar.
+export function findRackByLabel(label,racks,rows){
+  const bruto=String(label??'').trim();
+  if(!bruto)return null;
+  const fileiraDe=new Map((rows||[]).map(r=>[r.id,String(r.name||'')]));
+  const fileiraDo=rack=>fileiraDe.has(rack.rowId)?fileiraDe.get(rack.rowId):(rowForRack(rack)?.name||'');
+  const casa=texto=>{
+    const q=catalogNormalize(texto);
+    if(!q)return null;
+    for(const rack of racks||[]){
+      const fileira=fileiraDo(rack);
+      const rotulos=[rack.name,rackDisplayName(rack,fileira),fileira?`${fileira} ${rack.name}`:'',fileira?`${fileira}/${rack.name}`:''];
+      if(rotulos.some(r=>r&&catalogNormalize(r)===q))return rack;
+    }
+    return null;
+  };
+  // A planilha antiga escrevia "Sala / Rack": se o rótulo inteiro não casar, tenta o pedaço
+  // depois da última barra.
+  const partes=bruto.split('/');
+  return casa(bruto)||(partes.length>1?casa(partes[partes.length-1]):null);
+}
 export function rowIndex(r){ return r?state.rows.findIndex(x=>x.id===r.rowId):-1; }
 export function racksInRow(rowId){ return state.racks.filter(r=>r.rowId===rowId).sort((a,b)=>a.index-b.index); }
 export function rackAt(rowId,index){ return racksInRow(rowId).find(r=>r.index===index)||null; }
-export function makeRack(row,index){ return {id:uid('rack'),rowId:row.id,index,name:`${row.name||'R'}-${String(index+1).padStart(2,'0')}`,units:state.rackUnits,width:state.rackWidth,depth:state.rackDepth,gapAfter:state.rackGap,riseToTray:state.lastUToTray,powerCapacityW:state.rackPowerCapacityW||0,weightCapacityKg:state.rackWeightCapacityKg||0,offset:0,yOffset:0,hasTray:false}; }
+// Sem nome de fileira o rack nasce só com o sufixo ("03"), porque é esse o padrão que o
+// renomear da fileira reconhece como automático: antes nascia "R-03" e ficava com esse nome
+// para sempre, aparecendo nos campos de seleção de rack sem a fileira a que pertence.
+export function makeRack(row,index){ const suffix=String(index+1).padStart(2,'0'); return {id:uid('rack'),rowId:row.id,index,name:row.name?`${row.name}-${suffix}`:suffix,units:state.rackUnits,width:state.rackWidth,depth:state.rackDepth,gapAfter:state.rackGap,riseToTray:state.lastUToTray,powerCapacityW:state.rackPowerCapacityW||0,weightCapacityKg:state.rackWeightCapacityKg||0,offset:0,yOffset:0,hasTray:false}; }
 
 export function rowDepth(row){
   // A row has its own fixed layout depth. Changing an individual rack depth

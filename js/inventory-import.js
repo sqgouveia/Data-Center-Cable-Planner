@@ -1,6 +1,7 @@
 import { uid, esc, num, $, catalogNormalize, catalogSimilarity, catalogSimilar, parseImportDate, parseImportNumber, beginTask, endTask, uiIcon } from './utils.js';
 import { state } from './state.js';
 import { isAssetArchived, assetOccupancy, occupiedUnits } from './occupancy.js';
+import { rackDisplayName, findRackByLabel } from './geometry.js';
 
 // Estado da pré-visualização de importação (arquivo lido, linha aguardando
 // cadastro de modelo, etc.). Vive num objeto porque app.js também lê e grava
@@ -53,7 +54,10 @@ export async function makeAssetsTemplate(){
     ws.addRow(headers);
     (state.assets||[]).forEach(a=>{
       const room=assetRoom(a), rack=assetRack(a.rackId);
-      const rackDisplay=rack ? `${room?.name||assetRackRoom(a)?.name||''} / ${rack.name||''}`.replace(/^ \/ /,'') : '';
+      // Mesmo rótulo dos campos de seleção (A-101): a planilha inteira fala a mesma língua.
+      const roomOfRack=room||assetRackRoom(a)||null;
+      const fileira=String(roomOfRack?.data?.rows?.find(row=>row.id===rack?.rowId)?.name||'');
+      const rackDisplay=rack?rackDisplayName(rack,fileira):'';
       const faceDisplay=rack ? (a.face==='rear'?'Traseira':'Frente') : '';
       ws.addRow([a.assetTag||'',a.name||'',a.serial||'',a.model||'',assetLocationLabel(a),rackDisplay,faceDisplay,a.uStart||'',a.uHeight||1,a.status||'Instalado',a.substatus||'',a.powerW||'',a.weightKg||'',a.purchaseDate||'',a.warrantyExpiration||'',a.endOfLife||'',a.notes||'']);
     });
@@ -90,7 +94,7 @@ export async function makeAssetsTemplate(){
       (l.rooms||[]).forEach(rid=>{const r=state.rooms.find(x=>x.id===rid); if(r)allLocations.push(`${l.name} / ${r.name}`);});
       (l.stocks||[]).forEach(st=>allLocations.push(`${l.name} / ${st.name}`));
     });
-    const allRacks=[...new Set(allProjectRacks().map(({rack:r})=>r.name).filter(Boolean))];
+    const allRacks=[...new Set(allProjectRacks().map(({rack:r,room})=>rackDisplayName(r,String(room?.data?.rows?.find(row=>row.id===r.rowId)?.name||''))).filter(Boolean))];
     const allModels=(state.assetCatalogs.models||[]).filter(m=>m.name);
     refWs.getColumn(1).values=['Localizações',...allLocations];
     refWs.getColumn(2).values=['Racks',...allRacks];
@@ -185,17 +189,20 @@ function assetImportRoomOptions(selected=''){normalizeLocations();let out='<opti
 function assetImportRackOptions(roomName='',selected=''){
   const room=resolveAssetImportLocation(roomName).room;
   const racks=room?.data?.racks||[];
-  return '<option value="">Selecione</option>'+racks.map(r=>`<option value="${esc(r.name)}" ${catalogNormalize(r.name)===catalogNormalize(selected)?'selected':''}>${esc(r.name)}</option>`).join('');
+  // O value continua sendo o nome do rack (é por ele que a importação casa), mas o texto
+  // mostra o rótulo com a fileira (A-101), igual aos campos de seleção do cadastro.
+  const fileira=rack=>String(room?.data?.rows?.find(row=>row.id===rack.rowId)?.name||'');
+  return '<option value="">Selecione</option>'+racks.map(r=>`<option value="${esc(r.name)}" ${catalogNormalize(r.name)===catalogNormalize(selected)?'selected':''}>${esc(rackDisplayName(r,fileira(r)))}</option>`).join('');
 }
 function assetImportUOptions(item){
   const room=resolveAssetImportLocation(item.data?.['Localização']??item.data?.Sala).room;
-  const rack=room?.data?.racks?.find(r=>catalogNormalize(r.name)===catalogNormalize(item.data?.Rack));
+  const rack=findRackByLabel(item.data?.Rack,room?.data?.racks,room?.data?.rows);
   if(!rack)return '<option value="">—</option>';
   const rackId=rack.id, height=Math.max(1,Math.floor(parseImportNumber(item.data?.['Quantidade U'],1)));
   const face=parseImportFace(item.data?.Face);
   const used=occupiedUnits(state.assets,rackId,face);
   const rows=importSession.pending?.rows||[];
-  rows.forEach(other=>{if(other===item||!other.valid)return;if(parseImportFace(other.data?.Face)!==face)return;const rr=(state.rooms||[]).find(r=>catalogNormalize(r.name)===catalogNormalize(other.data?.Sala));const rk=rr?.data?.racks?.find(r=>catalogNormalize(r.name)===catalogNormalize(other.data?.Rack));if(rk?.id===rackId){const st=Math.floor(parseImportNumber(other.data?.['U Inicial'],0)),h=Math.max(1,Math.floor(parseImportNumber(other.data?.['Quantidade U'],1)));if(st)for(let u=st;u<st+h;u++)used.add(u);}});
+  rows.forEach(other=>{if(other===item||!other.valid)return;if(parseImportFace(other.data?.Face)!==face)return;const rr=(state.rooms||[]).find(r=>catalogNormalize(r.name)===catalogNormalize(other.data?.Sala));const rk=findRackByLabel(other.data?.Rack,rr?.data?.racks,rr?.data?.rows);if(rk?.id===rackId){const st=Math.floor(parseImportNumber(other.data?.['U Inicial'],0)),h=Math.max(1,Math.floor(parseImportNumber(other.data?.['Quantidade U'],1)));if(st)for(let u=st;u<st+h;u++)used.add(u);}});
   const units=Math.max(1,Math.floor(num(rack.units,state.rackUnits))); const current=Math.floor(parseImportNumber(item.data?.['U Inicial'],0));
   let html='<option value="">Selecione</option>';
   for(let st=1;st<=units-height+1;st++){
@@ -269,7 +276,8 @@ export function validateAssetImportRows(rows){
     if(!locationName) problems.push('Localização é obrigatória.');
     else if(!locationResolved.loc) problems.push(`Localização "${locationName}" não existe.`);
 
-    const rack=room&&rackName?(room.data?.racks||[]).find(r=>catalogNormalize(r.name)===catalogNormalize(rackName)):null;
+    // Aceita o nome do rack, o rótulo com a fileira (A-101) e o formato antigo da planilha.
+    const rack=room&&rackName?findRackByLabel(rackName,room.data?.racks,room.data?.rows):null;
     // Rack is optional. If provided, it must exist in the selected room.
     if(rackName && !rack) problems.push(`Rack "${rackName}" não existe na sala.`);
 

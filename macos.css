@@ -419,6 +419,54 @@ input[type="radio"] {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Busca do cartão de Fileiras: o mesmo campo da busca de Cabos, sem o filtro e sem o
+   "selecionar todos". Fica fora do painel, que é redesenhado a cada alteração. */
+.rows-io {
+  padding: 0 9px;
+}
+.rows-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  margin: 0 0 8px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  background: var(--panel2);
+  border-radius: var(--r-md);
+  transition: border-color 0.14s, box-shadow 0.14s;
+}
+.rows-search:focus-within {
+  border-color: color-mix(in srgb, var(--blue) 55%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent);
+}
+.rows-search input:not([type="checkbox"]) {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text);
+  font-size: 11px;
+  outline: none;
+}
+.rows-search-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+/* Com a lista filtrada a alça de reordenar não tem o que arrastar: ela fica apagada. */
+#rowsPanel.is-filtered .row-handle {
+  opacity: 0.35;
+  cursor: default;
+}
 
 /* =====================================================================
    Tipografia de painel e barras laterais
@@ -2444,7 +2492,8 @@ label {
   padding-bottom: 9px;
 }
 .sidebar.left > section.collapsed > .prop-card,
-.sidebar.left > section.collapsed > #rowsPanel {
+.sidebar.left > section.collapsed > #rowsPanel,
+.sidebar.left > section.collapsed > .rows-io {
   display: none;
 }
 .sidebar.left > section.collapsed .panel-step-toggle svg {

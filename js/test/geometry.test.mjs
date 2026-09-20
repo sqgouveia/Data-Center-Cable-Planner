@@ -6,8 +6,32 @@ import { state } from '../state.js';
 import {
   rowForRack, rowIndex, racksInRow, rackAt, makeRack, rowDepth, geometry,
   rackRect, trayPointForRowIndex, trayEndpointConnected, segmentIntersection,
-  nearestPointOnSegment, VIEW_PAD,
+  nearestPointOnSegment, VIEW_PAD, rackDisplayName, findRackByLabel,
 } from '../geometry.js';
+
+test('rackDisplayName põe a fileira na frente e não prefixa duas vezes', () => {
+  assert.equal(rackDisplayName({ name: '101' }, 'A'), 'A-101');
+  assert.equal(rackDisplayName({ name: 'A-101' }, 'A'), 'A-101');
+  assert.equal(rackDisplayName({ name: '101' }, ''), '101');
+  assert.equal(rackDisplayName({ name: '101' }, '   '), '101');
+  assert.equal(rackDisplayName({ name: '  ' }, 'A'), 'A-Rack');
+});
+
+test('findRackByLabel aceita nome do rack, rótulo com fileira e o formato antigo', () => {
+  const rows = [{ id: 'r1', name: 'A' }, { id: 'r2', name: '' }];
+  const racks = [
+    { id: 'k1', rowId: 'r1', name: '101' },
+    { id: 'k2', rowId: 'r2', name: 'Switch' },
+  ];
+  assert.equal(findRackByLabel('101', racks, rows)?.id, 'k1');
+  assert.equal(findRackByLabel('A-101', racks, rows)?.id, 'k1');
+  assert.equal(findRackByLabel('a / 101', racks, rows)?.id, 'k1');
+  assert.equal(findRackByLabel('Sala 1 / A-101', racks, rows)?.id, 'k1');
+  assert.equal(findRackByLabel('Switch', racks, rows)?.id, 'k2');
+  assert.equal(findRackByLabel('Sala 1 / Switch', racks, rows)?.id, 'k2');
+  assert.equal(findRackByLabel('não existe', racks, rows), null);
+  assert.equal(findRackByLabel('', racks, rows), null);
+});
 
 test('rowForRack / rowIndex / racksInRow / rackAt find the right row and racks', () => {
   resetState(state);

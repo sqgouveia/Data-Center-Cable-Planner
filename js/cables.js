@@ -1,7 +1,7 @@
 import { uid, esc, num, $, catalogNormalize, catalogSimilar, parsePortTemplate, excelColumnLetter, beginTask, endTask, uiIcon } from './utils.js';
 import { state } from './state.js';
 import { uiConfirm } from './dialogs.js';
-import { rowForRack, geometry, rackRect, trayPointAt } from './geometry.js';
+import { rowForRack, geometry, rackRect, trayPointAt, rackDisplayName, findRackByLabel } from './geometry.js';
 import { buildRouteGraph, calcCable } from './routing.js';
 import { assetAtRackU, assetOwningPort } from './occupancy.js';
 
@@ -37,7 +37,7 @@ function cableRouteLabel(c,res){
   const addRack=r=>{
     if(!r||seen.has(r.id))return;
     seen.add(r.id);
-    route.push(r.name||r.id||'');
+    route.push(rackDisplayName(r)||r.id||'');
   };
 
   const origin=state.racks.find(r=>r.id===c.originRack);
@@ -132,7 +132,7 @@ export async function downloadCableTemplate(){
     const refWs=wb.addWorksheet('NÃO EDITAR - Referência');
     // Cabos são por sala — a lista só traz racks da sala ativa, não do projeto
     // inteiro, senão apareceria rack de outra sala pra escolher aqui.
-    const allRacks=[...new Set(state.racks.map(r=>r.name).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const allRacks=[...new Set(state.racks.map(r=>rackDisplayName(r)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
     refWs.getColumn(1).values=['Racks',...allRacks];
     refWs.getColumn(2).values=['Face','Frente','Traseira'];
     refWs.state='hidden';
@@ -231,8 +231,10 @@ export function processCableImportRows(selectedNewTypes=[]){
   const val=(row,name,def='')=>{const i=map[name];return i==null||i>=row.length||row[i]===''||row[i]==null?def:row[i];};
   let added=0,skipped=0,portsUnmatched=0;
   for(const row of dataRows){
-    const origin=state.racks.find(r=>r.name===String(val(row,'Rack Origem','')).trim());
-    const dest=state.racks.find(r=>r.name===String(val(row,'Rack Destino','')).trim());
+    // Aceita o nome do rack, o rótulo com a fileira (A-101) e o formato antigo — assim a
+    // planilha exportada volta a importar sem edição.
+    const origin=findRackByLabel(val(row,'Rack Origem',''),state.racks,state.rows);
+    const dest=findRackByLabel(val(row,'Rack Destino',''),state.racks,state.rows);
     if(!origin||!dest){skipped++;continue;}
     const typeRaw=String(val(row,'Tipo',defaultCableType())).trim();
     // Usa o tipo já cadastrado com a grafia oficial dele (ignora diferença de
@@ -310,7 +312,7 @@ export function cableEndpointLabel(rackId,u,portId,freeformLabel='',assetNameFal
   const rack=state.racks.find(r=>r.id===rackId);
   const asset=assetOwningPort(state.assets,portId)||assetAtRackU(state.assets,rackId,u,face);
   const port=cablePortAt(rackId,u,portId,face);
-  return [rack?.name||'—',`${u}U`,asset?.name||assetNameFallback||'—',port?.label||freeformLabel||'—'].join(' - ');
+  return [rack?rackDisplayName(rack):'—',`${u}U`,asset?.name||assetNameFallback||'—',port?.label||freeformLabel||'—'].join(' - ');
 }
 export function compactPortLabels(labels){
   if(!labels.length)return '';
@@ -353,7 +355,7 @@ export async function exportCablesXLSX(){
       const originFace=c.originFace==='rear'?'rear':'front', destFace=c.destFace==='rear'?'rear':'front';
       const oPort=cablePortAt(c.originRack,c.originU,c.originPortId,originFace), dPort=cablePortAt(c.destRack,c.destU,c.destPortId,destFace);
       const label=`${cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName,originFace)}\n${cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName,destFace)}`;
-      return [c.name,c.type||defaultCableType(),o?.name||'',c.originU,originFace==='rear'?'Traseira':'Frente',c.originAssetName||'',oPort?.label||c.originPortLabel||'',d?.name||'',c.destU,destFace==='rear'?'Traseira':'Frente',c.destAssetName||'',dPort?.label||c.destPortLabel||'',res.v1,res.tray,res.v2,res.connection,res.base,res.slack,res.total,res.reachable?Math.ceil(res.total):'',cableRouteLabel(c,res),label];
+      return [c.name,c.type||defaultCableType(),o?rackDisplayName(o):'',c.originU,originFace==='rear'?'Traseira':'Frente',c.originAssetName||'',oPort?.label||c.originPortLabel||'',d?rackDisplayName(d):'',c.destU,destFace==='rear'?'Traseira':'Frente',c.destAssetName||'',dPort?.label||c.destPortLabel||'',res.v1,res.tray,res.v2,res.connection,res.base,res.slack,res.total,res.reachable?Math.ceil(res.total):'',cableRouteLabel(c,res),label];
     });
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('Cabos');
@@ -391,7 +393,7 @@ export function cableSearchHaystack(c){
   const o=state.racks.find(r=>r.id===c.originRack), d=state.racks.find(r=>r.id===c.destRack);
   const originLabel=cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName,c.originFace);
   const destLabel=cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName,c.destFace);
-  return [c.name,c.type,o?.name,d?.name,c.originU,c.destU,c.originPortLabel,c.destPortLabel,c.originAssetName,c.destAssetName,originLabel,destLabel].filter(Boolean).join(' ').toLowerCase();
+  return [c.name,c.type,o?.name,o&&rackDisplayName(o),d?.name,d&&rackDisplayName(d),c.originU,c.destU,c.originPortLabel,c.destPortLabel,c.originAssetName,c.destAssetName,originLabel,destLabel].filter(Boolean).join(' ').toLowerCase();
 }
 
 const CABLE_ICONS={

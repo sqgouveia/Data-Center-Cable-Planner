@@ -6,7 +6,8 @@ import { state } from './state.js';
 import { num } from './utils.js';
 import {
   geometry, syncAttachedTrayEndpoints, trayEndpointConnected, connectCrossingsForTray,
-  rowForRack, rackRect, nearestPointOnSegment, rowCenterY, segmentIntersection, trayPointAt
+  rowForRack, rackRect, nearestPointOnSegment, rowCenterY, segmentIntersection, trayPointAt,
+  rackDisplayName
 } from './geometry.js';
 
 const U_MM = 44.45;
@@ -324,7 +325,9 @@ export function validateManualRouteCandidate(c,rackId){
   if(!seg)return {ok:false,message:`Não existe caminho pelas calhas entre ${rackNameById(from)} e ${rackNameById(rackId)}.`};
   return {ok:true};
 }
-export function rackNameById(id){const r=state.racks.find(x=>x.id===id);return r?.name||id||'?';}
+// Nome do rack nas mensagens e nas listas de rota: com a fileira na frente (A-101), igual aos
+// campos de seleção.
+export function rackNameById(id){const r=state.racks.find(x=>x.id===id);return (r&&rackDisplayName(r))||id||'?';}
 export function calcCable(c){
   const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack);
   if(!o||!d)return{v1:0,v2:0,tray:0,connection:0,base:0,slack:0,total:0,reachable:false,path:[]};

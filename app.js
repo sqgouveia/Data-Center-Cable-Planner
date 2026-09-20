@@ -14,7 +14,7 @@ import {
   trayLengthPx, trayLengthMeters, trayPointAt, nearestPointOnSegment, nearestTrayConnection,
   rackConnectionPoint, nearestTrayOrRackSnap, linkTrayPoints, segmentIntersection,
   trayLinkExistsAt, cleanupAutoCrossingLinks, updateLinksForTray, trayEndpointConnected,
-  connectCrossingsForTray
+  connectCrossingsForTray, rackDisplayName
 } from './js/geometry.js';
 import {
   buildRouteGraph, calcAutomaticTrayLength, routePointsForAutomatic, routeBetweenRacks,
@@ -607,6 +607,26 @@ function deleteRow(id){
 function rowAddButtonHtml(){
   return `<button id="btnAddRow" class="btn primary full rows-add" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Adicionar fileira</button>`;
 }
+// Busca do cartão de Fileiras. O campo vive fora do painel (#rowsPanel é redesenhado a cada
+// alteração; um input dentro dele perderia o foco a cada tecla).
+let rowsSearchQuery='';
+// O que a busca de fileiras enxerga: o nome quando existe, a identidade posicional — #2,
+// fileira 2, row 2, 2 — e o que a fileira tem dentro, racks e equipamentos. Sem a parte
+// posicional, uma fileira sem nome não teria por onde ser encontrada.
+function rowMatchesSearch(row,numero,termo){
+  const racks=racksInRow(row.id);
+  const ids=new Set(racks.map(r=>r.id));
+  const assets=state.assets.filter(a=>ids.has(a.rackId)).map(a=>a.name);
+  const posicionais=[`${numero}`,`#${numero}`,`fileira ${numero}`,`row ${numero}`,`f ${numero}`]
+    .map(catalogNormalize);
+  // Número puro procura a fileira pela posição: "2" não pode trazer a fileira 1 só porque um
+  // rack dela se chama "-02".
+  if(/^\d+$/.test(termo))return posicionais.includes(termo);
+  const texto=[row.name,...racks.map(r=>r.name),...assets]
+    .filter(v=>v!==undefined&&v!==null&&v!=='')
+    .map(catalogNormalize).join(' ');
+  return posicionais.includes(termo)||texto.includes(termo);
+}
 function addRowFromPanel(){
   if(structureBlocked())return;
   const rackCount=Math.max(0,Math.min(100,Math.floor(num($('defaultRacks')?.value,0))));
@@ -622,16 +642,27 @@ function buildRowsPanel(){
     p.querySelector('#btnAddRow').onclick=addRowFromPanel;
     return;
   }
-  state.rows.forEach((row,index)=>{
+  // O número da fileira é a posição na ordem de verdade, nunca a posição na lista filtrada:
+  // com a busca ativa, o #2 tem que continuar sendo a mesma fileira.
+  const numeradas=state.rows.map((row,i)=>({row,numero:i+1}));
+  const termo=catalogNormalize(rowsSearchQuery);
+  const visiveis=(termo?numeradas.filter(({row,numero})=>rowMatchesSearch(row,numero,termo)):numeradas);
+  p.classList.toggle('is-filtered',!!termo);
+  if(!visiveis.length){
+    p.innerHTML=`<div class="empty">Nenhuma fileira encontrada para “${esc(rowsSearchQuery.trim())}”.</div>${rowAddButtonHtml()}`;
+    p.querySelector('#btnAddRow').onclick=addRowFromPanel;
+    return;
+  }
+  visiveis.forEach(({row,numero})=>{
     const d=document.createElement('div'); d.className='prop-card prop-row-card';
     d.dataset.rowCard=row.id;
     const racksField=`<label class="prop-field" title="Quantidade de racks"><span class="prop-field-label">${propIcon('rack')}<span class="prop-field-text">Racks</span></span><span class="prop-field-box"><input data-row-count="${row.id}" type="number" min="0" max="100" value="${row.rackCount}"></span></label>`;
     // A primeira fileira não tem fileira anterior: sem campo de distância, o
     // campo de racks ocupa a linha inteira em vez de deixar meia coluna vazia.
-    const gapField=index>0?`<label class="prop-field" title="Distância para a fileira anterior (m)"><span class="prop-field-label">${propIcon('gap')}<span class="prop-field-text">Dist. (m)</span></span><span class="prop-field-box"><input data-row-gap="${row.id}" type="number" min="0" step="0.01" value="${row.gap||0}"></span></label>`:'';
+    const gapField=numero>1?`<label class="prop-field" title="Distância para a fileira anterior (m)"><span class="prop-field-label">${propIcon('gap')}<span class="prop-field-text">Dist. (m)</span></span><span class="prop-field-box"><input data-row-gap="${row.id}" type="number" min="0" step="0.01" value="${row.gap||0}"></span></label>`:'';
     d.innerHTML=`<header class="row-card-head">
         <button type="button" class="row-handle" data-drag-row="${row.id}" title="Arrastar para reordenar" aria-label="Arrastar para reordenar">${propIcon('grip')}</button>
-        <input class="row-title" data-row-name="${row.id}" value="${esc(row.name)}" aria-label="Nome da fileira">
+        <input class="row-title" data-row-name="${row.id}" value="${esc(row.name)}" placeholder="#${numero}" aria-label="Nome da fileira">
         <button type="button" class="iconbtn" data-rename-row="${row.id}" title="Renomear os racks desta fileira automaticamente" aria-label="Renomear racks automaticamente">${propIcon('pencil')}</button>
         <button type="button" class="iconbtn row-del" data-del-row="${row.id}" title="Excluir fileira" aria-label="Excluir fileira">${propIcon('trash')}</button>
       </header>
@@ -654,7 +685,9 @@ function buildRowsPanel(){
       const suffix=String(rack.index+1).padStart(2,'0');
       const wasAuto = oldName
         ? (rack.name===`${oldName}-${suffix}` || rack.name===`${oldName}-${String(rack.index+1)}`)
-        : (rack.name===suffix || rack.name===String(rack.index+1));
+        // "R-03" é o nome que os racks ganhavam quando a fileira estava sem nome: continua
+        // contando como automático, senão eles ficavam presos nesse nome para sempre.
+        : (rack.name===suffix || rack.name===String(rack.index+1) || rack.name===`R-${suffix}` || rack.name===`R-${rack.index+1}`);
       if(wasAuto) rack.name = newName ? `${newName}-${suffix}` : suffix;
     });
     normalizeIndices();
@@ -671,6 +704,8 @@ function buildRowsPanel(){
 // redesenhado uma vez só, e não a cada quadro do arraste).
 let rowDrag=null;
 function bindRowReorder(panel){
+  // Lista filtrada: arrastar não corresponde à ordem de verdade, então a alça fica inerte.
+  if(rowsSearchQuery.trim())return;
   panel.querySelectorAll('[data-drag-row]').forEach(handle=>{
     handle.addEventListener('pointerdown',ev=>{
       if(structureBlocked())return;
@@ -704,7 +739,7 @@ function bindRowReorder(panel){
       state.rows.forEach((r,i)=>{if(i===0)r.gap=0;});
       normalizeIndices();
       renderAll();
-      toast(`${row.name||'Fileira'} movida`);
+      toast(`${row.name||`#${state.rows.findIndex(r=>r.id===row.id)+1}`} movida`);
     };
     handle.addEventListener('pointerup',end);
     handle.addEventListener('pointercancel',end);
@@ -794,7 +829,7 @@ function openRenameRowModal(rowId){
   $('renamePrefix').value=prefixDefault;
   $('renameStart').value=1;
   $('renamePad').value=0;
-  $('renameRowTitle').textContent=`Renomear racks — ${row.name||'Fileira'}`;
+  $('renameRowTitle').textContent=`Renomear racks — ${row.name||`#${state.rows.findIndex(r=>r.id===row.id)+1}`}`;
   $('renameRowError').textContent='';
   $('renameRowModal').classList.add('open');
   updateRenamePreview();
@@ -975,7 +1010,7 @@ function rackTooltipHtml(r,m){
     ?row(label,`${used} de ${capacity} ${unit} · ${pctText(ratio)}`,ratio)
     :row(label,`${used} ${unit} · sem capacidade`,null);
   const alerts=[m.expired?`${m.expired} com prazo vencido`:'',m.soon?`${m.soon} vencendo em breve`:''].filter(Boolean).join(' · ');
-  return `<div class="rack-tip-title"><b>${esc(r.name)}</b><span>${m.totalU}U · ${m.assetCount} ${m.assetCount===1?'asset':'assets'}</span></div>`
+  return `<div class="rack-tip-title"><b>${esc(rackDisplayName(r))}</b><span>${m.totalU}U · ${m.assetCount} ${m.assetCount===1?'asset':'assets'}</span></div>`
     +row('Ocupação de U',`${m.usedU}/${m.totalU} · ${pctText(m.uRatio)}`,m.uRatio)
     +`<div class="rack-tip-sub">Frente ${m.frontU} · Traseira ${m.rearU} · ${m.freeU} livres</div>`
     +cap('Energia',m.powerW,'W',m.powerCap,m.powerRatio)
@@ -1137,7 +1172,8 @@ function render(){
 
   state.rows.forEach((row,ri)=>{
     const cy=rowCenterY(ri,g);
-    svg.insertAdjacentHTML('beforeend',`<text class="svg-row" x="${Math.max(8,g.x0-46)}" y="${cy+4}" text-anchor="end">${esc(row.name)}</text>`);
+    // Sem nome, o rótulo da planta cai para a identidade posicional (#2) em vez de sumir.
+    svg.insertAdjacentHTML('beforeend',`<text class="svg-row" x="${Math.max(8,g.x0-46)}" y="${cy+4}" text-anchor="end">${esc(row.name||`#${ri+1}`)}</text>`);
     if(ri>0){
       const prev=g.rows[ri-1],cur=g.rows[ri];
       const gap=Math.max(0,num(row.gap,0));
@@ -1419,10 +1455,10 @@ function render(){
             // to the exact rack anchor. This makes both infrastructure pieces
             // share one real location without relaxing the rack snap points.
             linkTrayPoints(t.id,endIndex,snap.tray.id,snap.trayT);
-            toast(`Snap: ${t.name} ↔ ${snap.rack.name} ↔ ${snap.tray.name}`);
+    toast(`Snap: ${t.name} ↔ ${rackDisplayName(snap.rack)} ↔ ${snap.tray.name}`);
           }else{
             state.trayRackLinks.push({trayId:t.id,end:end==='a'?0:1,rackId:snap.rack.id,point:snap.point,connectionKind:snap.connectionKind||'edge',side:snap.side||null,rx:Number.isFinite(snap.rx)?snap.rx:null,ry:Number.isFinite(snap.ry)?snap.ry:null});
-            toast(`Snap: ${t.name} ↔ ${snap.rack.name}`);
+    toast(`Snap: ${t.name} ↔ ${rackDisplayName(snap.rack)}`);
           }
         }
         // Só depois de soltar e somente quando AS DUAS pontas desta calha
@@ -1499,6 +1535,12 @@ function findRackGlobal(rackId){
   return null;
 }
 function assetRack(rackId){ return findRackGlobal(rackId); }
+// Rótulo do rack para leitura: na tabela, no filtro e na busca o rack aparece com a fileira na
+// frente (A-101), do mesmo jeito que nos campos de seleção.
+function assetRackLabel(a){
+  const r=assetRack(a?.rackId);
+  return r?rackDisplayName(r):'Sem rack';
+}
 function assetRackRoom(asset){
   const room=assetRoom(asset); if(room)return room;
   if(asset?.rackId){const r=findRackGlobal(asset.rackId);if(r)return state.rooms.find(x=>x.data?.racks?.some(y=>y.id===r.id))||null;}
@@ -1551,12 +1593,12 @@ function capacityIssues(){
     const powerCap=num(r.powerCapacityW,0);
     if(powerCap>0){
       const watts=state.assets.filter(a=>a.rackId===r.id).reduce((s,a)=>s+Math.max(0,num(a.powerW,0)),0);
-      if(watts/powerCap>=0.8) issues.push({kind:'power',label:'Energia',level:watts>powerCap?'high':'mid',rackId:r.id,roomId:room.id,name:r.name,current:watts,capacity:powerCap,unit:'W'});
+      if(watts/powerCap>=0.8) issues.push({kind:'power',label:'Energia',level:watts>powerCap?'high':'mid',rackId:r.id,roomId:room.id,name:rackDisplayName(r),current:watts,capacity:powerCap,unit:'W'});
     }
     const weightCap=num(r.weightCapacityKg,0);
     if(weightCap>0){
       const kg=state.assets.filter(a=>a.rackId===r.id).reduce((s,a)=>s+Math.max(0,num(a.weightKg,0)),0);
-      if(kg/weightCap>=0.8) issues.push({kind:'weight',label:'Carga do piso',level:kg>weightCap?'high':'mid',rackId:r.id,roomId:room.id,name:r.name,current:kg,capacity:weightCap,unit:'kg'});
+      if(kg/weightCap>=0.8) issues.push({kind:'weight',label:'Carga do piso',level:kg>weightCap?'high':'mid',rackId:r.id,roomId:room.id,name:rackDisplayName(r),current:kg,capacity:weightCap,unit:'kg'});
     }
   });
   (state.rooms||[]).forEach(room=>{
@@ -1570,7 +1612,7 @@ function capacityIssues(){
 // mas dados antigos, importados ou alterados fora do app podem trazer o problema.
 function positionIssues(){
   const unitsByRack=new Map(), meta=new Map();
-  allProjectRacks().forEach(({rack:r,room})=>{unitsByRack.set(r.id,Math.max(1,Math.floor(num(r.units,state.rackUnits))));meta.set(r.id,{name:r.name,roomId:room.id});});
+  allProjectRacks().forEach(({rack:r,room})=>{unitsByRack.set(r.id,Math.max(1,Math.floor(num(r.units,state.rackUnits))));meta.set(r.id,{name:rackDisplayName(r),roomId:room.id});});
   const label=a=>a.name||a.assetTag||'asset';
   return assetPositionProblems(state.assets,unitsByRack).map(p=>({
     kind:'position',level:'high',rackId:p.rackId,roomId:meta.get(p.rackId)?.roomId,name:meta.get(p.rackId)?.name||'Rack',
@@ -1707,7 +1749,8 @@ function refreshAssetRackOptions(selected=''){
   const roomId=loc.startsWith('room:')?loc.slice(5):null;
   const room=roomId?(state.rooms||[]).find(r=>r.id===roomId):null;
   const racks=room?(room.data?.racks||[]):[];
-  sel.innerHTML='<option value="">Sem rack</option>'+racks.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');
+  const rowNameOf=rack=>String((room?.data?.rows||[]).find(row=>row.id===rack.rowId)?.name||'');
+  sel.innerHTML='<option value="">Sem rack</option>'+racks.map(r=>`<option value="${esc(r.id)}" title="${esc(rackDisplayName(r,rowNameOf(r)))}">${esc(rackDisplayName(r,rowNameOf(r)))}</option>`).join('');
   sel.value=racks.some(r=>r.id===selected)?selected:'';
   updateAssetUFieldsState();
 }
@@ -1927,7 +1970,7 @@ async function saveAssetForm(){
     const othersPowerW=state.assets.filter(a=>a.rackId===rack.id && a.id!==asset.id).reduce((sum,a)=>sum+Math.max(0,num(a.powerW,0)),0);
     const totalPowerW=othersPowerW+powerW;
     if(totalPowerW>rack.powerCapacityW){
-      const ok=await uiConfirm(`Isso leva o consumo estimado do rack "${rack.name}" a ${totalPowerW}W, acima da capacidade cadastrada de ${rack.powerCapacityW}W.`,{title:'Capacidade elétrica do rack excedida',confirmText:'Salvar mesmo assim',danger:true});
+      const ok=await uiConfirm(`Isso leva o consumo estimado do rack "${rackDisplayName(rack)}" a ${totalPowerW}W, acima da capacidade cadastrada de ${rack.powerCapacityW}W.`,{title:'Capacidade elétrica do rack excedida',confirmText:'Salvar mesmo assim',danger:true});
       if(!ok)return;
     }
   }
@@ -1935,7 +1978,7 @@ async function saveAssetForm(){
     const othersWeightKg=state.assets.filter(a=>a.rackId===rack.id && a.id!==asset.id).reduce((sum,a)=>sum+Math.max(0,num(a.weightKg,0)),0);
     const totalWeightKg=othersWeightKg+weightKg;
     if(totalWeightKg>rack.weightCapacityKg){
-      const ok=await uiConfirm(`Isso leva o peso estimado do rack "${rack.name}" a ${totalWeightKg}kg, acima da capacidade de carga cadastrada de ${rack.weightCapacityKg}kg.`,{title:'Capacidade de carga do piso excedida',confirmText:'Salvar mesmo assim',danger:true});
+      const ok=await uiConfirm(`Isso leva o peso estimado do rack "${rackDisplayName(rack)}" a ${totalWeightKg}kg, acima da capacidade de carga cadastrada de ${rack.weightCapacityKg}kg.`,{title:'Capacidade de carga do piso excedida',confirmText:'Salvar mesmo assim',danger:true});
       if(!ok)return;
     }
   }
@@ -2011,7 +2054,7 @@ function autoFitAssetColumnText(a,col){
     case 'model': return a.model||'—';
     case 'serial': return a.serial||'—';
     case 'location': return assetLocationLabel(a);
-    case 'rack': return assetRack(a.rackId)?.name||'Sem rack';
+    case 'rack': return assetRackLabel(a);
     case 'u': { const r=assetRack(a.rackId),u=assetOccupancy(a); return r?`U${u.start}${u.end!==u.start?'–U'+u.end:''}`:'—'; }
     case 'uHeight': return assetRack(a.rackId)?String(a.uHeight||1)+'U':'—';
     case 'status': return a.status||'—';
@@ -2076,7 +2119,7 @@ function assetColumnValue(a,col){
     case 'model': return a.model||'—';
     case 'serial': return a.serial||'—';
     case 'location': return assetLocationLabel(a);
-    case 'rack': return assetRack(a.rackId)?.name||'Sem rack';
+    case 'rack': return assetRackLabel(a);
     case 'face': return r?(a.face==='rear'?'Traseira':'Frente'):'—';
     case 'u': return r?`U${u.start}${u.end!==u.start?'–U'+u.end:''}`:'—';
     case 'uHeight': return r?String(a.uHeight||1)+'U':'—';
@@ -2105,7 +2148,7 @@ function renderAssetsTableHead(){
 function openAssetColumnFilterMenu(col,anchorBtn){
   closeAssetColumnFilterMenus();
   const q=String($('assetsSearch')?.value||'').toLowerCase().trim();
-  const searchMatches=state.assets.filter(a=>{const room=assetRoom(a);return !q||[a.name,a.type,a.manufacturer,a.model,a.assetTag,a.serial,a.locationName||'',room?.name||'',assetRack(a.rackId)?.name||''].join(' ').toLowerCase().includes(q);});
+  const searchMatches=state.assets.filter(a=>{const room=assetRoom(a);return !q||[a.name,a.type,a.manufacturer,a.model,a.assetTag,a.serial,a.locationName||'',room?.name||'',assetRackLabel(a)].join(' ').toLowerCase().includes(q);});
   const relevant=searchMatches.filter(a=>assetMatchesColumnFilters(a,col));
   const counts=new Map();
   relevant.forEach(a=>{const v=assetColumnValue(a,col);counts.set(v,(counts.get(v)||0)+1);});
@@ -2205,7 +2248,7 @@ function assetSortValue(a,col){
     case 'model': return (a.model||'').toLowerCase();
     case 'serial': return (a.serial||'').toLowerCase();
     case 'location': return assetLocationLabel(a).toLowerCase();
-    case 'rack': return (r?.name||'').toLowerCase();
+    case 'rack': return assetRackLabel(a).toLowerCase();
     case 'face': return r?(a.face==='rear'?'traseira':'frente'):'';
     case 'u': return r?u.start:-1;
     case 'uHeight': return r?(a.uHeight||1):-1;
@@ -2313,7 +2356,7 @@ function renderAssetsList(filter=''){
     wrap.innerHTML=Array.from({length:6},()=>`<div class="asset-row is-skeleton" aria-hidden="true"><div class="asset-cell"><span class="sk sk-line sk-check"></span></div>${Array.from({length:7},()=>`<div class="asset-cell"><span class="sk sk-line"></span></div>`).join('')}</div>`).join('');
     return;
   }
-  let items=state.assets.filter(a=>{const room=assetRoom(a);const matchesSearch=!q||[a.name,a.type,a.manufacturer,a.model,a.assetTag,a.serial,a.locationName||'',room?.name||'',assetRack(a.rackId)?.name||''].join(' ').toLowerCase().includes(q);return matchesSearch&&assetMatchesColumnFilters(a);});
+  let items=state.assets.filter(a=>{const room=assetRoom(a);const matchesSearch=!q||[a.name,a.type,a.manufacturer,a.model,a.assetTag,a.serial,a.locationName||'',room?.name||'',assetRackLabel(a)].join(' ').toLowerCase().includes(q);return matchesSearch&&assetMatchesColumnFilters(a);});
   if(assetAttentionOnly){const attn=new Set(assetsNeedingAttention().map(a=>a.id));items=items.filter(a=>attn.has(a.id));}
   const attnBanner=$('assetsAttentionBanner');
   if(attnBanner)attnBanner.classList.toggle('hidden',!assetAttentionOnly);
@@ -2329,7 +2372,7 @@ function renderAssetsList(filter=''){
   if($('assetsWarrantyExpiredCount'))$('assetsWarrantyExpiredCount').textContent=String(warrantyExpiredCount);
   if($('assetsWarrantyExpiredStat'))$('assetsWarrantyExpiredStat').classList.toggle('hidden',warrantyExpiredCount===0);
   const kpiMatchesFilters=a=>Object.entries(assetColumnFilters).every(([col,values])=>{if(col==='status'||col==='warranty')return true;if(!values||!values.size)return true;return values.has(assetColumnValue(a,col));});
-  let kpiItems=state.assets.filter(a=>{const room=assetRoom(a);const matchesSearch=!q||[a.name,a.type,a.manufacturer,a.model,a.assetTag,a.serial,a.locationName||'',room?.name||'',assetRack(a.rackId)?.name||''].join(' ').toLowerCase().includes(q);return matchesSearch&&kpiMatchesFilters(a);});
+  let kpiItems=state.assets.filter(a=>{const room=assetRoom(a);const matchesSearch=!q||[a.name,a.type,a.manufacturer,a.model,a.assetTag,a.serial,a.locationName||'',room?.name||'',assetRackLabel(a)].join(' ').toLowerCase().includes(q);return matchesSearch&&kpiMatchesFilters(a);});
   if(assetAttentionOnly){const attn=new Set(assetsNeedingAttention().map(a=>a.id));kpiItems=kpiItems.filter(a=>attn.has(a.id));}
   renderAssetsKpis(kpiItems);
   renderAssetsFilterBar();
@@ -2338,7 +2381,7 @@ function renderAssetsList(filter=''){
   if(assetsPage<1)assetsPage=1;
   const pageStart=(assetsPage-1)*assetsPageSize;
   const pageItems=items.slice(pageStart,pageStart+assetsPageSize);
-  wrap.innerHTML=pageItems.length?pageItems.map(a=>{const r=assetRack(a.rackId),u=assetOccupancy(a),color=bayfaceTypeColor(a.type),checked=assetSelectedIds.has(a.id),warrantyLevel=assetWarrantyLevel(a),eolLevel=assetEndOfLifeLevel(a);return `<div class="asset-row ${isAssetArchived(a)?'asset-archived':''} ${checked?'is-selected':''}" data-asset-id="${esc(a.id)}" style="--type-color:${esc(color)}"><div class="asset-cell asset-cell-check"><input type="checkbox" data-asset-select="${esc(a.id)}" ${checked?'checked':''}></div><div class="asset-cell"><strong>${esc(a.assetTag||'—')}</strong></div><div class="asset-cell">${esc(a.name)}</div><div class="asset-cell"><span class="asset-type-chip"><i></i>${esc(a.type)}</span></div><div class="asset-cell">${esc(a.manufacturer||'—')}</div><div class="asset-cell">${esc(a.model||'—')}</div><div class="asset-cell">${esc(a.serial||'—')}</div><div class="asset-cell">${esc(assetLocationLabel(a))}</div><div class="asset-cell">${esc(r?.name||'Sem rack')}</div><div class="asset-cell">${r?(a.face==='rear'?'Traseira':'Frente'):'—'}</div><div class="asset-cell">${r?`U${u.start}${u.end!==u.start?'–U'+u.end:''}`:'—'}</div><div class="asset-cell">${r?esc(String(a.uHeight||1)+'U'):'—'}</div><div class="asset-cell"><span class="asset-status ${isAssetArchived(a)?'archived':''}">${esc(a.status||'—')}</span></div><div class="asset-cell">${esc(a.substatus||'—')}</div><div class="asset-cell">${esc(formatAssetDate(a.purchaseDate)||'—')}</div><div class="asset-cell">${warrantyLevel==='none'?'<span class="asset-warranty-chip level-none">—</span>':`<span class="asset-warranty-chip level-${warrantyLevel}" title="Vencimento: ${esc(formatAssetDate(a.warrantyExpiration))}"><i></i>${esc(formatAssetDate(a.warrantyExpiration))}</span>`}</div><div class="asset-cell">${eolLevel==='none'?'<span class="asset-warranty-chip level-none">—</span>':`<span class="asset-warranty-chip level-${eolLevel}" title="Fim de vida: ${esc(formatAssetDate(a.endOfLife))}"><i></i>${esc(formatAssetDate(a.endOfLife))}</span>`}</div><div class="asset-actions"><button class="iconbtn" type="button" data-asset-locate="${esc(a.id)}" title="Localizar no rack"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button><button class="iconbtn" type="button" data-asset-edit="${esc(a.id)}" title="Editar asset"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 2 1.5 1.5L14 6l-8 8-4 1 1-4 8-8Z"/><path d="M13 5.5 16 2l4.5 4.5L17 10"/></svg></button><button class="iconbtn" type="button" data-asset-history="${esc(a.id)}" title="Histórico"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button><button class="iconbtn danger-icon" type="button" data-asset-delete="${esc(a.id)}" title="Excluir permanentemente"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg></button></div></div>`}).join(''):'<div class="empty">Nenhum asset encontrado.</div>';
+  wrap.innerHTML=pageItems.length?pageItems.map(a=>{const r=assetRack(a.rackId),u=assetOccupancy(a),color=bayfaceTypeColor(a.type),checked=assetSelectedIds.has(a.id),warrantyLevel=assetWarrantyLevel(a),eolLevel=assetEndOfLifeLevel(a);return `<div class="asset-row ${isAssetArchived(a)?'asset-archived':''} ${checked?'is-selected':''}" data-asset-id="${esc(a.id)}" style="--type-color:${esc(color)}"><div class="asset-cell asset-cell-check"><input type="checkbox" data-asset-select="${esc(a.id)}" ${checked?'checked':''}></div><div class="asset-cell"><strong>${esc(a.assetTag||'—')}</strong></div><div class="asset-cell">${esc(a.name)}</div><div class="asset-cell"><span class="asset-type-chip"><i></i>${esc(a.type)}</span></div><div class="asset-cell">${esc(a.manufacturer||'—')}</div><div class="asset-cell">${esc(a.model||'—')}</div><div class="asset-cell">${esc(a.serial||'—')}</div><div class="asset-cell">${esc(assetLocationLabel(a))}</div><div class="asset-cell">${esc(assetRackLabel(a))}</div><div class="asset-cell">${r?(a.face==='rear'?'Traseira':'Frente'):'—'}</div><div class="asset-cell">${r?`U${u.start}${u.end!==u.start?'–U'+u.end:''}`:'—'}</div><div class="asset-cell">${r?esc(String(a.uHeight||1)+'U'):'—'}</div><div class="asset-cell"><span class="asset-status ${isAssetArchived(a)?'archived':''}">${esc(a.status||'—')}</span></div><div class="asset-cell">${esc(a.substatus||'—')}</div><div class="asset-cell">${esc(formatAssetDate(a.purchaseDate)||'—')}</div><div class="asset-cell">${warrantyLevel==='none'?'<span class="asset-warranty-chip level-none">—</span>':`<span class="asset-warranty-chip level-${warrantyLevel}" title="Vencimento: ${esc(formatAssetDate(a.warrantyExpiration))}"><i></i>${esc(formatAssetDate(a.warrantyExpiration))}</span>`}</div><div class="asset-cell">${eolLevel==='none'?'<span class="asset-warranty-chip level-none">—</span>':`<span class="asset-warranty-chip level-${eolLevel}" title="Fim de vida: ${esc(formatAssetDate(a.endOfLife))}"><i></i>${esc(formatAssetDate(a.endOfLife))}</span>`}</div><div class="asset-actions"><button class="iconbtn" type="button" data-asset-locate="${esc(a.id)}" title="Localizar no rack"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button><button class="iconbtn" type="button" data-asset-edit="${esc(a.id)}" title="Editar asset"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 2 1.5 1.5L14 6l-8 8-4 1 1-4 8-8Z"/><path d="M13 5.5 16 2l4.5 4.5L17 10"/></svg></button><button class="iconbtn" type="button" data-asset-history="${esc(a.id)}" title="Histórico"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button><button class="iconbtn danger-icon" type="button" data-asset-delete="${esc(a.id)}" title="Excluir permanentemente"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg></button></div></div>`}).join(''):'<div class="empty">Nenhum asset encontrado.</div>';
   wrap.querySelectorAll('[data-asset-locate]').forEach(b=>b.onclick=()=>locateAsset(b.dataset.assetLocate));
   wrap.querySelectorAll('[data-asset-edit]').forEach(b=>b.onclick=()=>openAssetModal(b.dataset.assetEdit));
   wrap.querySelectorAll('[data-asset-history]').forEach(b=>b.onclick=()=>openAssetHistory(b.dataset.assetHistory));
@@ -2580,7 +2623,7 @@ function openBayface(rackId){
   const r=assetRack(rackId);if(!r)return;
   const m=$('bayfaceModal');if(!m)return;
   m.style.zIndex='1100';
-  $('bayfaceTitle').textContent=`Rack ${r.name}`;
+  $('bayfaceTitle').textContent=`Rack ${rackDisplayName(r)}`;
   $('bayfaceContent').innerHTML=bayfaceMarkup(rackId);
   m.dataset.rackId=rackId;
   m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');
@@ -2977,14 +3020,10 @@ function updateCableAssetNameField(c,side){
 
 function renderCableProperties(p,c){
   if(!c){p.innerHTML='<div class="empty">Cabo não encontrado.</div>';return;}
-  const rackLabel=r=>`${rowForRack(r)?.name||''} / ${r.name}`;
-  // O rótulo do rack vive numa coluna estreita: mostra só o nome do rack
-  // (a fileira e a contagem de U vão no title). A fileira só entra no texto
-  // quando existem racks com o mesmo nome em fileiras diferentes, senão a
-  // lista fica ambígua.
-  const rackNames=state.racks.map(r=>String(r.name||''));
-  const dupNames=new Set(rackNames.filter((n,i)=>rackNames.indexOf(n)!==i));
-  const optLabel=r=>dupNames.has(String(r.name||''))?rackLabel(r):(r.name||'Rack');
+  const rackLabel=r=>rackDisplayName(r);
+  // O rótulo do rack vive numa coluna estreita: a fileira entra na frente (A-101), porque é
+  // ela que diz onde o rack está; a contagem de U fica no title.
+  const optLabel=r=>rackDisplayName(r);
   const opts=state.racks.slice().sort((a,b)=>rackLabel(a).localeCompare(rackLabel(b),'pt-BR')).map(r=>`<option value="${r.id}" title="${esc(rackLabel(r))} — ${Math.floor(num(r.units,state.rackUnits))}U">${esc(optLabel(r))}</option>`).join('');
   const v=cableUnitValidation(c);
   const o=v.origin,d=v.dest;
@@ -3190,7 +3229,7 @@ async function exportAssetsXLSX(){
       cables.forEach(c=>{if(c.originPortId)usedIds.add(c.originPortId);if(c.destPortId)usedIds.add(c.destPortId);});
       const available=ports.filter(p=>!usedIds.has(p.id)).map(p=>p.label);
       const used=ports.filter(p=>usedIds.has(p.id)).map(p=>p.label);
-      return [a.assetTag||'',a.name||'',a.type||'',a.manufacturer||'',a.model||'',a.serial||'',assetLocationLabel(a),rack?.name||'',rack?(a.face==='rear'?'Traseira':'Frente'):'',rack?a.uStart||'':'',rack?(a.uHeight||1):'',a.status||'',a.substatus||'',compactPortLabels(ports.map(p=>p.label)),compactPortLabels(available),compactPortLabels(used),formatAssetDate(a.purchaseDate),formatAssetDate(a.warrantyExpiration),WARRANTY_LABELS[assetWarrantyLevel(a)],formatAssetDate(a.endOfLife),a.notes||''];
+      return [a.assetTag||'',a.name||'',a.type||'',a.manufacturer||'',a.model||'',a.serial||'',assetLocationLabel(a),rack?rackDisplayName(rack):'',rack?(a.face==='rear'?'Traseira':'Frente'):'',rack?a.uStart||'':'',rack?(a.uHeight||1):'',a.status||'',a.substatus||'',compactPortLabels(ports.map(p=>p.label)),compactPortLabels(available),compactPortLabels(used),formatAssetDate(a.purchaseDate),formatAssetDate(a.warrantyExpiration),WARRANTY_LABELS[assetWarrantyLevel(a)],formatAssetDate(a.endOfLife),a.notes||''];
     });
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('Assets');
@@ -3613,7 +3652,7 @@ function closeProjectSummary(){}
 function searchableItems(query){
   const q=String(query||'').trim().toLowerCase(); if(!q)return [];
   const items=[];
-  state.racks.forEach(r=>{const row=rowForRack(r); const hay=[r.name,row?.name,`rack ${r.name}`].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q))items.push({type:'rack',id:r.id,label:r.name||'Rack',meta:row?.name||'Fileira'});});
+  state.racks.forEach(r=>{const row=rowForRack(r); const hay=[r.name,row?.name,`rack ${r.name}`,`rack ${rackDisplayName(r)}`].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q))items.push({type:'rack',id:r.id,label:rackDisplayName(r),meta:row?.name||'Fileira'});});
   state.trays.forEach(t=>{const hay=[t.name,`calha ${t.name}`].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q))items.push({type:'tray',id:t.id,label:t.name||'Calha',meta:'Calha'});});
   state.cables.forEach(c=>{const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack); const hay=[c.name,`cabo ${c.name}`,o?.name,d?.name].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q))items.push({type:'cable',id:c.id,label:c.name||'Cabo',meta:`${o?.name||'?'} → ${d?.name||'?'}`});});
   return items.slice(0,30);
@@ -4037,6 +4076,7 @@ function bind(){
   $('btnAddCablePanel')?.addEventListener('click',addCable);$('btnImport').onclick=()=>$('excelInput').click();
   bindStyledSelect('cablesFilter','cablesFilterBtn');$('cablesFilter')?.addEventListener('change',()=>{cables.cablesFilterMode=$('cablesFilter').value;syncSelectButton('cablesFilter','cablesFilterBtn');renderCables();});
   $('cablesSearch')?.addEventListener('input',()=>{cables.cablesSearchQuery=$('cablesSearch').value;renderCables();});
+  $('rowsSearch')?.addEventListener('input',()=>{rowsSearchQuery=$('rowsSearch').value;buildRowsPanel();});
   $('cablesBulkDelete')?.addEventListener('click',deleteCablesBulk);
   $('cablesBulkClear')?.addEventListener('click',()=>{cables.cableMultiSelected=[];renderCables();});
   $('cableTypeReviewClose')?.addEventListener('click',()=>{cables.pendingCableImportRows=null;closeCableTypeReviewModal();});

@@ -3,6 +3,7 @@ import { state } from './state.js';
 import { isAssetArchived, occupiedUnits } from './occupancy.js';
 import { importSession, assetStatusValues, makeAssetsTemplate, closeImportPreview, catalogSingleTemplate, openCatalogSingleImport, importCatalogSingleWorkbook, importAssetsWorkbook } from './inventory-import.js';
 import { recordAssetAudit } from './cloud-sync.js';
+import { rackDisplayName } from './geometry.js';
 
 // Funções e constantes que continuam em app.js; injetadas por configureBulkAssets()
 // para evitar import circular com app.js.
@@ -37,7 +38,8 @@ function bulkRackOptions(selected='',locationValue=''){
   const roomId=String(locationValue||'').startsWith('room:')?String(locationValue).slice(5):'';
   const room=roomId?(state.rooms||[]).find(r=>r.id===roomId):null;
   const racks=room?.data?.racks||[];
-  return '<option value="">Sem rack</option>'+racks.map(r=>`<option value="${esc(r.id)}" ${r.id===selected?'selected':''}>${esc(r.name)}</option>`).join('');
+  const fileira=rack=>String(room?.data?.rows?.find(row=>row.id===rack.rowId)?.name||'');
+  return '<option value="">Sem rack</option>'+racks.map(r=>`<option value="${esc(r.id)}" ${r.id===selected?'selected':''}>${esc(rackDisplayName(r,fileira(r)))}</option>`).join('');
 }
 function bulkCatalogOptions(kind,selected='',rowEl=null){
   normalizeAssetCatalogs();
