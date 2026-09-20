@@ -547,6 +547,35 @@ label {
   border: 1px solid transparent;
   font-size: 12px;
   font-weight: 600;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+/* Salvando respira; salvo dá um pulso único de confirmação (a classe
+   `is-flash` é aplicada só quando o estado muda de verdade). */
+@keyframes cloudPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.62;
+  }
+}
+@keyframes cloudSaved {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 9px transparent;
+  }
+}
+.topbar-cloud-status[data-status="saving"] {
+  animation: cloudPulse 1.2s ease-in-out infinite;
+}
+.topbar-cloud-status.is-flash {
+  animation: cloudSaved 0.7s ease-out;
 }
 .topbar-cloud-status[data-status="saved"] {
   color: var(--green);

@@ -1,4 +1,4 @@
-import { uid, esc, num, $, catalogNormalize, catalogSimilarity, catalogSimilar, parseImportDate, parseImportNumber } from './utils.js';
+import { uid, esc, num, $, catalogNormalize, catalogSimilarity, catalogSimilar, parseImportDate, parseImportNumber, beginTask, endTask } from './utils.js';
 import { state } from './state.js';
 import { isAssetArchived, assetOccupancy, occupiedUnits } from './occupancy.js';
 
@@ -595,6 +595,7 @@ function openCatalogSinglePreview(kind, rows){
 }
 
 export async function importCatalogSingleWorkbook(file,kind){
+  beginTask('Lendo planilha…');
   try{
     const wb=await readWorkbookFile(file), names=wb.SheetNames||[];
     const ws=wb.Sheets[names[0]];
@@ -636,9 +637,11 @@ export async function importCatalogSingleWorkbook(file,kind){
     });
     openCatalogSinglePreview(kind,rows);
   }catch(e){console.error('Catalog import error:',e);toast('Não foi possível ler a planilha: '+(e?.message||e));}
+  finally{endTask();}
 }
 
 async function processAssetsWorkbook(file){
+  beginTask('Lendo planilha de assets…');
   try{
     const wb=await readWorkbookFile(file);
     // As listas suspensas da planilha modelo aplicam validação até a linha
@@ -749,9 +752,11 @@ async function processAssetsWorkbook(file){
       const imported=ready.length;save();closeImportPreview();renderAll(false);renderAssetsList($('assetsSearch')?.value||'');toast(`${imported} asset(s) importado(s)`);
     });
   }catch(e){console.error(e);toast('Não foi possível ler a planilha de assets.');}
+  finally{endTask();}
 }
 
 export async function importAssetsWorkbook(file){
+  beginTask('Lendo planilha de assets…');
   try{
     // O modelo oficial já define a estrutura; não há necessidade de uma etapa
     // intermediária de reconhecimento/mapeamento. A planilha vai direto para a
@@ -772,6 +777,5 @@ export async function importAssetsWorkbook(file){
     const normalizedFile=new File([out],file.name,{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     return processAssetsWorkbook(normalizedFile);
   }catch(e){console.error(e);toast('Não foi possível ler o arquivo.');}
+  finally{endTask();}
 }
-
-

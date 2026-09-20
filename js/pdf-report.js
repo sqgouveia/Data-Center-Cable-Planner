@@ -1,4 +1,4 @@
-import { esc, num, $ } from './utils.js';
+import { esc, num, $, beginTask, endTask } from './utils.js';
 import { state } from './state.js';
 import { isAssetArchived, assetOccupancy, assetsOnFace } from './occupancy.js';
 import { geometry } from './geometry.js';
@@ -142,6 +142,7 @@ async function addPlantPage(doc){
 
 export async function generatePDFReport(options={}){
   const opt={summary:true,status:true,lifecycle:true,cables:true,...options};
+  beginTask('Gerando relatório PDF…');
   try{
     toast('Gerando relatório...');
     if(!await ensureJsPDF()) throw new Error('Biblioteca de PDF não carregada.');
@@ -320,6 +321,7 @@ export async function generatePDFReport(options={}){
     console.error('Erro ao gerar relatório PDF:',err);
     toast('Não foi possível gerar o relatório PDF: '+(err?.message||err));
   }
+  finally{endTask();}
 }
 export function openPdfReportOptions(){
   const m=$('pdfReportOptionsModal');if(!m)return;

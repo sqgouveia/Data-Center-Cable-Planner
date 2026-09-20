@@ -6,7 +6,7 @@ import { runtime } from './runtime.js';
 
 // Estado mutável compartilhado com app.js. Vive num objeto porque um `let` de módulo
 // não pode ser reatribuído por quem importa.
-export const cloud = { cloudProjectId: null, cloudDirty: false };
+export const cloud = { cloudProjectId: null, cloudDirty: false, loading: false };
 
 // Funções e constantes que continuam em app.js; injetadas por configureCloudSync()
 // para evitar import circular com app.js.
@@ -73,7 +73,17 @@ export function setCloudStatus(status){
   if(!el)return;
   const map={saved:['✓','Salvo na nuvem','saved'],saving:['⟳','Salvando...','saving'],pending:['●','Alterações não salvas','pending'],error:['⚠','Não sincronizado','error']};
   const v=map[status]||map.saved;
+  const changed=el.dataset.status!==v[2];
   el.textContent=`${v[0]} ${v[1]}`; el.dataset.status=v[2]; el.title=v[1];
+  // Um pulso só quando o estado realmente muda: confirma que o dado chegou na
+  // nuvem, sem virar um pisca-pisca a cada render.
+  if(changed&&v[2]==='saved'){
+    el.classList.remove('is-flash');
+    void el.offsetWidth;
+    el.classList.add('is-flash');
+    clearTimeout(el.__flashTimer);
+    el.__flashTimer=setTimeout(()=>el.classList.remove('is-flash'),700);
+  }
 }
 export function updatePlannerProjectName(){
   const el=$('plannerProjectName');
@@ -627,6 +637,9 @@ export async function saveProjectToCloud(showToast=true){
 }
 async function loadProjectFromCloud(projectId=null){
   cloudReady=false;
+  // Enquanto o snapshot não chega, as listas mostram esqueleto em vez de
+  // "nenhum registro" — vazio e carregando são estados diferentes.
+  cloud.loading=true;
   try{
     const {data:{user},error:userError}=await supabaseClient.auth.getUser();
     if(userError) throw userError;
@@ -685,6 +698,7 @@ async function loadProjectFromCloud(projectId=null){
     return null;
   }finally{
     cloudReady=true;
+    cloud.loading=false;
   }
 }
 
@@ -824,10 +838,20 @@ function paintDashboardProjects(){
     bindAction('[data-action="delete"]',deleteCloudProject);
   }));
 }
+// Esqueleto da grade de projetos: mostra a forma do que vem, em vez de uma
+// frase de "carregando" que não diz nada sobre o que está por vir.
+function dashboardSkeletonHtml(count=4){
+  const card=`<article class="project-card is-skeleton" aria-hidden="true">
+      <div class="project-card-head"><div class="sk sk-icon"></div><div class="project-title-block"><div class="sk sk-line sk-title"></div><div class="sk sk-line sk-meta"></div></div></div>
+      <div class="project-stats"><span class="sk sk-chip"></span><span class="sk sk-chip"></span><span class="sk sk-chip"></span></div>
+      <div class="project-actions"><span class="sk sk-button"></span></div>
+    </article>`;
+  return Array.from({length:count},()=>card).join('');
+}
 async function renderDashboardProjects(){
   const grid=$('projectsGrid'),empty=$('projectsEmpty');
   if(!grid)return;
-  grid.innerHTML='<div class="dashboard-loading">Carregando projetos...</div>'; empty?.classList.add('hidden');
+  grid.innerHTML=dashboardSkeletonHtml(); empty?.classList.add('hidden');
   syncDashboardControls();
   try{
     dashboardProjects=await fetchCloudProjects();

@@ -1,4 +1,4 @@
-import { uid, esc, num, $, catalogNormalize, catalogSimilar, parsePortTemplate, excelColumnLetter } from './utils.js';
+import { uid, esc, num, $, catalogNormalize, catalogSimilar, parsePortTemplate, excelColumnLetter, beginTask, endTask } from './utils.js';
 import { state } from './state.js';
 import { uiConfirm } from './dialogs.js';
 import { rowForRack, geometry, rackRect, trayPointAt } from './geometry.js';
@@ -12,13 +12,13 @@ export const cables = { pendingCableImportRows: null, cablesSearchQuery: '', cab
 // Funções e constantes que continuam em app.js; injetadas por configureCables()
 // para evitar import circular com app.js.
 let syncActiveRoom, normalizeCableCatalogs, cableTypeNames, defaultCableType, cableTypeColor, toast,
-  cableUnitValidation, renderAll;
+  cableUnitValidation, renderAll, flashSelection;
 export function configureCables(deps){
   ({ syncActiveRoom, normalizeCableCatalogs, cableTypeNames, defaultCableType, cableTypeColor,
-    toast, cableUnitValidation, renderAll } = deps);
+    toast, cableUnitValidation, renderAll, flashSelection } = deps);
 }
 
-export function addCable(){if(state.racks.length<2){toast('Crie pelo menos 2 racks');return;}const c={id:uid('cable'),name:`Cabo-${String(state.cables.length+1).padStart(3,'0')}`,originRack:state.racks[0].id,originU:state.racks[0].units,originFace:'front',destRack:state.racks[1].id,destU:state.racks[1].units,destFace:'front',slack:state.defaultSlack,type:defaultCableType(),via:[]};state.cables.push(c);state.multiSelected=[];state.selected={type:'cable',id:c.id};renderAll();toast('Cabo adicionado');}
+export function addCable(){if(state.racks.length<2){toast('Crie pelo menos 2 racks');return;}const c={id:uid('cable'),name:`Cabo-${String(state.cables.length+1).padStart(3,'0')}`,originRack:state.racks[0].id,originU:state.racks[0].units,originFace:'front',destRack:state.racks[1].id,destU:state.racks[1].units,destFace:'front',slack:state.defaultSlack,type:defaultCableType(),via:[]};state.cables.push(c);state.multiSelected=[];state.selected={type:'cable',id:c.id};renderAll();toast('Cabo adicionado');flashSelection?.();}
 
 function cableRouteLabel(c,res){
   if(!res?.reachable) return '';
@@ -154,9 +154,11 @@ export async function downloadCableTemplate(){
 
 const CABLE_TYPE_AUTO_COLORS=['#f472b6','#a78bfa','#fb923c','#34d399','#60a5fa','#f87171','#c084fc','#38bdf8'];
 export function importCablesXLSX(file){
+  beginTask('Lendo planilha de cabos…');
   try{
     const reader=new FileReader();
     reader.onload=()=>{
+      endTask();
       try{
         const wb=XLSX.read(new Uint8Array(reader.result),{type:'array'});
         const ws=wb.Sheets[wb.SheetNames[0]];
@@ -193,7 +195,7 @@ export function importCablesXLSX(file){
       }catch(err){toast(err.message||'Erro ao importar Excel');}
     };
     reader.readAsArrayBuffer(file);
-  }catch(err){toast(err.message||'Erro ao importar Excel');}
+  }catch(err){endTask();toast(err.message||'Erro ao importar Excel');}
 }
 function openCableTypeReviewModal(newTypes,existingTypes){
   const list=$('cableTypeReviewList');
@@ -341,6 +343,7 @@ export function cablesByRoom(){
   return map;
 }
 export async function exportCablesXLSX(){
+  beginTask('Exportando cabos…');
   try{
     if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
     const headers=['Nome','Tipo','Rack Origem','U Origem','Face Origem','Nome Asset Origem','Porta Origem','Rack Destino','U Destino','Face Destino','Nome Asset Destino','Porta Destino','Vertical Origem (m)','Trecho Calhas (m)','Vertical Destino (m)','Conexões (m)','Base (m)','Folga (m)','Total (m)','Total Arredondado (m)','Rota','Etiqueta'];
@@ -381,6 +384,7 @@ export async function exportCablesXLSX(){
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(state.projectName||'data-center')}-cabos.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     toast('Cabos exportados com resumo');
   }catch(err){toast(err.message||'Erro ao exportar Excel');}
+  finally{endTask();}
 }
 
 export function cableSearchHaystack(c){

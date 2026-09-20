@@ -1,7 +1,8 @@
 import {
   uid, cloneData, esc, num, $, dateUrgencyLevel, formatAssetDate, catalogNormalize,
   catalogSimilarity, catalogSimilar, catalogKeyLabel, parsePortTemplate, buildPortRange,
-  expandPortDefs, totalPortDefsCount, excelColumnLetter, parseImportDate, parseImportNumber
+  expandPortDefs, totalPortDefsCount, excelColumnLetter, parseImportDate, parseImportNumber,
+  beginTask, endTask
 } from './js/utils.js';
 import { state, THEME_STORAGE } from './js/state.js';
 import { uiConfirm, uiPrompt } from './js/dialogs.js';
@@ -314,6 +315,7 @@ function undo(){
   history.redo.push(current);
   restoreSnapshot(target, selectionState);
   toast('Desfeito');
+  flashSelection();
 }
 function redo(){
   if(!history.redo.length)return;
@@ -327,9 +329,31 @@ function redo(){
   history.undo.push(current);
   restoreSnapshot(target, selectionState);
   toast('Refeito');
+  flashSelection();
 }
 
 function toast(text){ const t=$('toast'); t.textContent=text; t.classList.add('show'); clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(()=>t.classList.remove('show'),1800); }
+
+// Pulso de confirmação no objeto que acabou de ser criado ou restaurado.
+// Sem isso, criar uma calha/cabo ou desfazer uma alteração deixa o usuário
+// sem saber onde olhar no canvas.
+function flashElement(el){
+  if(!el||!el.classList)return;
+  el.classList.remove('is-flash');
+  void el.getBoundingClientRect();
+  el.classList.add('is-flash');
+  clearTimeout(el.__flashTimer);
+  el.__flashTimer=setTimeout(()=>el.classList.remove('is-flash'),900);
+}
+function flashSelection(){
+  const sel=state.selected; if(!sel)return;
+  const svg=$('layout');
+  const id=typeof CSS!=='undefined'&&CSS.escape?CSS.escape(String(sel.id)):String(sel.id);
+  if(sel.type==='rack')flashElement(svg?.querySelector(`[data-rack="${id}"] .rack-body`));
+  else if(sel.type==='tray')flashElement(svg?.querySelector(`line[data-tray="${id}"].tray-line`));
+  else if(sel.type==='cable')flashElement(document.querySelector(`.cable-item[data-cable="${id}"]`));
+  else if(sel.type==='asset')flashElement(document.querySelector(`.asset-row[data-asset-id="${id}"]`));
+}
 function save(){ recordHistory(); localStorage.setItem(THEME_STORAGE,state.theme); applyTheme(); updatePlannerProjectName(); updateAlertsCenterBadge(); scheduleCloudSave(); }
 function load(){
   // Project data is cloud-first. This startup routine only normalizes a clean
@@ -711,6 +735,7 @@ function createIndependentTray(g,x1,y1,x2,y2){
   if(structureBlocked())return;
   const t={id:uid('tray'),name:`Calha ${state.trays.length+1}`,x1,y1,x2,y2,width:.10};
   state.trays.push(t);state.multiSelected=[];state.trayMultiSelected=[t.id];state.selected={type:'tray',id:t.id};renderAll();toast('Calha independente criada');
+  flashSelection();
 }
 
 // --- Camadas de calor, dica do rack e resumo da sala --------------------------
@@ -729,10 +754,29 @@ const HEAT_LEGENDS={
 function updateHeatControl(){
   const box=$('heatControl'); if(!box)return;
   box.querySelectorAll('[data-heat]').forEach(b=>{const on=b.dataset.heat===heatMode;b.classList.toggle('active',on);b.setAttribute('aria-pressed',on?'true':'false');});
+  positionHeatPill();
   const legend=$('heatLegend'); if(!legend)return;
   const items=HEAT_LEGENDS[heatMode];
   legend.classList.toggle('hidden',!items);
   legend.innerHTML=items?items.map(([lv,label])=>`<span class="heat-legend-item"><i class="heat-swatch heat-${lv}"></i>${esc(label)}</span>`).join(''):'';
+}
+// O pill desliza até o modo ativo. Mede em coordenadas de tela porque a barra
+// quebra linha em telas estreitas — aí o pill precisa acompanhar a linha nova.
+function positionHeatPill(){
+  const bar=document.querySelector('.heat-modes'); if(!bar)return;
+  const pill=bar.querySelector('.heat-pill'); if(!pill)return;
+  const active=bar.querySelector('[data-heat].active');
+  if(!active){pill.style.opacity='0';return;}
+  const barRect=bar.getBoundingClientRect(), rect=active.getBoundingClientRect();
+  if(!barRect.width||!rect.width){pill.style.opacity='0';return;}
+  // O filho absoluto se posiciona pelo padding box, então a borda da barra
+  // entra na conta — sem isso o pill fica deslocado meio pixel.
+  const cs=getComputedStyle(bar);
+  const borderLeft=parseFloat(cs.borderLeftWidth)||0, borderTop=parseFloat(cs.borderTopWidth)||0;
+  pill.style.opacity='1';
+  pill.style.width=`${rect.width}px`;
+  pill.style.height=`${rect.height}px`;
+  pill.style.transform=`translate(${rect.left-barRect.left-borderLeft}px, ${rect.top-barRect.top-borderTop}px)`;
 }
 function setupSummaryRefit(){
   let timer=null;
@@ -782,6 +826,15 @@ function setupHeatControl(){
     updateHeatControl(); render();
   });
   updateHeatControl();
+  // O pill é medido no DOM: reage a resize, quebra de linha da barra e à
+  // fonte carregada depois (que muda a largura dos rótulos).
+  const bar=document.querySelector('.heat-modes');
+  if(bar&&typeof ResizeObserver==='function'){
+    new ResizeObserver(()=>positionHeatPill()).observe(bar);
+    bar.querySelectorAll('[data-heat]').forEach(b=>new ResizeObserver(()=>positionHeatPill()).observe(b));
+  }
+  window.addEventListener('resize',positionHeatPill);
+  document.fonts?.ready?.then(()=>positionHeatPill()).catch(()=>{});
 }
 const pctText=v=>`${Math.round(v*100)}%`;
 const kgText=v=>String(Math.round(v*10)/10);
@@ -1339,7 +1392,22 @@ function updateAlertsCenterBadge(){
   const btn=$('btnAlertsCenter'); if(!btn)return;
   const total=assetsNeedingAttention().length+capacityIssues().length+positionIssues().length;
   btn.classList.toggle('hidden',total===0);
-  if($('alertsCenterCount'))$('alertsCenterCount').textContent=String(total);
+  const badge=$('alertsCenterCount');
+  if(badge){
+    const before=Number(badge.dataset.value||'0');
+    badge.textContent=String(total);
+    badge.dataset.value=String(total);
+    // O contador subir é a única evidência de que apareceu alerta novo em
+    // outra parte da planta; um pulso curto avisa sem tirar o foco de quem
+    // está trabalhando.
+    if(total>before&&before>0){
+      badge.classList.remove('is-pulse');
+      void badge.offsetWidth;
+      badge.classList.add('is-pulse');
+      clearTimeout(badge.__pulseTimer);
+      badge.__pulseTimer=setTimeout(()=>badge.classList.remove('is-pulse'),900);
+    }
+  }
 }
 function allProjectRacks(){
   syncActiveRoom();
@@ -1759,6 +1827,7 @@ async function saveAssetForm(){
   const bayRack=$('bayfaceModal')?.classList.contains('open')?$('bayfaceModal').dataset.rackId:null; closeAssetModal(); save(); renderAll(false); renderAssetsList(); if(state.selected?.type==='rack')renderProperties(); if(bayRack)renderBayface(bayRack);
   recordAssetAudit({action:old>=0?'UPDATE':'CREATE',asset,before,after:asset,changes});
   toast(old>=0?'Asset atualizado':'Asset criado');
+  if(old<0)flashElement(document.querySelector(`.asset-row[data-asset-id="${CSS.escape(String(asset.id))}"]`));
 }
 
 async function deleteAsset(assetId){
@@ -2091,6 +2160,12 @@ async function bulkChangeAssetLocation(locVal){
 }
 function renderAssetsList(filter=''){
   normalizeLocations(); normalizeAssets(); const wrap=$('assetsList');if(!wrap)return; const q=String(filter||'').toLowerCase().trim();
+  // Enquanto o snapshot do projeto não chegou, a lista mostra esqueleto: sem
+  // isso ela aparece vazia e o usuário acha que perdeu os assets.
+  if(cloud.loading){
+    wrap.innerHTML=Array.from({length:6},()=>`<div class="asset-row is-skeleton" aria-hidden="true"><div class="asset-cell"><span class="sk sk-line sk-check"></span></div>${Array.from({length:7},()=>`<div class="asset-cell"><span class="sk sk-line"></span></div>`).join('')}</div>`).join('');
+    return;
+  }
   let items=state.assets.filter(a=>{const room=assetRoom(a);const matchesSearch=!q||[a.name,a.type,a.manufacturer,a.model,a.assetTag,a.serial,a.locationName||'',room?.name||'',assetRack(a.rackId)?.name||''].join(' ').toLowerCase().includes(q);return matchesSearch&&assetMatchesColumnFilters(a);});
   if(assetAttentionOnly){const attn=new Set(assetsNeedingAttention().map(a=>a.id));items=items.filter(a=>attn.has(a.id));}
   const attnBanner=$('assetsAttentionBanner');
@@ -2509,6 +2584,16 @@ function setupPropCards(root){
 }
 function renderProperties(){
   const p=$('properties');
+  // Troca de alvo (rack → cabo, nada → rack) merece um fade curto pra marcar
+  // que o painel mudou de assunto. Só na troca: o painel é reconstruído a cada
+  // alteração, e animar sempre faria a tela piscar enquanto se digita.
+  const propKey=state.selected?`${state.selected.type}:${state.selected.id}`:(state.trayMultiSelected.length>1?`trays:${state.trayMultiSelected.length}`:(state.multiSelected.length>1?`racks:${state.multiSelected.length}`:(state.racks.length?'room':'empty')));
+  if(p.dataset.propKey!==undefined&&p.dataset.propKey!==propKey){
+    p.classList.remove('is-swapping');
+    void p.offsetWidth;
+    p.classList.add('is-swapping');
+  }
+  p.dataset.propKey=propKey;
   if(state.trayMultiSelected.length>1){
     const count=state.trayMultiSelected.length;
     setPropTitleSticky(`${count} calhas selecionadas`);
@@ -2912,8 +2997,9 @@ function renderManualRouteUI(c){
 }
 function refreshVisuals(){normalizeState();render();renderCables();updateAlertsCenterBadge();save();}
 
-configureCables({ syncActiveRoom, normalizeCableCatalogs, cableTypeNames, defaultCableType, cableTypeColor, toast, cableUnitValidation, renderAll });
+configureCables({ syncActiveRoom, normalizeCableCatalogs, cableTypeNames, defaultCableType, cableTypeColor, toast, cableUnitValidation, renderAll, flashSelection });
 async function exportAssetsXLSX(){
+  beginTask('Exportando assets…');
   try{
     if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
     // Rótulos das colunas compartilhadas com o inventário vêm de ASSET_COLUMN_HEADER_LABELS
@@ -2945,6 +3031,7 @@ async function exportAssetsXLSX(){
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(state.projectName||'data-center')}-assets.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     toast('Assets exportados');
   }catch(err){toast(err.message||'Erro ao exportar Excel');}
+  finally{endTask();}
 }
 function ensureFields(){$('projectName').value=state.projectName;$('rowCount').value=state.rows.length;$('defaultRacks').value=state.rows[0]?.rackCount??0;$('rackUnits').value=state.rackUnits;$('rackWidth').value=state.rackWidth;$('rackDepth').value=state.rackDepth;$('rackGap').value=state.rackGap;$('rackPowerCapacity').value=state.rackPowerCapacityW>0?state.rackPowerCapacityW:'';$('rackWeightCapacity').value=state.rackWeightCapacityKg>0?state.rackWeightCapacityKg:'';$('defaultRowGap').value=state.defaultRowGap;$('lastUToTray').value=state.lastUToTray;$('defaultSlack').value=state.defaultSlack;}
 function updateCanvasEmptyHint(){

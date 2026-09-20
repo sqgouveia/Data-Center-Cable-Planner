@@ -1,6 +1,28 @@
 // Pure helpers with no dependency on app state or the DOM.
 export const $ = id => document.getElementById(id);
 
+// Barra de tarefa indeterminada para operações que demoram (importar/exportar
+// planilha, gerar PDF). O contador aguenta chamadas aninhadas: só esconde
+// quando a última tarefa termina.
+let taskDepth = 0;
+let taskHideTimer = null;
+export function beginTask(label){
+  taskDepth += 1;
+  const bar = document.getElementById('taskBar');
+  if(!bar) return;
+  clearTimeout(taskHideTimer);
+  const text = document.getElementById('taskBarLabel');
+  if(text && label) text.textContent = label;
+  bar.classList.remove('hidden');
+  bar.setAttribute('aria-hidden','false');
+}
+export function endTask(){
+  taskDepth = Math.max(0, taskDepth - 1);
+  const bar = document.getElementById('taskBar');
+  if(!bar || taskDepth > 0) return;
+  taskHideTimer = setTimeout(()=>bar.classList.add('hidden'), 240);
+}
+
 export function uid(prefix){ return `${prefix}_${Math.random().toString(36).slice(2,9)}`; }
 
 export function cloneData(value){
