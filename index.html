@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#dfe6f1" />
     <title>Stratum</title>
     <link rel="icon" type="image/png" href="logo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -12,27 +13,27 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=217" />
-    <link rel="stylesheet" href="macos.css?v=82" />
+    <link rel="stylesheet" href="app.css?v=227" />
+    <link rel="stylesheet" href="macos.css?v=92" />
     <script type="importmap">
       {
         "imports": {
-          "./js/bulk-assets.js": "./js/bulk-assets.js?v=219",
-          "./js/cables.js": "./js/cables.js?v=219",
-          "./js/catalogs.js": "./js/catalogs.js?v=219",
-          "./js/cloud-sync.js": "./js/cloud-sync.js?v=219",
-          "./js/dialogs.js": "./js/dialogs.js?v=219",
-          "./js/geometry.js": "./js/geometry.js?v=219",
-          "./js/inventory-import.js": "./js/inventory-import.js?v=219",
-          "./js/occupancy.js": "./js/occupancy.js?v=219",
-          "./js/pdf-report.js": "./js/pdf-report.js?v=219",
-          "./js/plant-export.js": "./js/plant-export.js?v=219",
-          "./js/rack-metrics.js": "./js/rack-metrics.js?v=219",
-          "./js/routing.js": "./js/routing.js?v=219",
-          "./js/runtime.js": "./js/runtime.js?v=219",
-          "./js/state.js": "./js/state.js?v=219",
-          "./js/styled-select.js": "./js/styled-select.js?v=219",
-          "./js/utils.js": "./js/utils.js?v=219"
+          "./js/bulk-assets.js": "./js/bulk-assets.js?v=229",
+          "./js/cables.js": "./js/cables.js?v=229",
+          "./js/catalogs.js": "./js/catalogs.js?v=229",
+          "./js/cloud-sync.js": "./js/cloud-sync.js?v=229",
+          "./js/dialogs.js": "./js/dialogs.js?v=229",
+          "./js/geometry.js": "./js/geometry.js?v=229",
+          "./js/inventory-import.js": "./js/inventory-import.js?v=229",
+          "./js/occupancy.js": "./js/occupancy.js?v=229",
+          "./js/pdf-report.js": "./js/pdf-report.js?v=229",
+          "./js/plant-export.js": "./js/plant-export.js?v=229",
+          "./js/rack-metrics.js": "./js/rack-metrics.js?v=229",
+          "./js/routing.js": "./js/routing.js?v=229",
+          "./js/runtime.js": "./js/runtime.js?v=229",
+          "./js/state.js": "./js/state.js?v=229",
+          "./js/styled-select.js": "./js/styled-select.js?v=229",
+          "./js/utils.js": "./js/utils.js?v=229"
         }
       }
     </script>
@@ -372,11 +373,15 @@
         </div>
         <div id="projectsGrid" class="projects-grid"></div>
         <div id="projectsEmpty" class="dashboard-empty hidden">
-          <div class="empty-icon">＋</div>
+          <div class="empty-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </div>
           <h3>Nenhum projeto ainda</h3>
           <p>Crie seu primeiro projeto para começar.</p>
           <button id="dashboardNewProjectEmpty" class="btn primary">
-            ＋ Criar projeto
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg> Criar projeto
           </button>
         </div>
       </div>
@@ -509,7 +514,7 @@
           id="cloudStatus"
           class="cloud-status topbar-cloud-status"
           data-status="saved"
-          >✓ Salvo na nuvem</span
+          ><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg> Salvo na nuvem</span
         >
         <button
           id="btnSave"
@@ -525,6 +530,7 @@
           id="btnImportProject"
           class="btn ghost ui-icon-label"
           title="Importar projeto"
+          aria-label="Importar projeto (arquivo JSON)"
         >
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 3v12M7 10l5 5 5-5M5 20h14" /></svg
@@ -534,6 +540,7 @@
           id="btnExport"
           class="btn ghost ui-icon-label"
           title="Exportar projeto"
+          aria-label="Exportar projeto (arquivo JSON)"
         >
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 21V9M7 12l5-5 5 5M5 4h14" /></svg
@@ -603,7 +610,7 @@
               title="Novo projeto"
               aria-label="Novo projeto"
             >
-              ＋
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
             </button>
           </div>
           <div class="prop-card">
@@ -921,7 +928,7 @@
               class="iconbtn"
               aria-label="Fechar dica"
             >
-              ×
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
             </button>
             <b>Comece por aqui</b>
             <p>
@@ -1046,6 +1053,7 @@
               class="btn ghost small ui-icon-label"
               type="button"
               title="Importar cabos de uma planilha Excel"
+              aria-label="Importar cabos de uma planilha Excel"
             >
               <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 3v12M7 10l5 5 5-5M5 20h14" /></svg
@@ -1067,6 +1075,7 @@
               class="btn ghost small ui-icon-label"
               type="button"
               title="Exportar cabos para Excel"
+              aria-label="Exportar cabos para Excel"
             >
               <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 21V9M7 12l5-5 5 5M5 4h14" /></svg
@@ -1126,7 +1135,7 @@
               id="cablesBulkDelete"
               class="btn ghost small danger-icon"
             >
-              × Excluir selecionados</button
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg> Excluir selecionados</button
             ><button type="button" id="cablesBulkClear" class="btn ghost small">
               Cancelar seleção
             </button>
@@ -1159,7 +1168,7 @@
             type="button"
             aria-label="Fechar"
           >
-            ×
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
         <div class="quick-search-input-wrap">
@@ -1212,7 +1221,7 @@
             type="button"
             aria-label="Fechar"
           >
-            ×
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
         <div id="projectSummaryGrid" class="summary-grid"></div>
@@ -1252,7 +1261,7 @@
               </svg>
               Exportar assets</button
             ><button id="assetsNew" class="btn primary small" type="button">
-              ＋ Novo asset
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg> Novo asset
             </button>
           </div>
           <button
@@ -1261,7 +1270,7 @@
             type="button"
             aria-label="Fechar"
           >
-            ×
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
         <div class="assets-kpi-row" id="assetsKpiRow"></div>
@@ -1402,7 +1411,7 @@
           </div>
         </div>
         <div id="assetsAttentionBanner" class="assets-attention-banner hidden">
-          ⚠ Mostrando apenas assets com garantia ou fim de vida vencendo em
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2.6 19.4h18.8L12 4Z" /><path d="M12 9.4v4.4M12 16.6h.01" /></svg> Mostrando apenas assets com garantia ou fim de vida vencendo em
           breve/vencidos.<button
             type="button"
             id="assetsAttentionClear"
@@ -1425,7 +1434,7 @@
               class="btn ghost small danger-icon"
               type="button"
             >
-              × Excluir selecionados</button
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg> Excluir selecionados</button
             ><button id="assetsBulkClear" class="btn ghost small" type="button">
               Cancelar seleção
             </button>
@@ -1985,7 +1994,7 @@
               type="button"
               aria-label="Fechar"
             >
-              ×
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
             </button>
           </div>
         </div>
@@ -2033,7 +2042,7 @@
                 class="btn primary small catalog-add-btn full"
                 data-catalog-add="types"
               >
-                ＋ Adicionar
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg> Adicionar
               </button>
             </div>
             <div class="catalog-search">
@@ -2089,7 +2098,7 @@
                 class="btn primary small catalog-add-btn full"
                 id="catalogCableTypeAdd"
               >
-                ＋ Adicionar
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg> Adicionar
               </button>
             </div>
             <div class="catalog-search">
@@ -2147,7 +2156,7 @@
                 class="btn primary small catalog-add-btn full"
                 data-catalog-add="manufacturers"
               >
-                ＋ Adicionar
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg> Adicionar
               </button>
             </div>
             <div class="catalog-search">
@@ -2204,7 +2213,7 @@
                 class="btn primary small catalog-add-btn full"
                 id="catalogModelAdd"
               >
-                ＋ Adicionar
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg> Adicionar
               </button>
             </div>
             <div class="catalog-search">
@@ -2270,7 +2279,7 @@
                 class="btn primary small catalog-add-btn full"
                 data-catalog-add="statuses"
               >
-                ＋ Adicionar
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg> Adicionar
               </button>
             </div>
             <div class="catalog-search">
@@ -2328,7 +2337,7 @@
                 class="btn primary small catalog-add-btn full"
                 data-catalog-add="substatuses"
               >
-                ＋ Adicionar
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg> Adicionar
               </button>
             </div>
             <div class="catalog-search">
@@ -2376,7 +2385,7 @@
                 class="btn primary small catalog-add-btn full"
                 id="catalogLocationAdd"
               >
-                ＋ Data Center
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg> Data Center
               </button>
             </div>
             <div id="catalogLocations" class="catalog-list"></div>
@@ -2426,7 +2435,7 @@
             type="button"
             aria-label="Fechar"
           >
-            ×
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
         <div id="assetsImportDrop" class="assets-import-drop">
@@ -2525,7 +2534,7 @@
             type="button"
             aria-label="Fechar"
           >
-            ×
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
         <div id="importPreviewSummary" class="import-preview-summary"></div>
@@ -2587,7 +2596,7 @@
             type="button"
             aria-label="Fechar"
           >
-            ×
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
         <input id="catalogEditorKind" type="hidden" /><input
@@ -2819,7 +2828,7 @@
             type="button"
             aria-label="Fechar"
           >
-            ×
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
         <div id="assetsBulkChooser" class="bulk-assets-chooser">
@@ -2877,7 +2886,7 @@
           </div>
           <div class="bulk-assets-toolbar">
             <button id="assetsBulkAddRow" class="btn ghost small" type="button">
-              ＋ Adicionar linha</button
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg> Adicionar linha</button
             ><span id="assetsBulkSummary" class="muted"></span>
           </div>
           <div class="bulk-assets-table-wrap">
@@ -2947,7 +2956,7 @@
               <button id="assetsBulkCancel" class="btn ghost" type="button">
                 Cancelar</button
               ><button id="assetsBulkSave" class="btn primary" type="button">
-                ✓ Validar e cadastrar
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg> Validar e cadastrar
               </button>
             </div>
           </div>
@@ -2982,14 +2991,14 @@
               type="button"
               title="Ver histórico deste asset"
             >
-              ↺ Histórico</button
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" /></svg> Histórico</button
             ><button
               id="assetEditCancelTop"
               class="iconbtn"
               type="button"
               aria-label="Fechar"
             >
-              ×
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
             </button>
           </div>
         </div>
@@ -3280,7 +3289,7 @@
                       id="assetPortsAdd"
                       class="btn primary small"
                     >
-                      ＋ Adicionar porta
+                      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg> Adicionar porta
                     </button>
                   </div>
                 </div>
@@ -3367,7 +3376,7 @@
                 <button id="assetEditCancel" class="btn ghost" type="button">
                   Cancelar</button
                 ><button class="btn primary" type="submit">
-                  ✓ Salvar asset
+                  <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg> Salvar asset
                 </button>
               </div>
             </form>
@@ -3401,7 +3410,7 @@
             type="button"
             aria-label="Fechar"
           >
-            ×
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
         <div id="bayfaceContent"></div>
@@ -3439,7 +3448,7 @@
             type="button"
             aria-label="Fechar"
           >
-            ×
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
         <div class="bayface-picker-toolbar">
@@ -3521,7 +3530,7 @@
             title="Fechar"
             aria-label="Fechar"
           >
-            ×
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
         <input id="renameRowId" type="hidden" />
@@ -3560,7 +3569,7 @@
         <div class="form-actions">
           <button id="renameCancel" class="btn ghost">Cancelar</button
           ><button id="renameApply" class="btn primary">
-            ✓ Aplicar renomeação
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg> Aplicar renomeação
           </button>
         </div>
       </div>
@@ -3632,7 +3641,7 @@
             type="button"
             aria-label="Fechar"
           >
-            ×
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
         <form id="roomEditorForm">
@@ -3657,7 +3666,7 @@
           <div class="form-actions">
             <button id="roomEditorCancel" class="btn ghost" type="button">
               Cancelar</button
-            ><button class="btn primary" type="submit">✓ Salvar sala</button>
+            ><button class="btn primary" type="submit"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg> Salvar sala</button>
           </div>
         </form>
       </div>
@@ -3690,7 +3699,7 @@
             type="button"
             aria-label="Fechar"
           >
-            ×
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
         <div class="help-body">
@@ -3920,7 +3929,7 @@
             type="button"
             aria-label="Fechar"
           >
-            ×
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
         <form id="pdfReportOptionsForm">
@@ -3975,7 +3984,7 @@
           <div class="form-actions">
             <button id="pdfReportOptionsCancel" class="btn ghost" type="button">
               Cancelar</button
-            ><button class="btn primary" type="submit">✓ Gerar PDF</button>
+            ><button class="btn primary" type="submit"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg> Gerar PDF</button>
           </div>
         </form>
       </div>
@@ -4011,7 +4020,7 @@
             type="button"
             aria-label="Fechar"
           >
-            ×
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
           </button>
         </div>
         <div class="cable-type-review-note">
@@ -4027,7 +4036,7 @@
             class="btn primary"
             type="button"
           >
-            ✓ Continuar importação
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg> Continuar importação
           </button>
         </div>
       </div>
@@ -4042,6 +4051,6 @@
       <span class="task-bar-fill" aria-hidden="true"></span>
       <span class="task-bar-label" id="taskBarLabel">Processando…</span>
     </div>
-    <script type="module" src="app.js?v=219"></script>
+    <script type="module" src="app.js?v=229"></script>
   </body>
 </html>

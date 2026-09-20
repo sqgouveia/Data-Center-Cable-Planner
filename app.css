@@ -43,7 +43,7 @@
   --orange: #f2ab57;
   --red: #ff8375;
   --route: #5b96ff;
-  --grid: #262f3e;
+  --grid: #2d3a52;
   --shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
   --glow: 0 0 0 1px rgba(91, 150, 255, 0.42), 0 8px 22px rgba(91, 150, 255, 0.22);
   --blue2: #5b96ff;
@@ -61,16 +61,18 @@
   --blue-ink: #b3ceff;
   --yellow: #e7ce5d;
   --purple: #a98cf5;
+  /* Ícone neutro dos estados vazios (máscara, herda a cor do texto). */
+  --empty-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='7' rx='1.6'/%3E%3Crect x='3' y='14' width='18' height='6' rx='1.6'/%3E%3Cpath d='M7 7.5h.01M7 17h.01'/%3E%3C/svg%3E");
 }
 :root.light,
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #e9eef5;
+  --bg: #dfe6f1;
   --panel: #ffffff;
-  --panel2: #f4f7fb;
-  --panel3: #e6ecf4;
-  --border: #d4dce8;
-  --border-strong: #b6c3d5;
+  --panel2: #f2f6fb;
+  --panel3: #e2e9f3;
+  --border: #c3cfdf;
+  --border-strong: #a6b6cb;
   --edge: rgba(255, 255, 255, 0.9);
   --text: #0e1520;
   --muted: #5d6b80;
@@ -79,7 +81,7 @@
   --orange: #a9631a;
   --red: #c0392b;
   --route: #1f5fe0;
-  --grid: #e3e8f0;
+  --grid: #c5cfdb;
   --shadow: 0 18px 36px rgba(15, 23, 40, 0.14);
   --glow: 0 0 0 1px rgba(31, 95, 224, 0.35), 0 8px 20px rgba(31, 95, 224, 0.18);
   --blue2: #1f5fe0;
@@ -192,7 +194,47 @@ body {
   margin-right: 1px;
   fill: none;
   stroke: currentColor;
+  /* `color: inherit` mantém o ícone com a cor do botão: sem isto, regras
+     genéricas de contêiner (`.modal-card *`) sobrescrevem a cor do SVG e o
+     "+" saía claro dentro do botão primário. */
+  color: inherit;
   stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* `.ic` fora de botão (pílula de nuvem, faixas de aviso, listas) e os ícones
+   que substituíram os glifos de texto. */
+.ic {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  color: inherit;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.iconbtn svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  color: inherit;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.empty-icon {
+  color: var(--muted);
+}
+.empty-icon svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -216,6 +258,18 @@ body {
 .btn.ghost {
   background: color-mix(in srgb, var(--panel2) 55%, transparent);
   border-color: var(--border);
+}
+/* O modo convidado é cidadão de primeira classe: o botão não pode parecer
+   desabilitado só porque é secundário. */
+#btnGuestMode:not(#\9) {
+  background: var(--panel2);
+  border-color: var(--border-strong);
+  color: var(--blue-ink);
+  box-shadow: inset 0 1px 0 var(--edge);
+}
+#btnGuestMode:not(#\9):hover {
+  background: var(--panel3);
+  border-color: var(--blue);
 }
 .btn.active {
   background: color-mix(in srgb, var(--blue) 18%, transparent);
@@ -311,7 +365,9 @@ body {
   width: 295px;
   min-width: 0;
   overflow: hidden;
-  transition: transform 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    visibility 0s linear 0.2s;
   z-index: 140;
   visibility: hidden;
   pointer-events: none;
@@ -518,6 +574,24 @@ select:disabled {
 .empty {
   color: var(--muted);
   line-height: 1.5;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 20px 16px;
+  border: 1px dashed var(--border);
+  border-radius: var(--r-md);
+  text-align: center;
+}
+/* Estado vazio desenhado: o mesmo ícone neutro em toda lista vazia, para
+   "nada aqui" ler como tela desenhada e não como texto solto. */
+.empty::before {
+  content: "";
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  opacity: 0.5;
+  -webkit-mask: var(--empty-icon) center/contain no-repeat;
+  mask: var(--empty-icon) center/contain no-repeat;
 }
 .sidebar.right > section:first-child .section-head-sticky {
   position: sticky;
@@ -1868,7 +1942,6 @@ body.guest-mode #btnSave {
 .project-card {
   border: 0;
   border-bottom: 1px solid var(--border);
-  border-radius: 0;
   background: transparent;
   padding: 12px 4px;
   box-shadow: none;
@@ -2893,6 +2966,12 @@ body.guest-mode #btnSave {
   fill: var(--muted);
   font-size: var(--fs-micro);
 }
+.minimap-empty-art rect {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 1.4;
+  stroke-dasharray: 3 2;
+}
 .minimap-toggle {
   position: fixed;
   right: calc(var(--right-w, 340px) + 18px);
@@ -3075,6 +3154,7 @@ body.guest-mode #btnSave {
   display: block;
   fill: none;
   stroke: currentColor;
+  color: inherit;
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -4628,7 +4708,7 @@ body.guest-mode #btnSave {
 }
 .asset-edit-eyebrow {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 750;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -4725,7 +4805,7 @@ body.guest-mode #btnSave {
   color: var(--blue-ink);
 }
 .asset-edit-step-text small {
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--muted);
 }
 .asset-edit-help-box {
@@ -4809,7 +4889,7 @@ body.guest-mode #btnSave {
 }
 .asset-edit-required-hint {
   margin-left: auto;
-   font-size: 10.5px;
+   font-size: 11px;
   color: var(--muted);
 }
 .asset-edit-required-hint b {
@@ -4928,7 +5008,7 @@ body.guest-mode #btnSave {
   text-align: right;
   margin-top: 4px;
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 @media (max-width: 760px) {
   .asset-edit-body {
@@ -5709,7 +5789,7 @@ button.bayface-rack-state:hover {
   height: 16px;
   border-radius: 50%;
   background: color-mix(in srgb, var(--blue) 24%, transparent);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   color: var(--blue-ink);
 }
@@ -5953,7 +6033,7 @@ button.bayface-rack-state:hover {
   border-radius: 50%;
   background: color-mix(in srgb, var(--blue) 24%, transparent);
   color: var(--blue-ink);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
 }
 .bulk-assets-help b {
@@ -7901,13 +7981,21 @@ body {
   height: 100%;
   z-index: 140;
   transform: translateX(0);
-  transition: transform 0.2s ease;
+  /* `visibility` entra na transição só para não cortar a saída: ao mostrar ela
+     volta na hora (delay 0); ao recolher, espera o deslize terminar. Sem isso
+     o painel sumia de uma vez ao fechar e só animava ao abrir. */
+  transition:
+    transform 0.2s ease,
+    visibility 0s linear 0s;
   box-shadow: 8px 0 24px rgba(0, 0, 0, 0.1);
 }
 .app.sidebar-collapsed > .sidebar.left {
   transform: translateX(-100%);
   visibility: hidden;
   pointer-events: none;
+  transition:
+    transform 0.2s ease,
+    visibility 0s linear 0.2s;
 }
 .app > .sidebar-toggle {
   left: 296px !important;
@@ -8304,7 +8392,7 @@ select:focus-visible {
 }
 .canvas-empty-hint {
   position: fixed;
-  top: 88px;
+  top: 132px;
   left: 320px;
   width: 280px;
   background: color-mix(in srgb, var(--panel) 96%, transparent);
@@ -8605,7 +8693,7 @@ select:focus-visible {
   place-items: center;
   background: var(--red);
   color: var(--bg);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   line-height: 1;
 }
@@ -8705,7 +8793,7 @@ select:focus-visible {
   place-items: center;
   background: var(--red);
   color: var(--bg);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   line-height: 1;
 }
@@ -9666,7 +9754,7 @@ button.bayface-rack-state {
 .cable-type-tag {
   padding: 3px 8px;
   border-radius: var(--r-md);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   opacity: 1;
   color: var(--cable-color) !important;
@@ -10219,7 +10307,10 @@ button.bayface-rack-state {
   gap: 20px;
   padding: 16px 22px;
   border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  /* 2px fixo: o cartão de projeto é a exceção da hierarquia de raios (bloco
+     elevado). 2px não aparecia: com fundo transparente o raio só existe na
+     borda de 1px, e 2px nessa espessura lê como canto reto. */
+  border-radius: var(--r-md);
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--panel2) 45%, var(--panel)),
@@ -10434,7 +10525,7 @@ button.bayface-rack-state {
   font-weight: 500;
 }
 .row-card .row-field > span {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--muted);
   white-space: nowrap;
@@ -10826,7 +10917,7 @@ button.bayface-rack-state {
 }
 .rs-group-label {
   margin-top: 2px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -10841,7 +10932,7 @@ button.bayface-rack-state {
   padding: 1px 8px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 11px;
 }
 .rs-alerts {
   display: flex;

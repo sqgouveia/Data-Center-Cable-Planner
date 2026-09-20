@@ -1,4 +1,4 @@
-import { uid, cloneData, esc, num, $, catalogNormalize, catalogSimilarity, catalogKeyLabel, buildPortRange, totalPortDefsCount } from './utils.js';
+import { uid, cloneData, esc, num, $, catalogNormalize, catalogSimilarity, catalogKeyLabel, buildPortRange, totalPortDefsCount, uiIcon } from './utils.js';
 import { state } from './state.js';
 import { uiConfirm, uiPrompt } from './dialogs.js';
 import { importSession, assetStatusValues, validateAssetImportRows, renderEditableAssetImportPreview, updateImportPreviewSummary, validateCatalogImportRows, renderCatalogSinglePreviewRows } from './inventory-import.js';
@@ -68,7 +68,7 @@ export function renderCableTypesCatalog(){
   const types=state.cableCatalogs.types;
   const q=String($('catalogCableTypeSearch')?.value||'').toLowerCase().trim();
   const filtered=types.map((t,i)=>({t,i})).filter(({t})=>!q||t.name.toLowerCase().includes(q));
-  el.innerHTML=filtered.map(({t,i})=>`<div class="catalog-row"><span title="${esc(t.name)}">${esc(t.name)}</span><div><input type="color" class="catalog-color-swatch" data-cable-type-color="${i}" value="${esc(t.color)}" title="Cor deste tipo"><button type="button" class="iconbtn" data-cable-type-edit="${i}" title="Editar">✎</button><button type="button" class="iconbtn danger-icon" data-cable-type-delete="${i}" title="Excluir">×</button></div></div>`).join('')||'<div class="empty">Nenhum tipo cadastrado.</div>';
+  el.innerHTML=filtered.map(({t,i})=>`<div class="catalog-row"><span title="${esc(t.name)}">${esc(t.name)}</span><div><input type="color" class="catalog-color-swatch" data-cable-type-color="${i}" value="${esc(t.color)}" title="Cor deste tipo"><button type="button" class="iconbtn" data-cable-type-edit="${i}" title="Editar">${uiIcon('pencil')}</button><button type="button" class="iconbtn danger-icon" data-cable-type-delete="${i}" title="Excluir">${uiIcon('close')}</button></div></div>`).join('')||'<div class="empty">Nenhum tipo cadastrado.</div>';
   el.querySelectorAll('[data-cable-type-color]').forEach(inp=>{
     inp.oninput=()=>{types[Number(inp.dataset.cableTypeColor)].color=inp.value;};
     inp.onchange=()=>{save();renderCables();render();};
@@ -108,23 +108,23 @@ export function renderAssetCatalogs(){
   const selectedManufacturer=$('catalogModelManufacturer')?.value||'';
   if(typeEl){
     const values=(state.assetCatalogs.types||[]).filter(v=>!typeQ||v.toLowerCase().includes(typeQ));
-    typeEl.innerHTML=values.length?values.map(v=>{const i=state.assetCatalogs.types.indexOf(v);return `<div class="catalog-row"><span title="${esc(v)}">${esc(v)}</span><div><input type="color" class="catalog-color-swatch" data-catalog-color="${esc(v)}" value="${bayfaceTypeColor(v)}" title="Cor deste tipo no Bayface"><button type="button" class="iconbtn" data-catalog-edit="types:${i}" title="Editar">✎</button><button type="button" class="iconbtn danger-icon" data-catalog-delete="types:${i}" title="Excluir">×</button></div></div>`}).join(''):'<div class="empty">Nenhum tipo encontrado.</div>';
+    typeEl.innerHTML=values.length?values.map(v=>{const i=state.assetCatalogs.types.indexOf(v);return `<div class="catalog-row"><span title="${esc(v)}">${esc(v)}</span><div><input type="color" class="catalog-color-swatch" data-catalog-color="${esc(v)}" value="${bayfaceTypeColor(v)}" title="Cor deste tipo no Bayface"><button type="button" class="iconbtn" data-catalog-edit="types:${i}" title="Editar">${uiIcon('pencil')}</button><button type="button" class="iconbtn danger-icon" data-catalog-delete="types:${i}" title="Excluir">${uiIcon('close')}</button></div></div>`}).join(''):'<div class="empty">Nenhum tipo encontrado.</div>';
   }
   if(manEl){
     const values=(state.assetCatalogs.manufacturers||[]).filter(v=>!manQ||v.toLowerCase().includes(manQ));
-    manEl.innerHTML=values.length?values.map(v=>{const i=state.assetCatalogs.manufacturers.indexOf(v);return `<div class="catalog-row"><span title="${esc(v)}">${esc(v)}</span><div><button type="button" class="iconbtn" data-catalog-edit="manufacturers:${i}" title="Editar">✎</button><button type="button" class="iconbtn danger-icon" data-catalog-delete="manufacturers:${i}" title="Excluir">×</button></div></div>`}).join(''):'<div class="empty">Nenhum fabricante encontrado.</div>';
+    manEl.innerHTML=values.length?values.map(v=>{const i=state.assetCatalogs.manufacturers.indexOf(v);return `<div class="catalog-row"><span title="${esc(v)}">${esc(v)}</span><div><button type="button" class="iconbtn" data-catalog-edit="manufacturers:${i}" title="Editar">${uiIcon('pencil')}</button><button type="button" class="iconbtn danger-icon" data-catalog-delete="manufacturers:${i}" title="Excluir">${uiIcon('close')}</button></div></div>`}).join(''):'<div class="empty">Nenhum fabricante encontrado.</div>';
   }
   if(statusEl){
     const values=(state.assetCatalogs.statuses||[]).filter(v=>!statusQ||v.toLowerCase().includes(statusQ));
-    statusEl.innerHTML=values.length?values.map(v=>{const i=state.assetCatalogs.statuses.indexOf(v);return `<div class="catalog-row"><span title="${esc(v)}">${esc(v)}</span><div><button type="button" class="iconbtn" data-catalog-edit="statuses:${i}" title="Editar">✎</button><button type="button" class="iconbtn danger-icon" data-catalog-delete="statuses:${i}" title="Excluir">×</button></div></div>`}).join(''):'<div class="empty">Nenhum status encontrado.</div>';
+    statusEl.innerHTML=values.length?values.map(v=>{const i=state.assetCatalogs.statuses.indexOf(v);return `<div class="catalog-row"><span title="${esc(v)}">${esc(v)}</span><div><button type="button" class="iconbtn" data-catalog-edit="statuses:${i}" title="Editar">${uiIcon('pencil')}</button><button type="button" class="iconbtn danger-icon" data-catalog-delete="statuses:${i}" title="Excluir">${uiIcon('close')}</button></div></div>`}).join(''):'<div class="empty">Nenhum status encontrado.</div>';
   }
   if(substatusEl){
     const values=(state.assetCatalogs.substatuses||[]).filter(v=>!substatusQ||v.toLowerCase().includes(substatusQ));
-    substatusEl.innerHTML=values.length?values.map(v=>{const i=state.assetCatalogs.substatuses.indexOf(v);return `<div class="catalog-row"><span title="${esc(v)}">${esc(v)}</span><div><button type="button" class="iconbtn" data-catalog-edit="substatuses:${i}" title="Editar">✎</button><button type="button" class="iconbtn danger-icon" data-catalog-delete="substatuses:${i}" title="Excluir">×</button></div></div>`}).join(''):'<div class="empty">Nenhum substatus encontrado.</div>';
+    substatusEl.innerHTML=values.length?values.map(v=>{const i=state.assetCatalogs.substatuses.indexOf(v);return `<div class="catalog-row"><span title="${esc(v)}">${esc(v)}</span><div><button type="button" class="iconbtn" data-catalog-edit="substatuses:${i}" title="Editar">${uiIcon('pencil')}</button><button type="button" class="iconbtn danger-icon" data-catalog-delete="substatuses:${i}" title="Excluir">${uiIcon('close')}</button></div></div>`}).join(''):'<div class="empty">Nenhum substatus encontrado.</div>';
   }
   if(modelEl){
     const values=(state.assetCatalogs.models||[]).filter(m=>(!selectedType||m.type===selectedType)&&(!selectedManufacturer||m.manufacturer===selectedManufacturer)&&(!modelQ||`${m.name} ${m.manufacturer} ${m.type}`.toLowerCase().includes(modelQ)));
-    modelEl.innerHTML=values.length?values.map(m=>`<div class="catalog-row"><div class="catalog-model-info"><span title="${esc(m.name)}">${esc(m.name)}</span><small>${esc(m.type||'Outro')} · ${esc(m.manufacturer||'Sem fabricante')}${m.portCount?` · ${m.portCount} portas`:''}${m.powerW?` · ${m.powerW}W`:''}${m.weightKg?` · ${m.weightKg}kg`:''}</small></div><div><button type="button" class="iconbtn" data-catalog-model-edit="${esc(m.id)}" title="Editar">✎</button><button type="button" class="iconbtn danger-icon" data-catalog-model-delete="${esc(m.id)}" title="Excluir">×</button></div></div>`).join(''):'<div class="empty">Nenhum modelo encontrado.</div>';
+    modelEl.innerHTML=values.length?values.map(m=>`<div class="catalog-row"><div class="catalog-model-info"><span title="${esc(m.name)}">${esc(m.name)}</span><small>${esc(m.type||'Outro')} · ${esc(m.manufacturer||'Sem fabricante')}${m.portCount?` · ${m.portCount} portas`:''}${m.powerW?` · ${m.powerW}W`:''}${m.weightKg?` · ${m.weightKg}kg`:''}</small></div><div><button type="button" class="iconbtn" data-catalog-model-edit="${esc(m.id)}" title="Editar">${uiIcon('pencil')}</button><button type="button" class="iconbtn danger-icon" data-catalog-model-delete="${esc(m.id)}" title="Excluir">${uiIcon('close')}</button></div></div>`).join(''):'<div class="empty">Nenhum modelo encontrado.</div>';
   }
   const locEl=$('catalogLocations');
   if(locEl){
@@ -162,11 +162,11 @@ export function renderAssetCatalogs(){
           </div>
         </div>
         <div class="location-subsection">
-          <div class="location-subsection-head"><button type="button" class="location-collapse-toggle" data-collapse-toggle title="Recolher/expandir">▾</button><span class="location-subsection-title">Salas <small>(${rooms.length})</small></span><button type="button" class="btn ghost small" data-location-room="${esc(l.id)}">＋ Sala</button></div>
+          <div class="location-subsection-head"><button type="button" class="location-collapse-toggle" data-collapse-toggle title="Recolher/expandir">${uiIcon('chevron')}</button><span class="location-subsection-title">Salas <small>(${rooms.length})</small></span><button type="button" class="btn ghost small" data-location-room="${esc(l.id)}">${uiIcon('plus')} Sala</button></div>
           <div class="location-subsection-list">${roomRows||'<div class="empty">Nenhuma sala.</div>'}</div>
         </div>
         <div class="location-subsection">
-          <div class="location-subsection-head"><button type="button" class="location-collapse-toggle" data-collapse-toggle title="Recolher/expandir">▾</button><span class="location-subsection-title">Estoques <small>(${stocks.length})</small></span><button type="button" class="btn ghost small" data-location-stock="${esc(l.id)}">＋ Estoque</button></div>
+          <div class="location-subsection-head"><button type="button" class="location-collapse-toggle" data-collapse-toggle title="Recolher/expandir">${uiIcon('chevron')}</button><span class="location-subsection-title">Estoques <small>(${stocks.length})</small></span><button type="button" class="btn ghost small" data-location-stock="${esc(l.id)}">${uiIcon('plus')} Estoque</button></div>
           <div class="location-subsection-list">${stockRows||'<div class="empty">Nenhum estoque.</div>'}</div>
         </div>
       </div>`;
@@ -296,9 +296,9 @@ export function renderCatalogPortDefsEditor(){
     if(def.kind==='range'){
       const range=buildPortRange(def.startLabel,def.endLabel);
       const count=range?range.length:0;
-      return `<div class="port-def-row"><div><b>${esc(def.startLabel)} – ${esc(def.endLabel)}</b><small>${count} porta${count===1?'':'s'}${def.poe?' · PoE':''}${!range?' · padrão inválido':''}</small></div><button type="button" class="iconbtn danger-icon" data-portdef-remove="${esc(def.id)}" title="Remover">×</button></div>`;
+      return `<div class="port-def-row"><div><b>${esc(def.startLabel)} – ${esc(def.endLabel)}</b><small>${count} porta${count===1?'':'s'}${def.poe?' · PoE':''}${!range?' · padrão inválido':''}</small></div><button type="button" class="iconbtn danger-icon" data-portdef-remove="${esc(def.id)}" title="Remover">${uiIcon('close')}</button></div>`;
     }
-    return `<div class="port-def-row"><div><b>${esc(def.label)}</b><small>1 porta${def.poe?' · PoE':''}</small></div><button type="button" class="iconbtn danger-icon" data-portdef-remove="${esc(def.id)}" title="Remover">×</button></div>`;
+    return `<div class="port-def-row"><div><b>${esc(def.label)}</b><small>1 porta${def.poe?' · PoE':''}</small></div><button type="button" class="iconbtn danger-icon" data-portdef-remove="${esc(def.id)}" title="Remover">${uiIcon('close')}</button></div>`;
   }).join(''):`<div class="port-defs-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8.5h.01"/></svg><b>Nenhuma porta definida ainda.</b><span>Adicione as portas de rede disponíveis neste modelo.</span></div>`;
   list.querySelectorAll('[data-portdef-remove]').forEach(b=>b.onclick=()=>{catalogs.catalogEditorPortDefs=catalogs.catalogEditorPortDefs.filter(d=>d.id!==b.dataset.portdefRemove);renderCatalogPortDefsEditor();});
 }

@@ -1,4 +1,4 @@
-import { uid, esc, num, $, catalogNormalize, catalogSimilarity, catalogSimilar, parseImportDate, parseImportNumber, beginTask, endTask } from './utils.js';
+import { uid, esc, num, $, catalogNormalize, catalogSimilarity, catalogSimilar, parseImportDate, parseImportNumber, beginTask, endTask, uiIcon } from './utils.js';
 import { state } from './state.js';
 import { isAssetArchived, assetOccupancy, occupiedUnits } from './occupancy.js';
 
@@ -158,7 +158,7 @@ function assetImportCatalogOptions(kind, selected=''){
   if(kind==='manufacturer') return '<option value="">Selecione</option>'+state.assetCatalogs.manufacturers.map(v=>`<option value="${esc(v)}" ${catalogNormalize(v)===catalogNormalize(selected)?'selected':''}>${esc(v)}</option>`).join('');
   if(kind==='model'){
     const exists=(state.assetCatalogs.models||[]).some(m=>catalogNormalize(m.name)===catalogNormalize(selected));
-    const missing=selected&&!exists?`<option value="${esc(selected)}" selected>⚠ ${esc(selected)} — não cadastrado</option>`:'';
+    const missing=selected&&!exists?`<option value="${esc(selected)}" selected>${esc(selected)} — não cadastrado</option>`:'';
     return '<option value="">Selecione</option>'+missing+(state.assetCatalogs.models||[]).map(m=>`<option value="${esc(m.name)}" data-model-type="${esc(m.type||'')}" data-model-manufacturer="${esc(m.manufacturer||'')}" ${catalogNormalize(m.name)===catalogNormalize(selected)?'selected':''}>${esc(m.name)}${m.manufacturer?` — ${esc(m.manufacturer)}`:''}</option>`).join('');
   }
   if(kind==='status') return '<option value="">Selecione</option>'+assetStatusValues().map(v=>`<option value="${esc(v)}" ${catalogNormalize(v)===catalogNormalize(selected)?'selected':''}>${esc(v)}</option>`).join('');
@@ -332,7 +332,7 @@ export function validateAssetImportRows(rows){
 
 const IMPORT_ICON_INVALID='<svg class="import-state-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 7v6M12 16.6h.01"/></svg>';
 const IMPORT_ICON_VALID='<svg class="import-state-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12.4 2.8 2.8L16 9.6"/></svg>';
-function importStateIcon(status){return status==='valid'?IMPORT_ICON_VALID:status==='invalid'?IMPORT_ICON_INVALID:'•';}
+function importStateIcon(status){return status==='valid'?IMPORT_ICON_VALID:status==='invalid'?IMPORT_ICON_INVALID:uiIcon('dot','import-state-icon');}
 function setImportConfirmLabel(text){const el=$('importPreviewConfirmLabel');if(el)el.textContent=text;}
 function setImportFooterStats(total,valid,invalid){
   const el=$('importPreviewFooterStats'); if(!el)return;
@@ -341,9 +341,9 @@ function setImportFooterStats(total,valid,invalid){
 }
 function renderImportProblems(item,idx){
   const problems=String(item.message||'').split(/(?<=\.)\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ])/).map(x=>x.trim()).filter(Boolean);
-  const warning=item.warning?`<div class="import-validation-warning">⚠ ${esc(item.warning)}</div>`:'';
-  const list=problems.length?`<ul class="import-validation-list">${problems.map(p=>`<li>${esc(p)}</li>`).join('')}</ul>`:`<div class="import-validation-ok">✓ Válido</div>`;
-  const model=item._modelMissing?`<button type="button" class="import-model-action" data-import-model="${idx}"><span>＋</span> Cadastrar modelo</button>`:'';
+  const warning=item.warning?`<div class="import-validation-warning">${uiIcon('warn')} ${esc(item.warning)}</div>`:'';
+  const list=problems.length?`<ul class="import-validation-list">${problems.map(p=>`<li>${esc(p)}</li>`).join('')}</ul>`:`<div class="import-validation-ok">${uiIcon('check')} Válido</div>`;
+  const model=item._modelMissing?`<button type="button" class="import-model-action" data-import-model="${idx}">${uiIcon('plus')} Cadastrar modelo</button>`:'';
   return `<div class="import-validation-box ${problems.length?'has-errors':'is-valid'}">${list}${warning}${model}</div>`;
 }
 export function renderEditableAssetImportPreview(){
@@ -357,7 +357,7 @@ export function renderEditableAssetImportPreview(){
   // Largura fixa por coluna (th e td), não deixada pro navegador decidir pelo conteúdo
   // (table-layout:fixed no CSS depende disso — sem largura no th, a coluna volta a
   // esticar pro texto mais longo do header, tipo "VENCIMENTO DA GARANTIA").
-  table.innerHTML=`<table class="asset-import-edit-grid"><thead><tr><th style="width:38px">#</th><th style="width:34px"></th>${fields.map(f=>`<th style="width:${f[2]}px">${esc(f[3])}${['Nome','Serial Number','Modelo'].includes(f[0])?' *':''}</th>`).join('')}<th style="width:300px">Validação</th><th style="width:36px"></th></tr></thead><tbody>${rows.map((item,idx)=>{const d=item.data||{};const status=item._validated?(item.valid?'valid':'invalid'):'pending';return `<tr class="import-row ${status==='valid'?'import-valid':status==='invalid'?'import-invalid':'import-pending'}" data-import-index="${idx}"><td class="import-row-num">${idx+1}</td><td class="import-row-state">${importStateIcon(status)}</td>${fields.map(([key,type])=>{let control='';if(type==='model')control=`<select data-import-field="${key}">${assetImportCatalogOptions('model',d[key]||'')}</select>`;else if(type==='room')control=`<select data-import-field="${key}">${assetImportRoomOptions(d[key]||'')}</select>`;else if(type==='rack')control=`<select data-import-field="${key}">${assetImportRackOptions(d['Localização']||d['Sala']||'',d[key]||'')}</select>`;else if(type==='status')control=`<select data-import-field="${key}">${assetImportCatalogOptions('status',d[key]||'Instalado')}</select>`;else if(type==='substatus')control=`<select data-import-field="${key}">${assetImportCatalogOptions('substatus',d[key]||'')}</select>`;else if(type==='u')control=`<select data-import-field="${key}">${assetImportUOptions(item)}</select>`;else if(type==='face')control=`<select data-import-field="${key}"><option value="">Selecione</option><option value="Frente" ${catalogNormalize(d[key]||'')==='frente'?'selected':''}>Frente</option><option value="Traseira" ${catalogNormalize(d[key]||'')==='traseira'?'selected':''}>Traseira</option></select>`;else if(type==='date')control=`<input data-import-field="${key}" type="date" value="${esc(d[key]??'')}">`;else control=`<input data-import-field="${key}" type="${type==='number'?'number':'text'}" value="${esc(d[key]??'')}" ${key==='Quantidade U'?'min="1" max="60"':''}>`;return `<td>${control}</td>`}).join('')}<td class="import-row-message">${status==='pending'?'<div class="import-validation-pending">⏳ Aguardando validação</div>':renderImportProblems(item,idx)}</td><td><button type="button" class="iconbtn danger-icon import-row-remove" data-import-remove="${idx}" title="Remover esta linha da importação">×</button></td></tr>`}).join('')}</tbody></table>`;
+  table.innerHTML=`<table class="asset-import-edit-grid"><thead><tr><th style="width:38px">#</th><th style="width:34px"></th>${fields.map(f=>`<th style="width:${f[2]}px">${esc(f[3])}${['Nome','Serial Number','Modelo'].includes(f[0])?' *':''}</th>`).join('')}<th style="width:300px">Validação</th><th style="width:36px"></th></tr></thead><tbody>${rows.map((item,idx)=>{const d=item.data||{};const status=item._validated?(item.valid?'valid':'invalid'):'pending';return `<tr class="import-row ${status==='valid'?'import-valid':status==='invalid'?'import-invalid':'import-pending'}" data-import-index="${idx}"><td class="import-row-num">${idx+1}</td><td class="import-row-state">${importStateIcon(status)}</td>${fields.map(([key,type])=>{let control='';if(type==='model')control=`<select data-import-field="${key}">${assetImportCatalogOptions('model',d[key]||'')}</select>`;else if(type==='room')control=`<select data-import-field="${key}">${assetImportRoomOptions(d[key]||'')}</select>`;else if(type==='rack')control=`<select data-import-field="${key}">${assetImportRackOptions(d['Localização']||d['Sala']||'',d[key]||'')}</select>`;else if(type==='status')control=`<select data-import-field="${key}">${assetImportCatalogOptions('status',d[key]||'Instalado')}</select>`;else if(type==='substatus')control=`<select data-import-field="${key}">${assetImportCatalogOptions('substatus',d[key]||'')}</select>`;else if(type==='u')control=`<select data-import-field="${key}">${assetImportUOptions(item)}</select>`;else if(type==='face')control=`<select data-import-field="${key}"><option value="">Selecione</option><option value="Frente" ${catalogNormalize(d[key]||'')==='frente'?'selected':''}>Frente</option><option value="Traseira" ${catalogNormalize(d[key]||'')==='traseira'?'selected':''}>Traseira</option></select>`;else if(type==='date')control=`<input data-import-field="${key}" type="date" value="${esc(d[key]??'')}">`;else control=`<input data-import-field="${key}" type="${type==='number'?'number':'text'}" value="${esc(d[key]??'')}" ${key==='Quantidade U'?'min="1" max="60"':''}>`;return `<td>${control}</td>`}).join('')}<td class="import-row-message">${status==='pending'?`<div class="import-validation-pending">${uiIcon('hourglass')} Aguardando validação</div>`:renderImportProblems(item,idx)}</td><td><button type="button" class="iconbtn danger-icon import-row-remove" data-import-remove="${idx}" title="Remover esta linha da importação">${uiIcon('close')}</button></td></tr>`}).join('')}</tbody></table>`;
   table.querySelectorAll('[data-import-field]').forEach(el=>el.addEventListener('change',()=>updateEditableImportRow(el.closest('tr'),{rerenderRow:true})));
   table.querySelectorAll('[data-import-field="Nome"],[data-import-field="Serial Number"],[data-import-field="Quantidade U"],[data-import-field="Potência (W)"],[data-import-field="Peso (kg)"]').forEach(el=>el.addEventListener('input',()=>updateEditableImportRow(el.closest('tr'),{rerenderRow:false})));
   table.querySelectorAll('.import-model-action').forEach(btn=>btn.addEventListener('click',()=>openImportModelRegistration(Number(btn.dataset.importModel))));
@@ -412,10 +412,10 @@ function updateEditableImportRow(tr, {rerenderRow=false}={}){
 }
 export function updateImportPreviewSummary(){
   const rows=importSession.pending?.rows||[], validated=rows.filter(r=>r._validated).length, valid=rows.filter(r=>r._validated&&r.valid).length, invalid=rows.filter(r=>r._validated&&!r.valid).length;
-  if(!validated){$('importPreviewSummary').innerHTML=`<div><b>${rows.length}</b> linhas carregadas</div><div>⏳ Aguardando validação</div>`;setImportFooterStats(rows.length,null,null);}
+  if(!validated){$('importPreviewSummary').innerHTML=`<div><b>${rows.length}</b> linhas carregadas</div><div>${uiIcon('hourglass')} Aguardando validação</div>`;setImportFooterStats(rows.length,null,null);}
   else{$('importPreviewSummary').innerHTML=`<div class="import-stat-valid"><b>${valid}</b> válidos</div><div class="import-stat-invalid"><b>${invalid}</b> precisam de correção</div><div><b>${rows.length}</b> linhas analisadas</div>`;setImportFooterStats(rows.length,valid,invalid);}
   setImportConfirmLabel(validated&&valid?`Importar ${valid} válido${valid===1?'':'s'}`:'Importar'); $('importPreviewConfirm').disabled=!validated||valid===0;
-  const errEl=$('importPreviewErrors'); const errors=rows.filter(r=>r._validated&&!r.valid); if(errors.length){errEl.classList.toggle('hidden',errEl.dataset.dismissed==='1');errEl.innerHTML=`${IMPORT_ICON_INVALID}<span>Corrija as linhas em vermelho <em>para continuar.</em></span><button type="button" class="import-alert-close" aria-label="Dispensar aviso">×</button>`;}else if(validated){errEl.classList.add('hidden');errEl.innerHTML='';}else{errEl.classList.add('hidden');errEl.innerHTML='';}
+  const errEl=$('importPreviewErrors'); const errors=rows.filter(r=>r._validated&&!r.valid); if(errors.length){errEl.classList.toggle('hidden',errEl.dataset.dismissed==='1');errEl.innerHTML=`${IMPORT_ICON_INVALID}<span>Corrija as linhas em vermelho <em>para continuar.</em></span><button type="button" class="import-alert-close" aria-label="Dispensar aviso">${uiIcon('close')}</button>`;}else if(validated){errEl.classList.add('hidden');errEl.innerHTML='';}else{errEl.classList.add('hidden');errEl.innerHTML='';}
 }
 function openImportPreview(kind, rows, errors, title, subtitle, onConfirm){
   importSession.pending={kind,rows,errors,onConfirm};
@@ -434,7 +434,7 @@ function openImportPreview(kind, rows, errors, title, subtitle, onConfirm){
     $('importPreviewSummary').innerHTML=`<div><b>${valid}</b> válidos</div><div><b>${errCount}</b> erros</div><div><b>${total}</b> linhas analisadas</div>`;
     const errEl=$('importPreviewErrors');if(errors.length){errEl.classList.remove('hidden');errEl.innerHTML='<strong>Problemas encontrados</strong>'+errors.slice(0,80).map(e=>`<div>Linha ${e.line}: ${esc(e.message)}</div>`).join('');}else{errEl.classList.add('hidden');errEl.innerHTML='';}
     const previewRows=rows.slice(0,80),headers=['Aba','Tipo','Fabricante','Modelo','Situação'];
-    $('importPreviewTable').innerHTML=`<table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${previewRows.map(r=>`<tr><td>${esc(r.sheet)}</td><td>${esc(r.type)}</td><td>${esc(r.manufacturer)}</td><td>${esc(r.model)}</td><td>${r.valid?'✓ Válido':'⚠ Erro'}</td></tr>`).join('')}</tbody></table>`;
+    $('importPreviewTable').innerHTML=`<table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${previewRows.map(r=>`<tr><td>${esc(r.sheet)}</td><td>${esc(r.type)}</td><td>${esc(r.manufacturer)}</td><td>${esc(r.model)}</td><td>${r.valid?uiIcon('check')+' Válido':uiIcon('warn')+' Erro'}</td></tr>`).join('')}</tbody></table>`;
     setImportConfirmLabel(valid?`Importar ${valid} válido${valid===1?'':'s'}`:'Nenhum dado válido');setImportFooterStats(total,valid,total-valid);$('importPreviewConfirm').disabled=!valid;
   }
 }
@@ -539,8 +539,8 @@ export function renderCatalogSinglePreviewRows(kind, rows){
     if(r.problems?.length) r.problems.forEach(p=>issues.push(`<div class="import-problem-item">🔴 ${esc(p)}</div>`));
     if(r.warning) issues.push(`<div class="import-warning-item">🟡 ${esc(r.warning)}</div>`);
     if(kind==='models'){
-      if(r.missingManufacturer) issues.push(`<button type="button" class="btn primary small catalog-inline-create" data-catalog-create="manufacturer" data-row="${i}">＋ Cadastrar fabricante</button>`);
-      if(r.missingType) issues.push(`<button type="button" class="btn primary small catalog-inline-create" data-catalog-create="type" data-row="${i}">＋ Cadastrar tipo de ativo</button>`);
+      if(r.missingManufacturer) issues.push(`<button type="button" class="btn primary small catalog-inline-create" data-catalog-create="manufacturer" data-row="${i}">${uiIcon('plus')} Cadastrar fabricante</button>`);
+      if(r.missingType) issues.push(`<button type="button" class="btn primary small catalog-inline-create" data-catalog-create="type" data-row="${i}">${uiIcon('plus')} Cadastrar tipo de ativo</button>`);
     }
     if(!issues.length && r.valid) issues.push(`<div class="import-ok-item">🟢 ${r.existing?'Já em uso — será mantido.':'Válido'}</div>`);
     const status=issues.join('');

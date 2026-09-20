@@ -1,4 +1,4 @@
-import { uid, esc, num, $, catalogNormalize, catalogSimilar, parsePortTemplate, excelColumnLetter, beginTask, endTask } from './utils.js';
+import { uid, esc, num, $, catalogNormalize, catalogSimilar, parsePortTemplate, excelColumnLetter, beginTask, endTask, uiIcon } from './utils.js';
 import { state } from './state.js';
 import { uiConfirm } from './dialogs.js';
 import { rowForRack, geometry, rackRect, trayPointAt } from './geometry.js';
@@ -202,7 +202,7 @@ function openCableTypeReviewModal(newTypes,existingTypes){
   if(list){
     list.innerHTML=newTypes.map(t=>{
       const similar=catalogSimilar(t.label,existingTypes);
-      return `<label class="cable-type-review-item"><input type="checkbox" data-cable-type-review="${esc(t.label)}" checked><span class="cable-type-review-name">${esc(t.label)}</span><span class="cable-type-review-count">${t.count}× na planilha</span></label>${similar.length?`<div class="cable-type-review-warning">⚠ Parecido com "${esc(similar[0])}", já cadastrado — pode ser o mesmo tipo escrito diferente.</div>`:''}`;
+      return `<label class="cable-type-review-item"><input type="checkbox" data-cable-type-review="${esc(t.label)}" checked><span class="cable-type-review-name">${esc(t.label)}</span><span class="cable-type-review-count">${t.count}× na planilha</span></label>${similar.length?`<div class="cable-type-review-warning">${uiIcon('warn')} Parecido com "${esc(similar[0])}", já cadastrado — pode ser o mesmo tipo escrito diferente.</div>`:''}`;
     }).join('');
   }
   const m=$('cableTypeReviewModal'); if(!m)return;

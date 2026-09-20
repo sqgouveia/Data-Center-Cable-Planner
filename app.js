@@ -2,7 +2,7 @@ import {
   uid, cloneData, esc, num, $, dateUrgencyLevel, formatAssetDate, catalogNormalize,
   catalogSimilarity, catalogSimilar, catalogKeyLabel, parsePortTemplate, buildPortRange,
   expandPortDefs, totalPortDefsCount, excelColumnLetter, parseImportDate, parseImportNumber,
-  beginTask, endTask
+  beginTask, endTask, uiIcon
 } from './js/utils.js';
 import { state, THEME_STORAGE } from './js/state.js';
 import { uiConfirm, uiPrompt } from './js/dialogs.js';
@@ -173,6 +173,10 @@ function applyTheme(){
   document.documentElement.dataset.theme=light?'light':'dark';
   document.documentElement.style.colorScheme=light?'light':'dark';
   localStorage.setItem(THEME_STORAGE,state.theme);
+  // A barra do navegador no celular acompanha o tema em vez de ficar presa no
+  // cinza padrão.
+  const themeMeta=document.querySelector('meta[name="theme-color"]');
+  if(themeMeta)themeMeta.setAttribute('content',light?'#dfe6f1':'#1c2431');
   const icon=light?THEME_ICON_SUN:THEME_ICON_MOON;
   const b=$('btnTheme');
   if(b){ b.innerHTML=icon+' Tema'; b.title=light?'Alternar para tema escuro':'Alternar para tema claro'; }
@@ -614,7 +618,7 @@ function addRowFromPanel(){
 function buildRowsPanel(){
   const p=$('rowsPanel'); p.innerHTML='';
   if(!state.rows.length){
-    p.innerHTML=`<div class="empty">Nenhuma fileira. Você pode criar 0 fileiras e adicionar depois.</div>${rowAddButtonHtml()}`;
+    p.innerHTML=`<div class="empty">Nenhuma fileira ainda. Crie a primeira aqui — as fileiras nascem com os racks que você definir.</div>${rowAddButtonHtml()}`;
     p.querySelector('#btnAddRow').onclick=addRowFromPanel;
     return;
   }
@@ -1626,7 +1630,7 @@ function renderAssetPortsEditor(){
       const otherFace=isOrigin?conn.destFace:conn.originFace;
       connLabel=cableEndpointLabel(otherRackId,otherU,otherPortId,'',isOrigin?conn.destAssetName:conn.originAssetName,otherFace);
     }
-    return `<div class="asset-port-row ${conn?'is-used':'is-free'}"><span class="asset-port-index">${i+1}</span><div class="asset-port-fields"><input type="text" class="asset-port-name" data-port-id="${esc(p.id)}" value="${esc(p.label)}" placeholder="Nome da porta">${conn?`<small class="asset-port-conn" title="${esc(conn.name)} → ${esc(connLabel)}">🔗 ${esc(conn.name)} → ${esc(connLabel)}</small>`:'<small class="asset-port-conn is-free-label">Disponível</small>'}</div><label class="asset-port-poe" title="Porta PoE"><input type="checkbox" data-port-poe="${esc(p.id)}" ${p.poe?'checked':''}><span>PoE</span></label><button type="button" class="iconbtn danger-icon" data-port-remove="${esc(p.id)}" title="Remover porta">×</button></div>`;
+    return `<div class="asset-port-row ${conn?'is-used':'is-free'}"><span class="asset-port-index">${i+1}</span><div class="asset-port-fields"><input type="text" class="asset-port-name" data-port-id="${esc(p.id)}" value="${esc(p.label)}" placeholder="Nome da porta">${conn?`<small class="asset-port-conn" title="${esc(conn.name)} → ${esc(connLabel)}">${uiIcon('link')} ${esc(conn.name)} → ${esc(connLabel)}</small>`:'<small class="asset-port-conn is-free-label">Disponível</small>'}</div><label class="asset-port-poe" title="Porta PoE"><input type="checkbox" data-port-poe="${esc(p.id)}" ${p.poe?'checked':''}><span>PoE</span></label><button type="button" class="iconbtn danger-icon" data-port-remove="${esc(p.id)}" title="Remover porta">${uiIcon('close')}</button></div>`;
   }).join(''):'<div class="asset-ports-empty"><span class="asset-ports-empty-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v4M15 4v4M9 16v4M15 16v4"/></svg></span><b>Nenhuma porta cadastrada</b><span>Adicione as portas do equipamento para facilitar o planejamento de conectividade.</span></div>';
   list.querySelectorAll('[data-port-id]').forEach(inp=>inp.oninput=()=>{const p=assetEditPorts.find(x=>x.id===inp.dataset.portId);if(p)p.label=inp.value;});
   list.querySelectorAll('[data-port-poe]').forEach(cb=>cb.onchange=()=>{const p=assetEditPorts.find(x=>x.id===cb.dataset.portPoe);if(p)p.poe=cb.checked;});
@@ -1842,7 +1846,24 @@ async function deleteAsset(assetId){
   recordAssetAudit({action:'DELETE',asset:snapshot,before:snapshot,after:null,changes:[]});
   if($('bayfaceModal')?.classList.contains('open'))renderBayface(a.rackId);toast('Asset excluído permanentemente');
 }
-function locateAsset(assetId){const a=state.assets.find(x=>x.id===assetId);if(!a)return;if(a.roomId&&a.roomId!==state.activeRoomId)switchRoom(a.roomId);if(a.rackId){state.selected={type:'rack',id:a.rackId};state.multiSelected=[a.rackId];state.trayMultiSelected=[];closeAssetsModal();closeBayface();renderAll(false);openBayface(a.rackId);}}
+function locateAsset(assetId){
+  const a=state.assets.find(x=>x.id===assetId); if(!a)return;
+  if(a.roomId&&a.roomId!==state.activeRoomId)switchRoom(a.roomId);
+  if(!a.rackId)return;
+  // O equipamento pode estar instalado na traseira: sem isto o Bayface abria
+  // sempre na face que estava ativa, mostrando o lado errado do rack.
+  if(a.face==='rear'||a.face==='front')bayfaceFace=a.face;
+  state.selected={type:'rack',id:a.rackId};
+  state.multiSelected=[a.rackId];
+  state.trayMultiSelected=[];
+  closeAssetsModal();
+  closeBayface();
+  renderAll(false);
+  openBayface(a.rackId);
+  // Marca o equipamento localizado: abrir o rack sem apontar qual é o asset
+  // deixa o usuário procurando a U na mão.
+  flashElement(document.querySelector(`#bayfaceContent [data-bay-edit="${CSS.escape(String(a.id))}"]`));
+}
 let assetColumnFilters={};
 const ASSET_COLUMN_ORDER=['check','assetTag','name','type','manufacturer','model','serial','location','rack','face','u','uHeight','status','substatus','purchaseDate','warranty','eol','actions'];
 const ASSET_COLUMN_WIDTHS_DEFAULT={check:36,assetTag:126,name:170,type:100,manufacturer:120,model:130,serial:130,location:170,rack:80,face:70,u:64,uHeight:64,status:100,substatus:100,purchaseDate:110,warranty:120,eol:120,actions:150};
@@ -2615,7 +2636,7 @@ function renderProperties(){
       <div class="grid2"><label>Profundidade (m)<input id="bulkDepth" type="number" min="0.1" step="0.01" placeholder="Não alterar"></label><label>Distância próx. (m)<input id="bulkGap" type="number" min="0" step="0.01" placeholder="Não alterar"></label></div>
       <label>Altura da última U → calha (m)<input id="bulkRise" type="number" min="0" step="0.01" placeholder="Não alterar"></label>
       <div class="grid2"><label>Capacidade elétrica (W)<input id="bulkPowerCapacity" type="number" min="0" step="1" placeholder="Não alterar"></label><label>Capacidade do piso (kg)<input id="bulkWeightCapacity" type="number" min="0" step="1" placeholder="Não alterar"></label></div>
-      <button class="btn primary full" id="applyBulkRack">✓ Aplicar propriedades</button>
+      <button class="btn primary full" id="applyBulkRack">${uiIcon('check')} Aplicar propriedades</button>
       <button class="btn danger full" id="delSelectedRacks">Excluir ${count} racks selecionados</button>
       <button class="btn ghost full" id="clearSelectedRacks">Limpar seleção</button>`;
     $('applyBulkRack').onclick=()=>{if(structureBlocked())return;
@@ -2886,7 +2907,7 @@ function renderCableProperties(p,c){
       <div class="prop-readout">${propIcon('info','prop-readout-icon')}<span>A folga compensa curvas e conexões.</span></div>
     </div>
   </div>
-  ${!v.valid?`<div class="validation-error">⚠ ${v.errors.map(esc).join('<br>')}</div>`:''}
+  ${!v.valid?`<div class="validation-error">${uiIcon('warn')} ${v.errors.map(esc).join('<br>')}</div>`:''}
   <div class="cable-metrics" id="cableResult"></div>
   <div class="prop-card-sub" data-panel-step="rota">
     ${subHead('link','Roteamento')}
@@ -2964,7 +2985,7 @@ const CABLE_METRIC_ICONS={
 function updateCableResult(c){
   const el=$('cableResult');if(!el)return;
   const validation=cableUnitValidation(c);
-  if(!validation.valid){el.innerHTML='<div class="validation-error">⚠ '+validation.errors.map(esc).join('<br>')+'</div>';return;}
+  if(!validation.valid){el.innerHTML='<div class="validation-error">'+uiIcon('warn')+' '+validation.errors.map(esc).join('<br>')+'</div>';return;}
   const res=calcCable(c);
   const rounded=res.reachable?Math.ceil(res.total):0;
   const row=(parcela,icon,label,value)=>`<div class="cable-metric" data-parcela="${parcela}"><span class="cable-metric-icon"><svg viewBox="0 0 24 24" aria-hidden="true">${CABLE_METRIC_ICONS[icon]}</svg></span><span class="cable-metric-label">${label}</span><b>${value.toFixed(2)} m</b></div>`;
@@ -2989,7 +3010,7 @@ function renderManualRouteUI(c){
   const panel=$('manualRoutePanel'),list=$('manualRouteList'),status=$('manualRouteStatus');
   if(!panel||!list)return;
   panel.classList.toggle('hidden',c.routeMode!=='manual');
-  list.innerHTML=(c.via||[]).map((id,i)=>`<div class="route-node"><span class="route-index">${i+1}</span><span>${esc(rackNameById(id))}</span><button class="btn small danger" data-manual-via-del="${i}">×</button></div>`).join('');
+  list.innerHTML=(c.via||[]).map((id,i)=>`<div class="route-node"><span class="route-index">${i+1}</span><span>${esc(rackNameById(id))}</span><button class="btn small danger" data-manual-via-del="${i}">${uiIcon('close')}</button></div>`).join('');
   list.querySelectorAll('[data-manual-via-del]').forEach(b=>b.onclick=()=>{c.via.splice(+b.dataset.manualViaDel,1);window.__manualRoutePicking=false;refreshVisuals();renderProperties();});
   const md=manualRouteData(c);
   if(status){status.textContent=md.reachable?(c.via?.length?`Rota válida: ${[c.originRack,...c.via,c.destRack].map(rackNameById).join(' → ')}`:'Nenhum rack intermediário selecionado.'):`Rota impossível: ${rackNameById(md.failedFrom)} → ${rackNameById(md.failedTo)}`;status.className='manual-route-status '+(md.reachable?'valid':'invalid');}
@@ -3385,7 +3406,14 @@ function updateMinimap(){
   const box=$('minimap'),svg=$('minimapSvg'),wrap=$('canvasWrap'); if(!box||!svg||!wrap||!box.offsetParent)return;
   const g=geometry(), w=MINIMAP_W, h=MINIMAP_H;
   svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
-  if(!state.racks.length){svg.innerHTML='<text x="50%" y="50%" text-anchor="middle" class="minimap-empty">Sem racks</text>';svg.dataset.scale='';return;}
+  if(!state.racks.length){
+    // Estado vazio do minimapa: o mesmo desenho de rack usado nas listas vazias,
+    // menor, em vez de uma frase solta num retângulo branco.
+    svg.innerHTML='<g class="minimap-empty-art" aria-hidden="true"><rect x="42%" y="34%" width="16%" height="7%" rx="1.4"/><rect x="42%" y="44%" width="16%" height="6%" rx="1.4"/></g>'
+      +'<text x="50%" y="62%" text-anchor="middle" class="minimap-empty">Sem racks</text>';
+    svg.dataset.scale='';
+    return;
+  }
   const c=minimapBox(g);
   const p=window.__canvasPan||{x:0,y:0,zoom:1},z=p.zoom||1;
   const vis=canvasVisible(wrap), view={x:(vis.left-p.x)/z,y:-p.y/z,w:vis.width/z,h:vis.height/z};

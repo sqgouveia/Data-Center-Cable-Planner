@@ -14,10 +14,10 @@ colors:
   status-green: "#3ecb92"
   signal-amber: "#f2ab57"
   signal-red: "#ff8375"
-  daylight-bg: "#e9eef5"
+  daylight-bg: "#dfe6f1"
   daylight-panel: "#ffffff"
-  daylight-panel-raised: "#f4f7fb"
-  daylight-hairline: "#d4dce8"
+  daylight-panel-raised: "#f2f6fb"
+  daylight-hairline: "#c3cfdf"
   daylight-ink: "#0e1520"
   daylight-muted: "#5d6b80"
   daylight-blue: "#1f5fe0"
@@ -92,7 +92,7 @@ A leitura por trás de cada número é física: potência, U, porta, comprimento
 O **claro é o mundo onde o app abre** — o console sob luz do dia, em neutro frio, não papel quente. O escuro é o mesmo instrumento à noite: mesma gramática de camadas, mesmo par de tokens, e deliberadamente um grafite médio-alto (não preto), para uma jornada longa não virar um buraco escuro na tela.
 
 **Key Characteristics:**
-- Claro frio (`#e9eef5` / branco) como padrão; o escuro é grafite frio (`#1c2431`), sem chegar a preto — três degraus de superfície (`panel`, `panel-raised`, `panel-hover`) fazem a profundidade antes de qualquer sombra
+- Claro frio (`#dfe6f1` / branco) como padrão; o escuro é grafite frio (`#1c2431`), sem chegar a preto — três degraus de superfície (`panel`, `panel-raised`, `panel-hover`) fazem a profundidade antes de qualquer sombra
 - Filete de luz (`--edge`, branco a 7% no escuro) na aresta superior de topbar, painéis, sheets e botões — o sinal de "material" do sistema
 - A **barra óptica**: um filete de 1px do azul do sistema correndo sob a topbar, no topo dos sheets e na borda esquerda do item selecionado — o motivo assinatura, herdado do assunto (barramento/calha de cabos)
 - Réguas hairline de 1px (`#45536a`) como separador primário; sombra é rasa, funcional e sempre acompanha a régua
@@ -111,11 +111,11 @@ O **claro é o mundo onde o app abre** — o console sob luz do dia, em neutro f
 - **Vermelho Sinal** (`#ff8375` / `#c0392b`): crítico — capacidade estourada, garantia vencida, exclusão.
 
 ### Neutral
-- **Fundo Console** (`#1c2431` escuro / `#e9eef5` claro): fundo da aplicação e da planta.
+- **Fundo Console** (`#1c2431` escuro / `#dfe6f1` claro): fundo da aplicação e da planta.
 - **Painel** (`#232d3c` / `#ffffff`): sidebars, sheets, cartões.
-- **Painel Elevado** (`#2b3746` / `#f4f7fb`): botões, inputs, controles de chrome, superfícies que se apoiam sobre o painel.
+- **Painel Elevado** (`#2b3746` / `#f2f6fb`): botões, inputs, controles de chrome, superfícies que se apoiam sobre o painel.
 - **Painel Hover** (`#354254` / `#e6ecf4`): hover de botão e de linha.
-- **Régua Hairline** (`#45536a` / `#d4dce8`): toda borda de 1px do sistema. **Régua Forte** (`#586a85` / `#b6c3d5`) para hover e contornos que precisam de mais peso.
+- **Régua Hairline** (`#45536a` / `#c3cfdf`): toda borda de 1px do sistema. **Régua Forte** (`#586a85` / `#a6b6cb`) para hover e contornos que precisam de mais peso.
 - **Filete de Luz** (`--edge`): branco a 7% no escuro, branco a 90% no claro — usado só como `inset 0 1px 0` na aresta superior.
 - **Tinta** (`#edf2f9` / `#0e1520`): texto primário. **Tinta Apagada** (`#aab7cb` / `#5d6b80`): rótulos, metadados, valores secundários.
 - **Chrome** (`--chrome-1`/`--chrome-2`): a rampa de duas paradas que dá "luz de cima" à topbar (mais clara em cima, mais escura embaixo).
@@ -144,7 +144,7 @@ O **claro é o mundo onde o app abre** — o console sob luz do dia, em neutro f
 - **Data** (500, IBM Plex Mono, 9–14px): potência, contagem de portas, IDs, valores de capacidade.
 
 ### Named Rules
-**The 11px Floor Rule.** Nenhum texto funcional (rótulo, botão, célula, badge) fica abaixo de 11px. A única exceção é a grade por-U do Bayface (`--fs-bf-micro: 9px`), que tem restrição física real de altura de 1U — uma dívida do componente, não licença para reduzir texto em outro lugar.
+**The 11px Floor Rule.** Nenhum texto funcional (rótulo, botão, célula, badge) fica abaixo de 11px. Três exceções: a grade por-U do Bayface (`--fs-bf-micro: 9px`), que tem restrição física real de altura de 1U; os rótulos desenhados dentro da planta em SVG (medida de calha, largura/profundidade do rack, alerta no rack), que escalam com o zoom em vez de viver num tamanho fixo de tela; e os marcadores de um caractere dentro de círculos fixos de 14–16px, onde 11px não caberia.
 
 **The Instrument Rule.** Se o valor nomeia uma quantidade física ou um identificador, ele é IBM Plex Mono. Se é uma frase, é Inter. Nunca misture os dois papéis no mesmo elemento.
 
@@ -175,6 +175,8 @@ Profundidade vem de **três coisas, nesta ordem**: degrau de superfície, filete
 Raio segue hierarquia, não gosto: `3px` (`--r-xs`) para micro-elementos e teclas, `5px` (`--r-sm`) para controles (botões, inputs, linhas de lista), `8px` (`--r-md`) para blocos e menus, `12px` (`--r-lg`) para as maiores superfícies (sheets, minimapa, sidebar-toggle arredondada de um lado). `999px`/`50%` ficam reservados a pílulas de status, à barra de zoom e a avatares.
 
 **The Pill Rule.** Pílula é status ou controle contínuo (zoom, filtros de camada). Botão de ação, campo e bloco de conteúdo nunca são pílula.
+
+**The Project Card Rule.** O cartão de projeto do dashboard usa o raio de bloco (`--r-md`, 8px) com fundo transparente: o raio aparece só na borda de 1px, então valores menores (2–5px) leem como canto reto. O valor mora em `app.css` (não no `macos.css`) para não depender da ordem de carregamento dos arquivos.
 
 ## Components
 
@@ -224,6 +226,7 @@ Visão frontal do rack, U por U, com escala tipográfica própria (`--fs-bf-micr
 - **Do** reservar o azul óptico a uma única ação/seleção de destaque por tela (The One Signal Rule).
 - **Do** marcar seleção com a barra óptica de 2px à esquerda + tintura baixa, em vez de preencher linhas inteiras.
 - **Do** escrever em pt-BR, sentence case, verbo ativo e o mesmo termo para a mesma coisa em todo o app (Fileira, Calha, Bayface, Asset).
+- **Do** tirar todo ícone do conjunto único em `js/utils.js` (`UI_ICONS` / `uiIcon()`), para HTML e templates usarem o mesmo desenho.
 
 ### Don't:
 - **Don't** usar verde, âmbar ou vermelho fora de um estado real e mensurável (The State-Only Rule).

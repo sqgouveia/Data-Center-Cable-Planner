@@ -1,4 +1,4 @@
-import { cloneData, esc, $ } from './utils.js';
+import { cloneData, esc, $, uiIcon } from './utils.js';
 import { state, THEME_STORAGE } from './state.js';
 import { uiConfirm, uiPrompt } from './dialogs.js';
 import { syncSelectButton, bindStyledSelect } from './styled-select.js';
@@ -71,10 +71,10 @@ export function setCloudStatus(status){
   cloudStatus=status;
   const el=$('cloudStatus');
   if(!el)return;
-  const map={saved:['✓','Salvo na nuvem','saved'],saving:['⟳','Salvando...','saving'],pending:['●','Alterações não salvas','pending'],error:['⚠','Não sincronizado','error']};
+  const map={saved:['check','Salvo na nuvem','saved'],saving:['refresh','Salvando...','saving'],pending:['dot','Alterações não salvas','pending'],error:['warn','Não sincronizado','error']};
   const v=map[status]||map.saved;
   const changed=el.dataset.status!==v[2];
-  el.textContent=`${v[0]} ${v[1]}`; el.dataset.status=v[2]; el.title=v[1];
+  el.innerHTML=`${uiIcon(v[0])}<span>${v[1]}</span>`; el.dataset.status=v[2]; el.title=v[1];
   // Um pulso só quando o estado realmente muda: confirma que o dado chegou na
   // nuvem, sem virar um pisca-pisca a cada render.
   if(changed&&v[2]==='saved'){
