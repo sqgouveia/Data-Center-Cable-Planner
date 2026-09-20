@@ -3288,25 +3288,43 @@ function setupPropSectionResize(){
     // Medir sempre sem as travas do próprio layout.
     propSection.style.height='';
     cables.style.height='';
-    cables.style.marginTop='';
+    handle.style.marginTop='';
     const nProp=propSection.offsetHeight;
     const nCab=cables.offsetHeight;
+    const cabHead=cables.querySelector('.cables-head')?.offsetHeight||0;
     // Vão que já existe entre os cartões: margem da seção mais a barra do puxador (~21px).
     const baseGap=cables.offsetTop-propSection.offsetTop-nProp;
-    const usable=avail-(parseFloat(getComputedStyle(cables).marginBottom)||0);
+    // O fundo útil é a borda de dentro do respiro da coluna: Cabos desce até encostar nela.
+    const usable=avail;
     const propFloor=Math.min(MIN_PROPS,nProp);
     const minTop=propFloor+baseGap;
-    // Até onde Cabos desce: com o cartão inteiro à vista, encostado no fim da coluna. Se o
-    // conteúdo dele não couber na coluna, ele já não tem para onde descer.
-    const maxTop=Math.max(minTop,usable-nCab);
-    const want=pinnedTop!=null?pinnedTop:(pinnedRatio!=null?pinnedRatio*usable:nProp+baseGap);
+    // Até onde Cabos desce: encostado no fim da coluna sobrando só o cabeçalho dele. O cartão
+    // encolhe e rola por dentro para poder descer mais do que a própria altura pede.
+    const cabFloor=Math.min(nCab,Math.max(44,cabHead));
+    const maxTop=Math.max(minTop,usable-cabFloor);
+    // Sem arrasto definido, Cabos desce conservando a altura natural — assim uma seleção com
+    // muitos campos empurra o cartão para baixo em vez de espremer a lista.
+    const autoTop=Math.max(minTop,Math.min(usable-nCab,nProp+baseGap));
+    const want=pinnedTop!=null?pinnedTop:(pinnedRatio!=null?pinnedRatio*usable:autoTop);
     const top=Math.max(minTop,Math.min(maxTop,want));
     const propH=Math.max(propFloor,Math.min(nProp,top-baseGap));
-    cables.style.marginTop=Math.max(0,top-baseGap-propH)+'px';
+    // A folga vai para a margem do puxador, não para a de Cabos: a barra viaja colada no topo
+    // do cartão de Cabos, como a alça dele, em vez de ficar presa embaixo de Propriedades.
+    handle.style.marginTop=Math.max(0,top-baseGap-propH)+'px';
     cables.style.height=Math.max(0,Math.min(nCab,usable-top))+'px';
     propSection.style.height=propH+'px';
     bounds={min:minTop,max:maxTop,usable};
     window.__dccpSplit={nProp,nCab,baseGap,usable,minTop,maxTop,top,propH};
+    window.__dccpRaw={
+      clientH:right.clientHeight,
+      padT:parseFloat(cs.paddingTop)||0,
+      padB:parseFloat(cs.paddingBottom)||0,
+      avail,
+      colTop:Math.round(right.getBoundingClientRect().top),
+      colBottom:Math.round(right.getBoundingClientRect().bottom),
+      propTop:Math.round(propSection.getBoundingClientRect().top),
+      handleMT:handle.style.marginTop,
+    };
   };
   window.__dccpRightSplit=layout;
 
