@@ -603,7 +603,7 @@ function buildRowsPanel(){
     d.innerHTML=`<label class="prop-field"><span class="prop-field-label">${propIcon('name')}<span class="prop-field-text">Nome da fileira</span></span><span class="prop-field-box"><input data-row-name="${row.id}" value="${esc(row.name)}"></span></label>
       ${gapField?`<div class="grid2">${racksField}${gapField}</div>`:racksField}
       <div class="grid2">
-        <button type="button" class="btn ghost" data-rename-row="${row.id}" title="Renomear os racks desta fileira automaticamente" aria-label="Renomear racks automaticamente">${propIcon('name')}Renomear</button>
+        <button type="button" class="btn ghost" data-rename-row="${row.id}" title="Renomear os racks desta fileira automaticamente" aria-label="Renomear racks automaticamente">${propIcon('pencil')}Renomear</button>
         <button type="button" class="btn danger" data-del-row="${row.id}" title="Excluir fileira" aria-label="Excluir fileira">${propIcon('trash')}Excluir</button>
       </div>`;
     p.appendChild(d);
@@ -806,13 +806,33 @@ const HEAT_CLASSES=['heat-l1','heat-l2','heat-l3','heat-l4','heat-none','hover-t
 function setupRackTooltip(){
   const svg=$('layout'), tip=$('rackTooltip'), wrap=$('canvasWrap'); if(!svg||!tip||!wrap)return;
   let tinted=null;
+  // Cartão de dados do rack: passa na frente das calhas enquanto o mouse está
+  // sobre ele. A posição original é restaurada ao sair.
+  let fronted=null, frontedIndex=-1;
+  const restoreFront=()=>{
+    if(fronted&&fronted.parentNode===svg){
+      const kids=[...svg.children];
+      const at=Math.max(0,Math.min(frontedIndex,kids.length));
+      const ref=kids[at]&&kids[at]!==fronted?kids[at]:null;
+      svg.insertBefore(fronted,ref);
+    }
+    fronted=null; frontedIndex=-1;
+  };
+  const bringToFront=g=>{
+    if(g===fronted)return;
+    restoreFront();
+    if(!g||g.parentNode!==svg)return;
+    frontedIndex=[...svg.children].indexOf(g); svg.appendChild(g); fronted=g;
+  };
   // No modo Normal o rack sob o mouse ganha a cor da ocupação de U; nos outros
   // modos ele já está colorido pela camada escolhida.
   const untint=()=>{tinted?.classList.remove(...HEAT_CLASSES);tinted=null;};
-  const hide=()=>{tip.classList.add('hidden');untint();};
+  const hide=()=>{tip.classList.add('hidden');untint();restoreFront();};
   svg.addEventListener('mousemove',e=>{
     if(e.buttons){hide();return;}
-    const id=document.elementsFromPoint(e.clientX,e.clientY).map(el=>el.closest('[data-rack]')).find(Boolean)?.dataset.rack;
+    const under=document.elementsFromPoint(e.clientX,e.clientY);
+    const id=under.map(el=>el.closest('[data-rack]')).find(Boolean)?.dataset.rack;
+    bringToFront(under.map(el=>el.closest('.rack-info')).find(Boolean)||null);
     const m=id&&rackStats.get(id), r=id&&state.racks.find(x=>x.id===id);
     if(!m||!r){hide();return;}
     const body=heatMode==='off'?svg.querySelector(`[data-rack="${id}"] .rack-body`):null;
@@ -904,6 +924,12 @@ function renderRoomSummary(p){
   $('rsAllAlerts')?.addEventListener('click',e=>{e.stopPropagation();openAlertsCenterPanel($('btnAlertsCenter')||$('properties'));});
 }
 
+// Ícones do cartão de dados que fica embaixo de cada rack na planta.
+const RACK_META_ICONS={
+  units:'<rect x="0.6" y="1.8" width="10.8" height="2.4" rx="0.6"/><rect x="0.6" y="4.8" width="10.8" height="2.4" rx="0.6"/><rect x="0.6" y="7.8" width="10.8" height="2.4" rx="0.6"/>',
+  width:'<path d="M0.9 2.2v7.6M11.1 2.2v7.6M2.9 6h6.2M2.9 6l1.7-1.7M2.9 6l1.7 1.7M9.1 6 7.4 4.3M9.1 6 7.4 7.7"/>',
+  depth:'<path d="M2.2 0.9h7.6M2.2 11.1h7.6M6 2.9v6.2M6 2.9 4.3 4.6M6 2.9l1.7 1.7M6 9.1 4.3 7.4M6 9.1l1.7-1.7"/>'
+};
 function render(){
   const svg=$('layout'),stage=$('canvasStage'),g=geometry();
   rackStats=computeStats();
@@ -920,6 +946,9 @@ function render(){
   svg.setAttribute('viewBox',`0 0 ${g.w} ${g.h}`); svg.setAttribute('width',g.w); svg.setAttribute('height',g.h); svg.style.width=`${g.w}px`; svg.style.height=`${g.h}px`; svg.style.minWidth=`${g.w}px`; svg.style.minHeight=`${g.h}px`; svg.style.maxWidth='none'; svg.style.maxHeight='none'; svg.style.display='block';
   svg.innerHTML='';
   if(window.__applyCanvasPan)requestAnimationFrame(window.__applyCanvasPan);
+  // Perfuração da placa do rack: padrão de pontos usado como textura do
+  // faceplate. Definido uma vez por render.
+  svg.insertAdjacentHTML('beforeend',`<defs><pattern id="rackPunch" width="5.5" height="5.5" patternUnits="userSpaceOnUse"><circle class="rack-punch-dot" cx="1.3" cy="1.3" r="0.78"/></pattern></defs>`);
   for(let x=0;x<g.w;x+=40)svg.insertAdjacentHTML('beforeend',`<line class="gridline" x1="${x}" y1="0" x2="${x}" y2="${g.h}"/>`);
   for(let y=0;y<g.h;y+=40)svg.insertAdjacentHTML('beforeend',`<line class="gridline" x1="0" y1="${y}" x2="${g.w}" y2="${y}"/>`);
 
@@ -951,17 +980,23 @@ function render(){
     const q=rackRect(r,g),selected=state.multiSelected.includes(r.id) || (state.selected?.type==='rack'&&state.selected.id===r.id);
     const inset=3;
     const vx=q.x+inset, vy=q.y+inset, vw=Math.max(1,q.w-inset*2), vh=Math.max(1,q.h-inset*2);
-    const faceX=vx+5, faceY=vy+5, faceW=Math.max(1,vw-10), faceH=Math.max(1,vh-10);
-    const lineY=vy+22;
     const m=rackStats.get(r.id);
     const usedU=m.usedU, pct=m.uRatio;
     const heatLvl=heatLevel(m,heatMode), heatClass=heatLvl?`heat-${heatLvl}`:'';
-    const alertBadge=m.alertLevel==='l1'?'':`<g class="rack-alert alert-${m.alertLevel}"><circle cx="${vx+vw-11}" cy="${vy+11}" r="6.5"/><text x="${vx+vw-11}" y="${vy+14.5}" text-anchor="middle">!</text></g>`;
-    const utilLevel=pct>=0.85?'high':pct>=0.5?'mid':'low';
-    const barX=vx+6, barY=vy+vh-7, barTrackW=Math.max(0,vw-12), barFillW=Math.max(0,barTrackW*pct);
-    // As bolinhas de status seguem o consumo elétrico quando o rack tem
-    // capacidade cadastrada; sem capacidade definida, caem de volta pro
-    // sinal simples de "tem equipamento instalado".
+    const alertBadge=m.alertLevel==='l1'?'':`<g class="rack-alert alert-${m.alertLevel}"><circle cx="${vx+vw-6}" cy="${vy+6}" r="5"/><text x="${vx+vw-6}" y="${vy+9}" text-anchor="middle">!</text></g>`;
+    // Bezel grosso, placa perfurada recuada, faixa de LED no topo da placa e
+    // puxador na lateral. A perfuração só entra quando o rack tem largura
+    // para a textura respirar.
+    const wide=vw>=38;
+    const bezel=6;
+    const plateX=vx+bezel, plateY=vy+bezel;
+    const plateW=Math.max(1,vw-bezel*2), plateH=Math.max(1,vh-bezel*2);
+    const stripW=Math.max(10,plateW*0.44), stripH=3.4;
+    const stripX=plateX+(plateW-stripW)/2, stripY=plateY+5;
+    const handleH=Math.max(12,plateH*0.34), handleX=vx+vw-4.6, handleY=vy+(vh-handleH)/2;
+    // A faixa de LED no topo segue o consumo elétrico quando o rack tem
+    // capacidade cadastrada; sem capacidade definida, cai de volta no sinal
+    // simples de "tem equipamento instalado".
     const powerCapacity=m.powerCap;
     const rackPowerW=m.powerW;
     let ledClass='';
@@ -970,14 +1005,18 @@ function render(){
     }else if(usedU>0){
       ledClass='is-on';
     }
-    svg.insertAdjacentHTML('beforeend',`<g data-rack="${r.id}" class="rackg"><rect class="rack-hit" x="${q.x}" y="${q.y}" width="${q.w}" height="${q.h}" rx="8"/><rect class="rack-body ${selected?'selected':''} ${heatClass}" x="${vx}" y="${vy}" width="${vw}" height="${vh}" rx="7"/><rect class="rack-face" x="${faceX}" y="${faceY}" width="${faceW}" height="${faceH}" rx="5"/><line class="rack-topline" x1="${vx+8}" y1="${lineY}" x2="${vx+vw-8}" y2="${lineY}"/><circle class="rack-led ${ledClass}" cx="${vx+14}" cy="${vy+13}" r="2"/><circle class="rack-led ${ledClass}" cx="${vx+21}" cy="${vy+13}" r="2"/><rect class="rack-util-track" x="${barX}" y="${barY}" width="${barTrackW}" height="3" rx="1.5"/><rect class="rack-util-fill util-${utilLevel}" x="${barX}" y="${barY}" width="${barFillW}" height="3" rx="1.5"/>${alertBadge}</g>`);
+    svg.insertAdjacentHTML('beforeend',`<g data-rack="${r.id}" class="rackg"><rect class="rack-hit" x="${q.x}" y="${q.y}" width="${q.w}" height="${q.h}" rx="8"/><rect class="rack-body ${selected?'selected':''} ${heatClass}" x="${vx}" y="${vy}" width="${vw}" height="${vh}" rx="6"/><rect class="rack-plate" x="${plateX}" y="${plateY}" width="${plateW}" height="${plateH}" rx="3"/>${wide?`<rect class="rack-punch" x="${plateX}" y="${plateY}" width="${plateW}" height="${plateH}" rx="3"/>`:''}<rect class="rack-strip ${ledClass}" x="${stripX}" y="${stripY}" width="${stripW}" height="${stripH}" rx="1.7"/><rect class="rack-handle" x="${handleX}" y="${handleY}" width="2.6" height="${handleH}" rx="1.3"/>${alertBadge}</g>`);
   });
 
-  // Camada 2: informações dimensionais dos racks.
-  // Elas ficam antes das calhas para que a infraestrutura possa passar por cima.
+  // Camada 2: cartão de dados do rack, logo abaixo do desenho. Fica antes das
+  // calhas para que a infraestrutura possa passar por cima.
   state.racks.forEach(r=>{
     const q=rackRect(r,g),c=rackCenter(r,g);
-    svg.insertAdjacentHTML('beforeend',`<g data-rack="${r.id}" class="rackg"><text class="svg-label" x="${c.x}" y="${q.y+q.h+14}" style="font-size:9px;text-anchor:middle">${r.units}U</text><text class="rack-width-label" x="${c.x}" y="${q.y+q.h+27}" text-anchor="middle">L ${num(r.width,state.rackWidth).toFixed(2)} m</text><text class="rack-depth-label" x="${c.x}" y="${q.y+q.h+40}" text-anchor="middle">P ${num(r.depth,state.rackDepth).toFixed(2)} m</text></g>`);
+    // Cartão discreto: mais estreito que o rack e com três linhas curtas, para
+    // não virar um bloco no meio do corredor.
+    const cardW=Math.max(58,Math.min(q.w-12,84)), cardX=c.x-cardW/2, cardY=q.y+q.h+5, cardH=38;
+    const metaRow=(i,icon,label)=>`<g class="rack-meta-ico" transform="translate(${(cardX+6).toFixed(1)},${(cardY+5.5+i*10).toFixed(1)}) scale(0.67)">${RACK_META_ICONS[icon]}</g><text class="rack-meta-label" x="${(cardX+16).toFixed(1)}" y="${(cardY+11.5+i*10).toFixed(1)}">${label}</text>`;
+    svg.insertAdjacentHTML('beforeend',`<g data-rack="${r.id}" class="rackg rack-info"><rect class="rack-meta-card" x="${cardX.toFixed(1)}" y="${cardY.toFixed(1)}" width="${cardW.toFixed(1)}" height="${cardH}" rx="6"/>${metaRow(0,'units',`${r.units}U`)}${metaRow(1,'width',`L ${num(r.width,state.rackWidth).toFixed(2)} m`)}${metaRow(2,'depth',`P ${num(r.depth,state.rackDepth).toFixed(2)} m`)}</g>`);
   });
 
   // Camada 3: calhas e seus nós. Elas ficam acima das informações dimensionais.
@@ -986,7 +1025,6 @@ function render(){
     const len=trayLengthMeters(t,g);
     const mx=(t.x1+t.x2)/2,my=(t.y1+t.y2)/2;
     svg.insertAdjacentHTML('beforeend',`<line data-tray="${t.id}" class="tray-line ${selected?'selected-tray':''}" x1="${t.x1}" y1="${t.y1}" x2="${t.x2}" y2="${t.y2}"/>`);
-    svg.insertAdjacentHTML('beforeend',`<text class="tray-length" x="${mx}" y="${my-8}" text-anchor="middle">${len.toFixed(2)} m</text>`);
     svg.insertAdjacentHTML('beforeend',`<circle class="tray-node-hit" data-tray="${t.id}" data-tray-node="a" cx="${t.x1}" cy="${t.y1}" r="11"/><circle class="tray-node-hit" data-tray="${t.id}" data-tray-node="b" cx="${t.x2}" cy="${t.y2}" r="11"/><circle class="tray-node" cx="${t.x1}" cy="${t.y1}" r="5"/><circle class="tray-node" cx="${t.x2}" cy="${t.y2}" r="5"/>`);
   });
 
@@ -1062,6 +1100,13 @@ function render(){
   }
   // Textos dos racks ficam visualmente acima das calhas, mas não capturam o clique.
   // Assim uma calha que passa sobre um rack continua selecionável.
+  // Medidas das calhas por último: são leitura, e não podem ser cobertas pelo
+  // traçado de um cabo selecionado.
+  state.trays.forEach(t=>{
+    const len=trayLengthMeters(t,g);
+    const mx=(t.x1+t.x2)/2, my=(t.y1+t.y2)/2;
+    svg.insertAdjacentHTML('beforeend',`<text class="tray-length" x="${mx}" y="${my-8}" text-anchor="middle">${len.toFixed(2)} m</text>`);
+  });
   svg.querySelectorAll('[data-rack]').forEach(el=>el.addEventListener('click',e=>{
     e.stopPropagation();
     const id=el.dataset.rack;
@@ -2141,7 +2186,7 @@ function renderBayfaceAssetPicker(){
   const prev=$('bayfaceAssetPickerPrev'), next=$('bayfaceAssetPickerNext'); if(prev)prev.disabled=bayfacePickerPage<=1; if(next)next.disabled=bayfacePickerPage>=totalPages;
   modal.querySelectorAll('[data-bay-sort]').forEach(th=>{const on=th.dataset.baySort===key;th.classList.toggle('is-sorted',on);th.dataset.dir=on?(dir>0?'asc':'desc'):'';});
   if(!items.length){
-    list.innerHTML=`<div class="bayface-picker-empty"><span class="bayface-picker-empty-icon">${BAYFACE_PICKER_EMPTY_ICON}</span><strong>Nenhum asset disponível</strong><p>Não há assets cadastrados para esta U ou nenhum asset atende à busca realizada.</p><button type="button" class="btn primary bayface-picker-new" data-bay-new><span class="ui-plus">+</span> Cadastrar novo asset</button></div>`;
+    list.innerHTML=`<div class="bayface-picker-empty"><span class="bayface-picker-empty-icon">${BAYFACE_PICKER_EMPTY_ICON}</span><strong>Nenhum asset disponível</strong><p>Não há assets cadastrados para esta U ou nenhum asset atende à busca realizada.</p><button type="button" class="btn primary bayface-picker-new" data-bay-new><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> Cadastrar novo asset</button></div>`;
     list.querySelector('[data-bay-new]')?.addEventListener('click',()=>{closeBayfaceAssetPicker();openAssetModal(null,rackId,uStart);});
     return;
   }
@@ -2392,6 +2437,7 @@ const PROP_FIELD_ICONS={
   arrowUp:'<path d="M12 19V5M6 11l6-6 6 6"/>',
   arrowDown:'<path d="M12 5v14M6 13l6 6 6-6"/>',
   sliders:'<path d="M4 8h9M19 8h1M4 16h3M13 16h7"/><circle cx="16" cy="8" r="2.2"/><circle cx="10" cy="16" r="2.2"/>',
+  pencil:'<path d="M4 20h4.2L20 8.2 15.8 4 4 15.8V20Z"/><path d="M14.2 5.6 18.4 9.8"/>',
   project:'<path d="M4 21V5.5L12 3l8 2.5V21"/><path d="M9 21v-5h6v5"/>',
   rows:'<rect x="3" y="3.5" width="18" height="5" rx="1.2"/><rect x="3" y="9.5" width="18" height="5" rx="1.2"/><rect x="3" y="15.5" width="18" height="5" rx="1.2"/>',
   bayface:'<rect x="3" y="5" width="18" height="14" rx="1.8"/><path d="M3 9.6h18M3 14.4h18"/>',
@@ -3135,7 +3181,7 @@ function setupPan(){
     const svg=$('layout');
     if(!svg)return;
     // Fit the actual drawn plant, not the oversized internal canvas padding.
-    const els=[...svg.querySelectorAll('.rack-body,.rack-face,.rack-text,.rack-width-label,.rack-depth-label,.svg-label,.tray-line,.tray-link,.tray-node,.tray-length,.cross-front,.cross-back,.route-line')];
+    const els=[...svg.querySelectorAll('.rack-body,.rack-text,.rack-meta-card,.rack-meta-label,.svg-label,.tray-line,.tray-link,.tray-node,.tray-length,.cross-front,.cross-back,.route-line')];
     let box=null;
     for(const el of els){
       try{ const b=el.getBBox(); if(!b.width && !b.height) continue;

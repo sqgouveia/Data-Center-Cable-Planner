@@ -2416,11 +2416,10 @@ label {
   width: 16px;
   height: 16px;
 }
-.prop-card .btn.ghost .prop-ico {
-  color: var(--blue);
-}
-.prop-card .btn.ghost:hover:not(:disabled) .prop-ico {
-  color: var(--blue-ink);
+/* Ícone acompanha a cor do rótulo, como no botão destrutivo — o azul do
+   sistema fica para seleção e foco, não para decorar ação secundária. */
+.prop-card .btn .prop-ico {
+  color: currentColor;
 }
 .prop-card .btn.danger {
   border-color: color-mix(in srgb, var(--red) 45%, transparent);
@@ -2444,6 +2443,163 @@ label {
 .prop-card .prop-footnote .prop-ico {
   width: 16px;
   height: 16px;
+}
+
+/* =====================================================================
+   Racks na planta: faceplate de metal anodizado
+   Bezel grosso, placa perfurada recuada, faixa de LED no topo e puxador na
+   lateral. Verde, âmbar e vermelho aqui são leitura de estado, não decoração;
+   o azul continua sendo só seleção.
+   ===================================================================== */
+.rack-body {
+  stroke-width: 1.4;
+}
+.rack-plate {
+  fill: rgba(0, 0, 0, 0.34);
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 1;
+  pointer-events: none;
+}
+.rack-punch {
+  fill: url(#rackPunch);
+  opacity: 0.9;
+  pointer-events: none;
+}
+.rack-punch-dot {
+  fill: var(--muted);
+  opacity: 0.42;
+}
+/* O nome do rack é identificação, não leitura de instrumento: fica na fonte
+   da interface, no peso forte, como nas plaquetas do corredor. */
+.rack-text {
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+.rack-handle {
+  fill: color-mix(in srgb, var(--muted) 42%, transparent);
+  pointer-events: none;
+}
+/* Faixa de LED no topo da placa: verde = ligado, âmbar = perto do limite
+   elétrico, vermelho = acima; apagada quando o rack está vazio. */
+/* LED emite luz, então não usa o tom de tinta do tema: --green/--orange/--red
+   escurecem no tema claro para dar contraste de texto, e no rack isso fazia a
+   faixa apagar. Estes três tons valem nos dois temas. */
+:root {
+  --rack-led-on: #3ecb92;
+  --rack-led-mid: #f2ab57;
+  --rack-led-high: #ff8375;
+}
+.rack-strip {
+  fill: var(--muted);
+  opacity: 0.28;
+  pointer-events: none;
+  transition:
+    fill 0.15s,
+    opacity 0.15s;
+}
+.rack-strip.is-on {
+  fill: var(--rack-led-on);
+  opacity: 1;
+  filter: drop-shadow(
+    0 0 3px color-mix(in srgb, var(--rack-led-on) 65%, transparent)
+  );
+}
+.rack-strip.is-power-mid {
+  fill: var(--rack-led-mid);
+  opacity: 1;
+  filter: drop-shadow(
+    0 0 3px color-mix(in srgb, var(--rack-led-mid) 65%, transparent)
+  );
+}
+.rack-strip.is-power-high {
+  fill: var(--rack-led-high);
+  opacity: 1;
+  filter: drop-shadow(
+    0 0 3px color-mix(in srgb, var(--rack-led-high) 65%, transparent)
+  );
+}
+/* O selo de alerta também é sinal aceso, não tinta. */
+.rack-alert.alert-l3 circle {
+  fill: var(--rack-led-mid);
+}
+.rack-alert.alert-l4 circle {
+  fill: var(--rack-led-high);
+}
+/* Com uma camada de calor ligada, a cor do corpo já é a leitura: a placa
+   escurece menos para não abafar o preenchimento. */
+.rackg .rack-body[class*="heat-"] ~ .rack-plate {
+  fill: rgba(0, 0, 0, 0.18);
+}
+.rack-body.selected {
+  stroke-width: 2;
+  filter: drop-shadow(
+    0 0 5px color-mix(in srgb, var(--blue) 42%, transparent)
+  );
+}
+.rack-meta-card {
+  /* Opaco: o cartão tapa a grade da planta em vez de deixá-la atravessar. */
+  fill: var(--panel);
+  stroke: var(--border);
+  stroke-width: 1;
+  /* Alvo de mouse: o cartão entra na frente das calhas enquanto está sob o
+     cursor, e o tooltip do rack responde por ele também. */
+  pointer-events: auto;
+}
+.rack-meta-ico {
+  color: var(--muted);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.rack-meta-label {
+  font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  fill: var(--text);
+  pointer-events: none;
+}
+/* Tema claro: alumínio sob luz do dia. O corpo fica claro, a placa é um
+   recesso suave e a perfuração escurece — o inverso do escuro, como um
+   faceplate visto de dia. O nome passa a tinta escura. */
+:root.light .rack-body:not([class*="heat-"]),
+:root[data-theme="light"] .rack-body:not([class*="heat-"]) {
+  fill: color-mix(in srgb, var(--panel2) 74%, #f0f0f0);
+}
+:root.light .rack-body:not([class*="heat-"]):not(.selected),
+:root[data-theme="light"] .rack-body:not([class*="heat-"]):not(.selected) {
+  stroke: color-mix(in srgb, var(--border) 78%, #6b7488);
+}
+:root.light .rack-plate,
+:root[data-theme="light"] .rack-plate {
+  fill: rgba(15, 23, 40, 0.07);
+  stroke: rgba(255, 255, 255, 0.7);
+}
+:root.light .rack-handle,
+:root[data-theme="light"] .rack-handle {
+  fill: rgba(15, 23, 40, 0.384);
+}
+:root.light .rack-punch,
+:root[data-theme="light"] .rack-punch {
+  opacity: 0.85;
+}
+:root.light .rack-punch-dot,
+:root[data-theme="light"] .rack-punch-dot {
+  fill: #6b7488;
+  opacity: 0.5;
+}
+:root.light .rack-text,
+:root[data-theme="light"] .rack-text {
+  fill: var(--text);
+  stroke: rgba(255, 255, 255, 0.9);
+}
+:root.light .rack-strip:not(.is-on):not(.is-power-mid):not(.is-power-high),
+:root[data-theme="light"] .rack-strip:not(.is-on):not(.is-power-mid):not(.is-power-high) {
+  fill: var(--muted);
 }
 
 /* ---------- Movimento reduzido ---------- */
