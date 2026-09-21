@@ -991,12 +991,12 @@ select:disabled {
 .asset-port-row {
   display: grid;
   /* Colunas apertadas de propósito: toda a sobra vai para a conexão, que é o texto longo. */
-  grid-template-columns: 26px 32px minmax(84px, 0.8fr) minmax(220px, 3fr) 92px 54px 66px;
+  grid-template-columns: 20px 28px minmax(70px, 0.55fr) minmax(200px, 4fr) 82px 44px 54px;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 .asset-ports-thead {
-  padding: 7px 10px;
+  padding: 6px 8px;
   font-size: 11px;
   color: var(--muted);
   border-bottom: 1px solid var(--border);
@@ -1010,7 +1010,7 @@ select:disabled {
   padding: 7px;
 }
 .asset-port-row {
-  padding: 5px 9px;
+  padding: 4px 7px;
   border: 1px solid var(--border);
   border-left: 3px solid var(--border);
   border-radius: var(--r-sm);
@@ -1024,13 +1024,13 @@ select:disabled {
   text-align: center;
 }
 .asset-port-icon {
-  width: 26px; height: 26px;
+  width: 24px; height: 24px;
   display: grid; place-items: center;
   border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--panel2); color: var(--muted);
 }
 .asset-port-icon svg {
-  width: 15px; height: 15px;
+  width: 14px; height: 14px;
   fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round;
 }
 .asset-port-name {
@@ -1041,7 +1041,7 @@ select:disabled {
 .asset-port-name:focus { outline: 0; border-bottom: 1px solid var(--blue); }
 .asset-port-conn {
   display: flex; align-items: center; gap: 6px;
-  min-width: 0; font-size: 11.5px; color: var(--muted);
+  min-width: 0; font-size: 11px; color: var(--muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .asset-port-conn svg {
@@ -1052,10 +1052,10 @@ select:disabled {
 .asset-port-conn small { color: var(--muted); }
 .asset-port-status {
   display: inline-flex; align-items: center; gap: 6px;
-  justify-self: start; padding: 3px 9px; border-radius: 999px;
-  font-size: 10.5px; font-weight: 700;
+  justify-self: start; padding: 2px 7px; border-radius: 999px;
+  font-size: 10px; font-weight: 700;
 }
-.asset-port-status i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.asset-port-status i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .asset-port-status.is-free { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
 .asset-port-status.is-used { color: var(--red); background: color-mix(in srgb, var(--red) 14%, transparent); }
 .asset-port-poe {
@@ -1066,7 +1066,7 @@ select:disabled {
 .asset-port-poe:has(input:checked) { color: var(--orange); }
 .asset-port-actions { display: flex; align-items: center; gap: 6px; justify-self: end; }
 .asset-port-actions .iconbtn {
-  width: 24px; height: 24px;
+  width: 22px; height: 22px;
   display: grid; place-items: center;
   border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--panel2); color: var(--muted);
