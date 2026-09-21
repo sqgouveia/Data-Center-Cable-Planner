@@ -421,6 +421,9 @@ function cableStatusInfo(c){
 }
 export function renderCables(){
   const el=$('cablesList'); if(!el)return;
+  // Reescrever a lista (innerHTML) zera a rolagem do próprio container: quem estava no meio da
+  // lista voltava ao topo ao escolher outro cabo. Guardar e devolver mantém a posição.
+  const rolagem=el.scrollTop;
   $('cableCount').textContent=`${state.cables.length} cabo${state.cables.length===1?'':'s'}`;
   cables.cableMultiSelected=cables.cableMultiSelected.filter(id=>state.cables.some(c=>c.id===id));
   const q=cables.cablesSearchQuery.trim().toLowerCase();
@@ -477,6 +480,7 @@ export function renderCables(){
     selectAll.indeterminate=selectedVisible>0&&selectedVisible<visibleIds.length;
   }
   updateCablesBulkBar();
+  el.scrollTop=rolagem;
 }
 function updateCablesBulkBar(){
   const bar=$('cablesBulkBar'); if(!bar)return;

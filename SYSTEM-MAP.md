@@ -3,14 +3,14 @@
 Gerado por `node scripts/system-map.mjs`. **Rode o script depois de mexer no código** para o
 mapa continuar valendo (ele lê as linhas de verdade, não é escrito à mão).
 
-Última geração: 2026-09-21 14:00 · app.js com 4374 linhas · 16 módulos em js/ · app.css 11106 · macos.css 3584
+Última geração: 2026-09-21 14:28 · app.js com 4382 linhas · 16 módulos em js/ · app.css 11106 · macos.css 3584
 
 ## 1. O que é o quê
 
 | arquivo | papel |
 |---|---|
 | index.html | casca: barra de topo, duas laterais flutuantes, canvas, barra inferior e todos os modais |
-| app.js | orquestra tudo: estado, render, interação do canvas e das laterais (`4374` linhas) |
+| app.js | orquestra tudo: estado, render, interação do canvas e das laterais (`4382` linhas) |
 | js/state.js | objeto `state` compartilhado (fonte da verdade em memória) |
 | js/geometry.js | posições físicas de fileira/rack/calha + rótulo do rack (`rackDisplayName`, `findRackByLabel`) |
 | js/routing.js | grafo de rota e cálculo de metragem de cabo |
@@ -92,7 +92,7 @@ graph LR
 | módulo | linhas | exporta (nome:linha) | importa de |
 |---|---|---|---|
 | `js/bulk-assets.js` | 189 | configureBulkAssets:13, addBulkRow:162, openBulkAssetsModal:168, closeBulkAssetsModal:169, saveBulkAssets:170, openAssetsImportModal:178, bindImportUI:182 | utils.js, state.js, occupancy.js, inventory-import.js, cloud-sync.js, geometry.js |
-| `js/cables.js` | 506 | cables:10, configureCables:16, addCable:21, downloadCableTemplate:114, importCablesXLSX:156, closeCableTypeReviewModal:211, processCableImportRows:215, cableSummaryRows:288, … | utils.js, state.js, dialogs.js, geometry.js, routing.js, occupancy.js |
+| `js/cables.js` | 510 | cables:10, configureCables:16, addCable:21, downloadCableTemplate:114, importCablesXLSX:156, closeCableTypeReviewModal:211, processCableImportRows:215, cableSummaryRows:288, … | utils.js, state.js, dialogs.js, geometry.js, routing.js, occupancy.js |
 | `js/catalogs.js` | 455 | catalogs:9, configureCatalogs:16, DEFAULT_ASSET_TYPES:22, DEFAULT_ASSET_STATUSES:23, DEFAULT_ASSET_SUBSTATUSES:24, normalizeAssetCatalogs:25, bayfaceTypeColor:63, renderCableTypesCatalog:65, … | utils.js, state.js, dialogs.js, inventory-import.js, cables.js |
 | `js/cloud-sync.js` | 1097 | cloud:9, configureCloudSync:17, setCloudStatus:70, updatePlannerProjectName:89, assetLogDiff:132, recordAssetAudit:175, openAssetHistory:486, closeAssetHistory:523, … | utils.js, state.js, dialogs.js, styled-select.js, runtime.js |
 | `js/dialogs.js` | 80 | uiConfirm:19, uiPrompt:44 | utils.js |
@@ -112,11 +112,11 @@ graph LR
 
 ### Render / pintura
 
-`updateRoomUI` (68) · `updateStructureControls` (128) · `updateHistoryButtons` (243) · `updateRenamePreview` (966) · `updateHeatControl` (1030) · `renderRoomSummary` (1228) · `render` (1265) · `updateAlertsCenterBadge` (1677) · `updateAssetUFieldsState` (1833) · `refreshAssetRackOptions` (1861) · `renderAssetPortsEditor` (1900) · `updateAssetLifecycleBadge` (2016) · `updateAssetNotesCount` (2029) · `renderAssetsTableHead` (2255) · `renderAssetsKpis` (2309) · `renderAssetsFilterBar` (2326) · `renderAssetsPagination` (2335) · `renderAssetsTableSort` (2377) · `updateAssetsBulkBar` (2384) · `renderAssetsList` (2465) · `renderBayfaceAssetPicker` (2552) · `fitBayfaceHeight` (2708) · `renderBayface` (2779) · `renderProperties` (2895) · `refreshCableValidation` (3099) · `updateCableAssetNameField` (3111) · `renderCableProperties` (3137) · `updateCableResult` (3290) · `renderManualRouteUI` (3314) · `refreshVisuals` (3324) · `updateCanvasEmptyHint` (3363) · `renderAll` (3368) · `updateProjectSummary` (3768) · `renderQuickSearchResults` (3827) · `renderTopSearchResults` (3841) · `centerOnPoint` (3876) · `updateMinimap` (3947)
+`updateRoomUI` (68) · `updateStructureControls` (128) · `updateHistoryButtons` (243) · `updateRenamePreview` (966) · `updateHeatControl` (1030) · `renderRoomSummary` (1228) · `render` (1265) · `updateAlertsCenterBadge` (1677) · `updateAssetUFieldsState` (1833) · `refreshAssetRackOptions` (1861) · `renderAssetPortsEditor` (1900) · `updateAssetLifecycleBadge` (2016) · `updateAssetNotesCount` (2029) · `renderAssetsTableHead` (2255) · `renderAssetsKpis` (2309) · `renderAssetsFilterBar` (2326) · `renderAssetsPagination` (2335) · `renderAssetsTableSort` (2377) · `updateAssetsBulkBar` (2384) · `renderAssetsList` (2465) · `renderBayfaceAssetPicker` (2552) · `fitBayfaceHeight` (2708) · `renderBayface` (2779) · `renderProperties` (2895) · `refreshCableValidation` (3099) · `updateCableAssetNameField` (3111) · `renderCableProperties` (3137) · `updateCableResult` (3290) · `renderManualRouteUI` (3314) · `refreshVisuals` (3324) · `updateCanvasEmptyHint` (3363) · `renderAll` (3368) · `updateProjectSummary` (3776) · `renderQuickSearchResults` (3835) · `renderTopSearchResults` (3849) · `centerOnPoint` (3884) · `updateMinimap` (3955)
 
 ### Ligações de UI (setup/bind)
 
-`bindRowReorder` (722) · `bindSectionCollapse` (853) · `setupFocusMode` (924) · `setupSummaryRefit` (1057) · `setupEnvAdvanced` (1065) · `setupPlantExport` (1088) · `setupHeatControl` (1096) · `setupRackTooltip` (1135) · `bindAssetColumnResize` (2202) · `bindPropPanel` (2842) · `setupPropCards` (2891) · `bindCablePanelSections` (3265) · `bindManualRouteControls` (3308) · `setupPropSectionResize` (3437) · `setupPan` (3568) · `bindTopSearch` (3856) · `setupMinimap` (3989) · `setupSidebarToggle` (4042) · `setupStructureLockControl` (4062) · `bind` (4074)
+`bindRowReorder` (722) · `bindSectionCollapse` (853) · `setupFocusMode` (924) · `setupSummaryRefit` (1057) · `setupEnvAdvanced` (1065) · `setupPlantExport` (1088) · `setupHeatControl` (1096) · `setupRackTooltip` (1135) · `bindAssetColumnResize` (2202) · `bindPropPanel` (2842) · `setupPropCards` (2891) · `bindCablePanelSections` (3265) · `bindManualRouteControls` (3308) · `setupPropSectionResize` (3437) · `setupPan` (3576) · `bindTopSearch` (3864) · `setupMinimap` (3997) · `setupSidebarToggle` (4050) · `setupStructureLockControl` (4070) · `bind` (4082)
 
 ### Criação e edição de dados
 
@@ -124,7 +124,7 @@ graph LR
 
 ### Busca
 
-`rowMatchesSearch` (618) · `searchableItems` (3777) · `searchListHtml` (3822) · `renderQuickSearchResults` (3827) · `closeTopSearch` (3836) · `renderTopSearchResults` (3841) · `clearTopSearch` (3855) · `bindTopSearch` (3856) · `activateSearchResult` (3884) · `openQuickSearch` (3917) · `closeQuickSearch` (3918)
+`rowMatchesSearch` (618) · `searchableItems` (3785) · `searchListHtml` (3830) · `renderQuickSearchResults` (3835) · `closeTopSearch` (3844) · `renderTopSearchResults` (3849) · `clearTopSearch` (3863) · `bindTopSearch` (3864) · `activateSearchResult` (3892) · `openQuickSearch` (3925) · `closeQuickSearch` (3926)
 
 ### Cálculos (geometria/rota)
 
@@ -132,7 +132,7 @@ graph LR
 
 ### Cascas e modais
 
-`addRowFromPanel` (644) · `buildRowsPanel` (652) · `openRenameRowModal` (937) · `closeRenameRowModal` (952) · `closeAlertsCenterPanel` (1736) · `openAlertsCenterPanel` (1737) · `openAssetModal` (1975) · `closeAssetModal` (2015) · `openAssetsModal` (2521) · `closeAssetsModal` (2522) · `bindPropPanel` (2842) · `openHelpModal` (3911) · `closeHelpModal` (3912)
+`addRowFromPanel` (644) · `buildRowsPanel` (652) · `openRenameRowModal` (937) · `closeRenameRowModal` (952) · `closeAlertsCenterPanel` (1736) · `openAlertsCenterPanel` (1737) · `openAssetModal` (1975) · `closeAssetModal` (2015) · `openAssetsModal` (2521) · `closeAssetsModal` (2522) · `bindPropPanel` (2842) · `openHelpModal` (3919) · `closeHelpModal` (3920)
 
 ### Outras
 

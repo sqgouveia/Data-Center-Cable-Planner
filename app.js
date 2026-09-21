@@ -3463,6 +3463,12 @@ function setupPropSectionResize(){
     // medida agora seria a altura recortada. O layout volta no fim da animação.
     if(propSection.dataset.animating==='1'||cables.dataset.animating==='1')return;
     // Medir sempre sem as travas do próprio layout.
+    // Zerar essas alturas encolhe o card na hora e o navegador joga a rolagem para o topo: quem
+    // estava com o painel rolado (editando o mesmo campo em vários racks ou cabos) perdia a
+    // posição a cada troca de seleção. A rolagem volta junto com as alturas.
+    const rolagemProps=propSection.scrollTop;
+    const listaCabos=cables.querySelector('#cablesList');
+    const rolagemCabos=listaCabos?listaCabos.scrollTop:0;
     propSection.style.height='';
     cables.style.height='';
     handle.style.marginTop='';
@@ -3499,6 +3505,8 @@ function setupPropSectionResize(){
     // Recolhido, quem manda na altura é o --collapsed-h do CSS: uma altura inline aqui venceria
     // esse teto e cortava o cabeçalho (duas linhas quando há seleção).
     propSection.style.height=propSection.classList.contains('collapsed')?'':propH+'px';
+    propSection.scrollTop=rolagemProps;
+    if(listaCabos)listaCabos.scrollTop=rolagemCabos;
     bounds={min:minTop,max:maxTop,usable};
     window.__dccpSplit={nProp,nCab,baseGap,usable,minTop,maxTop,top,propH};
     window.__dccpRaw={
