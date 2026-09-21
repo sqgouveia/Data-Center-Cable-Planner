@@ -4,7 +4,7 @@ import { uiConfirm, uiPrompt } from './dialogs.js';
 import { syncSelectButton, bindStyledSelect } from './styled-select.js';
 import { runtime } from './runtime.js';
 // A prévia desenha a planta de um projeto que não está aberto: usa as mesmas contas do editor.
-import { geometry, rackRect } from './geometry.js';
+import { geometry, rackRect, trayPointForRowIndex } from './geometry.js';
 
 // Estado mutável compartilhado com app.js. Vive num objeto porque um `let` de módulo
 // não pode ser reatribuído por quem importa.
@@ -813,10 +813,15 @@ function projectRoomList(project){
     (Array.isArray(l.rooms)?l.rooms:[]).forEach(id=>porSala.set(String(id),l.name||'Data center'));
   });
   const rooms=Array.isArray(d.rooms)&&d.rooms.length?d.rooms:[{name:'Sala 1',data:d}];
+  // Os assets saem da sala e viram globais do projeto (com roomId) na migração; por isso a
+  // contagem olha os dois lugares.
+  const assetsGlobais=Array.isArray(d.assets)?d.assets:[];
   return rooms.map(r=>{
     const x=r.data||{};
+    const locais=assetsGlobais.filter(a=>a&&String(a.roomId||'')===String(r.id)).length;
     return {name:r.name||'Sala',rows:(x.rows||[]).length,racks:(x.racks||[]).length,
-      cables:(x.cables||[]).length,trays:(x.trays||[]).length,assets:(x.assets||[]).length,
+      cables:(x.cables||[]).length,trays:(x.trays||[]).length,
+      assets:(x.assets||[]).length+locais,
       local:porSala.get(String(r.id))||'Sem data center',data:x};
   });
 }
@@ -850,7 +855,17 @@ function projectRoomSketch(project,room){
         const g=geometry();
         const pecas=[];
         state.trays.forEach(t=>{
-          const x1=Number(t.x1),y1=Number(t.y1),x2=Number(t.x2),y2=Number(t.y2);
+          let {x1,y1,x2,y2}=t;
+          // Calha antiga (gravada como "de fileira A para a B") não tem coordenadas: calcula
+          // como a migração faz, para ela aparecer no desenho.
+          if(![x1,y1,x2,y2].map(Number).every(Number.isFinite)){
+            const ia=state.rows.findIndex(r=>r.id===t.fromRowId), ib=state.rows.findIndex(r=>r.id===t.toRowId);
+            if(ia<0||ib<0)return;
+            const sa=trayPointForRowIndex(state.rows[ia],ia,g,t.sideFrom||null);
+            const sb=trayPointForRowIndex(state.rows[ib],ib,g,t.sideTo||null);
+            x1=sa.x;y1=sa.y;x2=sb.x;y2=sb.y;
+          }
+          x1=Number(x1);y1=Number(y1);x2=Number(x2);y2=Number(y2);
           if([x1,y1,x2,y2].every(Number.isFinite))pecas.push({tipo:'calha',x1,y1,x2,y2});
         });
         state.racks.forEach(r=>{
@@ -934,7 +949,7 @@ function paintProjectsPreview(project){
     </div>
     ${locais.length>1?`<div class="prev-chips">${locais.map((l,k)=>`<button type="button" class="prev-chip ${k===li?'on':''}" data-prev-local="${k}">${esc(l.nome)}</button>`).join('')}</div>`:''}
     <div class="prev-sketch">${projectRoomSketch(project,ativa)}</div>
-    <div class="prev-rooms">${salasDoLocal.map((r,k)=>`<button type="button" class="prev-room ${k===i?'on':''}" data-prev-room="${k}"><b>${esc(r.name)}</b><span><b>${r.racks}</b> racks · <b>${r.cables}</b> cabos · <b>${r.trays}</b> calha${r.trays===1?'':'s'} · <b>${r.assets}</b> assets</span></button>`).join('')}</div>
+    <div class="prev-rooms">${salasDoLocal.map((r,k)=>`<button type="button" class="prev-room ${k===i?'on':''}" data-prev-room="${k}"><b>${esc(r.name)}</b><span><b>${r.rows}</b> fileira${r.rows===1?'':'s'} · <b>${r.racks}</b> racks · <b>${r.cables}</b> cabos · <b>${r.trays}</b> calha${r.trays===1?'':'s'} · <b>${r.assets}</b> assets</span></button>`).join('')}</div>
     <div class="prev-totals">
       <span><b>${st.rooms}</b> sala${st.rooms===1?'':'s'}</span><span><b>${st.rows}</b> fileiras</span>
       <span><b>${st.racks}</b> racks</span><span><b>${st.cables}</b> cabos</span><span><b>${st.trays}</b> calhas</span>

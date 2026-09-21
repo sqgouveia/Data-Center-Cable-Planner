@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { resetState, buildTwoRackScenario } from './helpers.mjs';
 import { state } from '../state.js';
-import { geometry, rackRect } from '../geometry.js';
+import { geometry, rackRect, trayPointForRowIndex } from '../geometry.js';
 
 test('geometry() e rackRect() desenham uma sala emprestada (prévia de projeto)', () => {
   resetState(state);
@@ -35,4 +35,18 @@ test('geometry() e rackRect() desenham uma sala emprestada (prévia de projeto)'
   assert.ok(retangulos[2].x > retangulos[1].x);
   // E o estado de quem estava aberto voltou inteiro.
   assert.equal(state.racks, aberto.racks);
+});
+
+test('calha antiga (sem coordenadas) ganha pontos pela fileira na prévia', () => {
+  resetState(state);
+  const rows = [{ id: 'r1', name: '', rackCount: 2, gap: 0, depth: 1.2 },
+                { id: 'r2', name: '', rackCount: 2, gap: 1.2, depth: 1.2 }];
+  state.rows = rows;
+  state.racks = rows.flatMap((row, ri) => [0, 1].map(i => ({ id: `k${ri}${i}`, rowId: row.id, index: i, name: `${i}`, width: 0.6, depth: 1.2 })));
+  state.trays = [{ id: 't1', fromRowId: 'r1', toRowId: 'r2', fromIndex: 0, toIndex: 1 }];
+  const g = geometry();
+  const a = trayPointForRowIndex(rows[0], 0, g, null);
+  const b = trayPointForRowIndex(rows[1], 1, g, null);
+  for (const v of [a.x, a.y, b.x, b.y]) assert.ok(Number.isFinite(v));
+  assert.ok(b.y > a.y, 'a calha sai da fileira 1 para a 2 (para baixo)');
 });
