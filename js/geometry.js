@@ -47,7 +47,9 @@ export function rackAt(rowId,index){ return racksInRow(rowId).find(r=>r.index===
 // Sem nome de fileira o rack nasce só com o sufixo ("03"), porque é esse o padrão que o
 // renomear da fileira reconhece como automático: antes nascia "R-03" e ficava com esse nome
 // para sempre, aparecendo nos campos de seleção de rack sem a fileira a que pertence.
-export function makeRack(row,index){ const suffix=String(index+1).padStart(2,'0'); return {id:uid('rack'),rowId:row.id,index,name:row.name?`${row.name}-${suffix}`:suffix,units:state.rackUnits,width:state.rackWidth,depth:state.rackDepth,gapAfter:state.rackGap,riseToTray:state.lastUToTray,powerCapacityW:state.rackPowerCapacityW||0,weightCapacityKg:state.rackWeightCapacityKg||0,offset:0,yOffset:0,hasTray:false}; }
+// A fileira nasce com nome posicional (#1, #2): o rack sai do nome sem o jogo da velha,
+// senão virava "1-01" com cerquilha no meio.
+export function makeRack(row,index){ const suffix=String(index+1).padStart(2,'0'); const base=String(row.name||'').replace(/^#/,'').trim(); return {id:uid('rack'),rowId:row.id,index,name:base?`${base}-${suffix}`:suffix,units:state.rackUnits,width:state.rackWidth,depth:state.rackDepth,gapAfter:state.rackGap,riseToTray:state.lastUToTray,powerCapacityW:state.rackPowerCapacityW||0,weightCapacityKg:state.rackWeightCapacityKg||0,offset:0,yOffset:0,hasTray:false}; }
 
 export function rowDepth(row){
   // A row has its own fixed layout depth. Changing an individual rack depth

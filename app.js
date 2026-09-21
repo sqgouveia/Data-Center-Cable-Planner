@@ -127,7 +127,7 @@ function setStructureLock(locked, persist=true){
 }
 function updateStructureControls(){
   const disabled=isStructureLocked();
-  ['btnAddTray','btnBuildRows','btnAddRow'].forEach(id=>{const el=$(id);if(el)el.disabled=disabled;});
+  ['btnAddTray','btnBuildRows','btnAddRow','btnRenameRows'].forEach(id=>{const el=$(id);if(el)el.disabled=disabled;});
   document.querySelectorAll('[data-row-name],[data-row-count],[data-row-gap],[data-rename-row],[data-del-row]').forEach(el=>{el.disabled=disabled;el.setAttribute('aria-disabled',String(disabled));});
   document.querySelectorAll('#properties input:not(#cbName):not(#cbType):not(#cbOR):not(#cbOU):not(#cbDR):not(#cbDU):not(#cbSlack), #properties select:not(#cbType):not(#cbOR):not(#cbDR), #properties button#delRack, #properties button#delTray, #properties button#applyBulkRack, #properties button#delSelectedRacks, #properties button#delSelectedTrays').forEach(el=>{el.disabled=disabled;});
   const btn=$('structureLock'), icon=$('structureLockIcon');
@@ -485,7 +485,7 @@ function structureRebuildImpact(count,racksPerRow,newUnits){
     const row=state.rows.find(x=>x.id===r.rowId);
     return survives(r)&&((row&&r.name!==makeRack(row,r.index).name)||num(r.offset,0)!==0||num(r.yOffset,0)!==0||num(r.powerCapacityW,0)>0||num(r.weightCapacityKg,0)>0);
   }).length;
-  const renamedRows=state.rows.filter((r,i)=>r.name!==`Row-${i+1}`).length;
+  const renamedRows=state.rows.filter((r,i)=>r.name!==`#${i+1}`).length;
   return {
     trays:state.trays.length, lostRacks:lostIds.size, customRacks, renamedRows,
     assetsLost:mounted.filter(a=>lostIds.has(a.rackId)).length,
@@ -570,7 +570,7 @@ async function rebuildStructureFromSettings(){
 
 function addRow(rackCount=0,gap=state.defaultRowGap){
   const i=state.rows.length;
-  const row={id:uid('row'),name:`Row-${i+1}`,rackCount:0,gap:i===0?0:Math.max(0,gap),depth:Math.max(0.1,num(state.rackDepth,1.20))};
+  const row={id:uid('row'),name:`#${i+1}`,rackCount:0,gap:i===0?0:Math.max(0,gap),depth:Math.max(0.1,num(state.rackDepth,1.20))};
   state.rows.push(row);
   for(let j=0;j<rackCount;j++)state.racks.push(makeRack(row,j));
   row.rackCount=rackCount; normalizeIndices(); return row;
@@ -614,7 +614,15 @@ function deleteRow(id){
 // O botão de adicionar fileira vive dentro do cartão da primeira fileira. Sem
 // nenhuma fileira não existe cartão: o botão aparece solto, sem moldura.
 function rowAddButtonHtml(){
-  return `<button id="btnAddRow" class="btn primary full rows-add" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Adicionar fileira</button>`;
+  return `<div class="rows-add-row">
+    <button id="btnAddRow" class="btn primary rows-add" type="button" title="Adicionar fileira" aria-label="Adicionar fileira"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Adicionar</button>
+    <button id="btnRenameRows" class="btn rows-add" type="button" title="Renomear todas as fileiras em sequência" aria-label="Renomear todas as fileiras"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Renomear</button>
+  </div>`;
+}
+// Os dois botões do cartão de Fileiras são religados a cada redesenho do painel.
+function bindRowPanelActions(p){
+  const add=p.querySelector('#btnAddRow'); if(add)add.onclick=addRowFromPanel;
+  const ren=p.querySelector('#btnRenameRows'); if(ren)ren.onclick=openRenameRowsModal;
 }
 // Busca do cartão de Fileiras. O campo vive fora do painel (#rowsPanel é redesenhado a cada
 // alteração; um input dentro dele perderia o foco a cada tecla).
@@ -660,7 +668,7 @@ function buildRowsPanel(){
   const p=$('rowsPanel'); p.innerHTML='';
   if(!state.rows.length){
     p.innerHTML=`<div class="empty">Nenhuma fileira ainda. Crie a primeira aqui — as fileiras nascem com os racks que você definir.</div>${rowAddButtonHtml()}`;
-    p.querySelector('#btnAddRow').onclick=addRowFromPanel;
+    bindRowPanelActions(p);
     return;
   }
   // O número da fileira é a posição na ordem de verdade, nunca a posição na lista filtrada:
@@ -673,7 +681,7 @@ function buildRowsPanel(){
   if(!visiveis.length){
     // O botão de adicionar fica em cima, como na lista normal — não embaixo do aviso.
     p.innerHTML=`${rowAddButtonHtml()}<div class="empty">Nenhuma fileira encontrada para “${esc(rowsSearchQuery.trim())}”.</div>`;
-    p.querySelector('#btnAddRow').onclick=addRowFromPanel;
+    bindRowPanelActions(p);
     return;
   }
   visiveis.forEach(({row,numero})=>{
@@ -695,7 +703,7 @@ function buildRowsPanel(){
   // Adicionar fileira fica acima das fileiras, não dentro da primeira: o botão vale
   // para a lista inteira.
   p.insertAdjacentHTML('afterbegin',rowAddButtonHtml());
-  p.querySelector('#btnAddRow').onclick=addRowFromPanel;
+  bindRowPanelActions(p);
   bindPropPanel(p);
   p.querySelectorAll('[data-row-name]').forEach(e=>e.onchange=()=>{if(structureBlocked())return;
     const r=state.rows.find(x=>x.id===e.dataset.rowName);
@@ -946,6 +954,8 @@ function openRenameRowModal(rowId){
   const racks=racksInRow(rowId); if(!racks.length){toast('Esta fileira não possui racks');return;}
   const rowIndexValue=state.rows.findIndex(r=>r.id===rowId);
   const prefixDefault=`${rowIndexValue+1}0`;
+  $('renameRowModal').dataset.alvo='racks';
+  setRenameModalHint('Renomeie todos os racks da fileira de uma s� vez.');
   $('renameRowId').value=rowId;
   $('renamePrefix').value=prefixDefault;
   $('renameStart').value=1;
@@ -957,26 +967,48 @@ function openRenameRowModal(rowId){
   setTimeout(()=>{$('renamePrefix').focus();$('renamePrefix').select();},0);
 }
 function closeRenameRowModal(){$('renameRowModal').classList.remove('open');}
+// Renomear todas as fileiras de uma vez, com a mesma r�gua dos racks: prefixo + sequ�ncia.
+function openRenameRowsModal(){
+  if(!state.rows.length){toast('Nenhuma fileira para renomear');return;}
+  $('renameRowModal').dataset.alvo='fileiras';
+  setRenameModalHint('As fileiras s�o renomeadas na ordem em que aparecem na planta.');
+  $('renameRowId').value='';
+  $('renamePrefix').value='#';
+  $('renameStart').value=1;
+  $('renamePad').value=0;
+  $('renameRowTitle').textContent='Renomear fileiras';
+  $('renameRowError').textContent='';
+  $('renameRowModal').classList.add('open');
+  updateRenamePreview();
+  setTimeout(()=>{$('renamePrefix').focus();$('renamePrefix').select();},0);
+}
+function setRenameModalHint(texto){const h=$('renameRowModal')?.querySelector('.modal-head span'); if(h)h.textContent=texto;}
 function buildRenameNames(){
-  const rowId=$('renameRowId').value;
-  const racks=racksInRow(rowId);
   const prefix=$('renamePrefix').value.trim();
   const start=Math.max(0,Math.floor(num($('renameStart').value,1)));
   // 'Zeros à esquerda' is the number of zeros to add before the number,
   // not the total width of the numeric portion. Example: 1 -> 01, 2 -> 001.
   const zeros=Math.max(0,Math.min(6,Math.floor(num($('renamePad').value,0))));
-  return racks.map((rack,i)=>{
+  return renameTargets().map((_,i)=>{
     const n=String(start+i);
     return `${prefix}${n.padStart(n.length+zeros,'0')}`;
   });
 }
+// O mesmo modal renomeia os racks de uma fileira ou todas as fileiras.
+function renameTargets(){
+  return $('renameRowModal').dataset.alvo==='fileiras'?state.rows:racksInRow($('renameRowId').value);
+}
+// Nomes que j� pertencem a outro item da mesma fam�lia bloqueiam a aplica��o.
+function renameConflict(names,currentIds){
+  const outros=$('renameRowModal').dataset.alvo==='fileiras'?state.rows:state.racks;
+  return outros.some(x=>!currentIds.has(x.id)&&names.includes(x.name));
+}
 function updateRenamePreview(){
-  const rowId=$('renameRowId').value;
-  const racks=racksInRow(rowId);
+  const racks=renameTargets();
   const names=buildRenameNames();
   const currentIds=new Set(racks.map(r=>r.id));
   const duplicate=new Set(names).size!==names.length;
-  const existingConflict=state.racks.some(r=>!currentIds.has(r.id)&&names.includes(r.name));
+  const existingConflict=renameConflict(names,currentIds);
   const err=duplicate?'Os novos nomes possuem duplicidade.':existingConflict?'Um ou mais nomes já estão sendo usados por outro rack.':'';
   const preview=$('renamePreview');
   preview.innerHTML=racks.map((r,i)=>`<div class="rename-preview-row"><span>${esc(r.name)}</span><b>→</b><span>${esc(names[i])}</span></div>`).join('');
@@ -985,15 +1017,14 @@ function updateRenamePreview(){
 }
 function applyRenameRow(){
   if(structureBlocked())return;
-  const rowId=$('renameRowId').value;
-  const row=state.rows.find(r=>r.id===rowId); if(!row)return;
-  const racks=racksInRow(rowId), names=buildRenameNames();
+  const racks=renameTargets(), names=buildRenameNames();
+  if(!racks.length)return;
   const currentIds=new Set(racks.map(r=>r.id));
-  if(new Set(names).size!==names.length || state.racks.some(r=>!currentIds.has(r.id)&&names.includes(r.name))){toast('Não foi possível aplicar: nomes duplicados');return;}
+  if(new Set(names).size!==names.length || renameConflict(names,currentIds)){toast('N�o foi poss�vel aplicar: nomes duplicados');return;}
   racks.forEach((r,i)=>r.name=names[i]);
   closeRenameRowModal();
   renderAll();
-  toast(`${racks.length} racks renomeados`);
+  toast(`${racks.length} ${renameTargets()===state.rows?'fileiras':'racks'} renomeados`);
 }
 
 
