@@ -2008,9 +2008,18 @@ body.guest-mode #btnSave {
   stroke: color-mix(in srgb, var(--blue) 70%, transparent);
   stroke-width: 1;
 }
-.room-sketch .sketch-tray {
+/* Calha: no esquemático é uma barra (rect, pintada por fill) e na planta é um traço (line,
+   pintada por stroke — com stroke:none ela ficava invisível). */
+.room-sketch rect.sketch-tray {
   fill: var(--orange);
   stroke: none;
+  opacity: 0.9;
+}
+.room-sketch line.sketch-tray {
+  fill: none;
+  stroke: var(--orange);
+  stroke-width: 2.4;
+  stroke-linecap: round;
   opacity: 0.9;
 }
 .room-sketch-empty { fill: var(--muted); font-size: 12px; }
