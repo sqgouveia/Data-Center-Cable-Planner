@@ -2434,6 +2434,9 @@ function updateAssetsBulkBar(){
   if(substatusSel && substatusSel.options.length<=1) substatusSel.innerHTML='<option value="">Alterar substatus...</option>'+assetSubstatusValues().map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
   const locSel=$('assetsBulkLocation');
   if(locSel && locSel.options.length<=1) locSel.innerHTML='<option value="">Alterar localização...</option>'+assetLocationChoices('').replace('<option value="">Selecione a localização</option>','');
+  // As três listas viraram dropdown estilizado: o <select> continua sendo o valor, o botão
+  // espelha o rótulo.
+  ['assetsBulkStatus','assetsBulkSubstatus','assetsBulkLocation'].forEach(id=>syncSelectButton(id,`${id}Btn`));
 }
 async function bulkDeleteAssets(){
   if(!assetSelectedIds.size)return;
@@ -4280,9 +4283,14 @@ function bind(){
   });
   $('assetsBulkClear')?.addEventListener('click',()=>{assetSelectedIds=new Set();renderAssetsList($('assetsSearch')?.value||'');});
   $('assetsBulkDelete')?.addEventListener('click',bulkDeleteAssets);
-  $('assetsBulkStatus')?.addEventListener('change',e=>{const v=e.target.value;e.target.value='';if(v)bulkChangeAssetStatus(v);});
-  $('assetsBulkSubstatus')?.addEventListener('change',e=>{const v=e.target.value;e.target.value='';if(v)bulkChangeAssetSubstatus(v);});
-  $('assetsBulkLocation')?.addEventListener('change',e=>{const v=e.target.value;e.target.value='';if(v)bulkChangeAssetLocation(v);});
+  // Dropdown estilizado: o painel escreve no <select> e dispara change; o botão volta a mostrar
+  // o rótulo de origem depois de aplicar (o valor é limpo a cada uso).
+  [['assetsBulkStatus',v=>bulkChangeAssetStatus(v)],
+   ['assetsBulkSubstatus',v=>bulkChangeAssetSubstatus(v)],
+   ['assetsBulkLocation',v=>bulkChangeAssetLocation(v)]].forEach(([id,acao])=>{
+    bindStyledSelect(id,`${id}Btn`);
+    $(id)?.addEventListener('change',e=>{const v=e.target.value;e.target.value='';syncSelectButton(id,`${id}Btn`);if(v)acao(v);});
+  });
   document.addEventListener('click',e=>{if(!e.target.closest('.col-filter-panel')&&!e.target.closest('[data-filter-col]')){closeAssetColumnFilterMenus();document.querySelectorAll('#assetsTableHead [data-filter-col], .assets-filter-bar [data-filter-col]').forEach(b=>b.classList.remove('menu-open'));}});
   window.addEventListener('resize',closeAssetColumnFilterMenus);
   $('assetEditCancel')?.addEventListener('click',closeAssetModal);

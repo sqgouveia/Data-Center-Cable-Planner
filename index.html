@@ -13,27 +13,27 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=310" />
-    <link rel="stylesheet" href="macos.css?v=175" />
+    <link rel="stylesheet" href="app.css?v=311" />
+    <link rel="stylesheet" href="macos.css?v=176" />
     <script type="importmap">
       {
         "imports": {
-          "./js/bulk-assets.js": "./js/bulk-assets.js?v=324",
-          "./js/cables.js": "./js/cables.js?v=324",
-          "./js/catalogs.js": "./js/catalogs.js?v=324",
-          "./js/cloud-sync.js": "./js/cloud-sync.js?v=324",
-          "./js/dialogs.js": "./js/dialogs.js?v=324",
-          "./js/geometry.js": "./js/geometry.js?v=324",
-          "./js/inventory-import.js": "./js/inventory-import.js?v=324",
-          "./js/occupancy.js": "./js/occupancy.js?v=324",
-          "./js/pdf-report.js": "./js/pdf-report.js?v=324",
-          "./js/plant-export.js": "./js/plant-export.js?v=324",
-          "./js/rack-metrics.js": "./js/rack-metrics.js?v=324",
-          "./js/routing.js": "./js/routing.js?v=324",
-          "./js/runtime.js": "./js/runtime.js?v=324",
-          "./js/state.js": "./js/state.js?v=324",
-          "./js/styled-select.js": "./js/styled-select.js?v=324",
-          "./js/utils.js": "./js/utils.js?v=324"
+          "./js/bulk-assets.js": "./js/bulk-assets.js?v=325",
+          "./js/cables.js": "./js/cables.js?v=325",
+          "./js/catalogs.js": "./js/catalogs.js?v=325",
+          "./js/cloud-sync.js": "./js/cloud-sync.js?v=325",
+          "./js/dialogs.js": "./js/dialogs.js?v=325",
+          "./js/geometry.js": "./js/geometry.js?v=325",
+          "./js/inventory-import.js": "./js/inventory-import.js?v=325",
+          "./js/occupancy.js": "./js/occupancy.js?v=325",
+          "./js/pdf-report.js": "./js/pdf-report.js?v=325",
+          "./js/plant-export.js": "./js/plant-export.js?v=325",
+          "./js/rack-metrics.js": "./js/rack-metrics.js?v=325",
+          "./js/routing.js": "./js/routing.js?v=325",
+          "./js/runtime.js": "./js/runtime.js?v=325",
+          "./js/state.js": "./js/state.js?v=325",
+          "./js/styled-select.js": "./js/styled-select.js?v=325",
+          "./js/utils.js": "./js/utils.js?v=325"
         }
       }
     </script>
@@ -1191,16 +1191,19 @@
             </button>
           </div>
           <div id="cablesBulkBar" class="cables-bulk-bar hidden">
-            <span><b id="cablesBulkCount">0</b> selecionado(s)</span
-            ><button
-              type="button"
-              id="cablesBulkDelete"
-              class="btn ghost small danger-icon"
+            <span class="bulk-bar-lead"
+              ><span class="bulk-bar-badge" aria-hidden="true"
+                ><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg></span
+              ><b id="cablesBulkCount">0</b> selecionado(s)</span
             >
-              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg> Excluir selecionados</button
-            ><button type="button" id="cablesBulkClear" class="btn ghost small">
-              Cancelar seleção
-            </button>
+            <span class="bulk-bar-divider" aria-hidden="true"></span>
+            <div class="bulk-bar-actions">
+              <button type="button" id="cablesBulkClear" class="btn ghost small">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg> Cancelar seleção</button
+              ><button type="button" id="cablesBulkDelete" class="btn danger-btn small">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg> Excluir selecionados</button
+              >
+            </div>
           </div>
           <div id="cablesList"></div>
         </section>
@@ -1483,23 +1486,83 @@
           </button>
         </div>
         <div id="assetsBulkBar" class="assets-bulk-bar hidden">
-          <span><b id="assetsSelectedCount">0</b> selecionado(s)</span>
+          <span class="bulk-bar-lead"
+            ><span class="bulk-bar-badge" aria-hidden="true"
+              ><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg></span
+            ><b id="assetsSelectedCount">0</b> selecionado(s)</span
+          >
+          <span class="bulk-bar-divider" aria-hidden="true"></span>
           <div class="assets-bulk-bar-actions">
-            <select id="assetsBulkStatus">
-              <option value="">Alterar status...</option></select
-            ><select id="assetsBulkSubstatus">
-              <option value="">Alterar substatus...</option></select
-            ><select id="assetsBulkLocation">
-              <option value="">Alterar localização...</option></select
-            ><button
-              id="assetsBulkDelete"
-              class="btn ghost small danger-icon"
-              type="button"
+            <div class="dc-select bulk-select">
+              <select id="assetsBulkStatus" class="visually-hidden-select" aria-hidden="true" tabindex="-1">
+                <option value="">Alterar status...</option></select
+              ><button
+                type="button"
+                id="assetsBulkStatusBtn"
+                class="dc-select-btn bulk-select-btn"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-label="Alterar status dos selecionados"
+              >
+                <svg class="ui-icon bulk-select-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M11.2 3H4v7.2l9.4 9.4a1.8 1.8 0 0 0 2.5 0l4.7-4.7a1.8 1.8 0 0 0 0-2.5L11.2 3Z" />
+                  <path d="M7.6 7.6h.01" /></svg
+                ><span class="dc-select-label">Alterar status...</span
+                ><svg class="ui-icon ic-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 9.5l6 6 6-6" />
+                </svg>
+              </button>
+            </div>
+            <div class="dc-select bulk-select">
+              <select id="assetsBulkSubstatus" class="visually-hidden-select" aria-hidden="true" tabindex="-1">
+                <option value="">Alterar substatus...</option></select
+              ><button
+                type="button"
+                id="assetsBulkSubstatusBtn"
+                class="dc-select-btn bulk-select-btn"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-label="Alterar substatus dos selecionados"
+              >
+                <svg class="ui-icon bulk-select-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="6" cy="12" r="2.1" />
+                  <circle cx="18" cy="6" r="2.1" />
+                  <circle cx="18" cy="18" r="2.1" />
+                  <path d="M8 11.1 15.9 7M8 12.9l7.9 4.1" /></svg
+                ><span class="dc-select-label">Alterar substatus...</span
+                ><svg class="ui-icon ic-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 9.5l6 6 6-6" />
+                </svg>
+              </button>
+            </div>
+            <div class="dc-select bulk-select">
+              <select id="assetsBulkLocation" class="visually-hidden-select" aria-hidden="true" tabindex="-1">
+                <option value="">Alterar localização...</option></select
+              ><button
+                type="button"
+                id="assetsBulkLocationBtn"
+                class="dc-select-btn bulk-select-btn"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-label="Alterar localização dos selecionados"
+              >
+                <svg class="ui-icon bulk-select-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11Z" />
+                  <circle cx="12" cy="10" r="2.6" /></svg
+                ><span class="dc-select-label">Alterar localização...</span
+                ><svg class="ui-icon ic-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 9.5l6 6 6-6" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <span class="bulk-bar-divider" aria-hidden="true"></span>
+          <div class="bulk-bar-actions">
+            <button id="assetsBulkClear" class="btn ghost small" type="button">
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg> Cancelar seleção</button
+            ><button id="assetsBulkDelete" class="btn danger-btn small" type="button">
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg> Excluir selecionados</button
             >
-              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg> Excluir selecionados</button
-            ><button id="assetsBulkClear" class="btn ghost small" type="button">
-              Cancelar seleção
-            </button>
           </div>
         </div>
         <div class="assets-table-wrap">
@@ -4113,6 +4176,6 @@
       <span class="task-bar-fill" aria-hidden="true"></span>
       <span class="task-bar-label" id="taskBarLabel">Processando…</span>
     </div>
-    <script type="module" src="app.js?v=324"></script>
+    <script type="module" src="app.js?v=325"></script>
   </body>
 </html>

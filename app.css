@@ -3979,7 +3979,6 @@ body.guest-mode #btnSave {
 .cables-bulk-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   padding: 7px 10px;
   margin-bottom: 8px;
@@ -3989,6 +3988,65 @@ body.guest-mode #btnSave {
   font-size: var(--fs-micro);
   color: var(--text);
   flex-wrap: wrap;
+}
+/* Faixa de seleção múltipla (cabos e assets): selo, contagem, divisória e ações — o mesmo
+   desenho nas duas, com os atalhos no meio. */
+.bulk-bar-lead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+.bulk-bar-badge {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-sm);
+  background: var(--blue);
+  color: #fff;
+}
+.bulk-bar-badge svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bulk-bar-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 2px;
+  background: color-mix(in srgb, var(--border) 90%, transparent);
+}
+.bulk-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.bulk-select-btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: var(--r-sm);
+  height: 30px;
+  padding: 0 8px;
+  max-width: 176px;
+}
+.bulk-select-btn .bulk-select-icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  fill: none;
+  stroke: var(--blue-ink);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .cables-bulk-bar b {
   font-weight: 800;
@@ -4635,7 +4693,6 @@ body.guest-mode #btnSave {
 .assets-bulk-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 9px 14px;
   margin-bottom: 10px;
@@ -4653,18 +4710,14 @@ body.guest-mode #btnSave {
 .assets-bulk-bar-actions {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  flex: 1;
+  min-width: 0;
   flex-wrap: wrap;
 }
-.assets-bulk-bar-actions select {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: var(--r-sm);
-  padding: 6px 8px;
-  font-size: var(--fs-micro);
-  height: 30px;
-  max-width: 150px;
+.bulk-select {
+  min-width: 0;
 }
 .asset-edit-card {
   width: min(980px, calc(100vw - 40px));
