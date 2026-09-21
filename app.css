@@ -4710,9 +4710,8 @@ body.guest-mode #btnSave {
 .assets-bulk-bar-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  flex: 1;
+  flex: none;
   min-width: 0;
   flex-wrap: wrap;
 }
