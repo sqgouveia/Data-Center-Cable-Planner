@@ -990,10 +990,10 @@ select:disabled {
 .asset-ports-thead,
 .asset-port-row {
   display: grid;
-  /* Conexão é o campo que precisa de largura: o resto cede. */
-  grid-template-columns: 34px 38px minmax(96px, 0.9fr) minmax(190px, 2.2fr) 100px 60px 78px;
+  /* Colunas apertadas de propósito: toda a sobra vai para a conexão, que é o texto longo. */
+  grid-template-columns: 26px 32px minmax(84px, 0.8fr) minmax(220px, 3fr) 92px 54px 66px;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 .asset-ports-thead {
   padding: 7px 10px;
@@ -1019,12 +1019,12 @@ select:disabled {
 .asset-port-row.is-free { border-left-color: var(--green); }
 .asset-port-row.is-used { border-left-color: var(--red); }
 .asset-port-index {
-  font: 700 12px "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  font: 700 11px "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
   color: var(--muted);
   text-align: center;
 }
 .asset-port-icon {
-  width: 28px; height: 28px;
+  width: 26px; height: 26px;
   display: grid; place-items: center;
   border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--panel2); color: var(--muted);
@@ -1053,20 +1053,20 @@ select:disabled {
 .asset-port-status {
   display: inline-flex; align-items: center; gap: 6px;
   justify-self: start; padding: 3px 9px; border-radius: 999px;
-  font-size: 11px; font-weight: 700;
+  font-size: 10.5px; font-weight: 700;
 }
 .asset-port-status i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .asset-port-status.is-free { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
 .asset-port-status.is-used { color: var(--red); background: color-mix(in srgb, var(--red) 14%, transparent); }
 .asset-port-poe {
   display: flex; align-items: center; gap: 6px;
-  font-size: 11.5px; color: var(--muted); cursor: pointer;
+  font-size: 11px; color: var(--muted); cursor: pointer;
 }
-.asset-port-poe input { width: 15px; height: 15px; margin: 0; cursor: pointer; }
+.asset-port-poe input { width: 14px; height: 14px; margin: 0; cursor: pointer; }
 .asset-port-poe:has(input:checked) { color: var(--orange); }
 .asset-port-actions { display: flex; align-items: center; gap: 6px; justify-self: end; }
 .asset-port-actions .iconbtn {
-  width: 26px; height: 26px;
+  width: 24px; height: 24px;
   display: grid; place-items: center;
   border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--panel2); color: var(--muted);
