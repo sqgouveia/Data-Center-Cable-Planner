@@ -13,27 +13,27 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=324" />
-    <link rel="stylesheet" href="macos.css?v=189" />
+    <link rel="stylesheet" href="app.css?v=325" />
+    <link rel="stylesheet" href="macos.css?v=190" />
     <script type="importmap">
       {
         "imports": {
-          "./js/bulk-assets.js": "./js/bulk-assets.js?v=338",
-          "./js/cables.js": "./js/cables.js?v=338",
-          "./js/catalogs.js": "./js/catalogs.js?v=338",
-          "./js/cloud-sync.js": "./js/cloud-sync.js?v=338",
-          "./js/dialogs.js": "./js/dialogs.js?v=338",
-          "./js/geometry.js": "./js/geometry.js?v=338",
-          "./js/inventory-import.js": "./js/inventory-import.js?v=338",
-          "./js/occupancy.js": "./js/occupancy.js?v=338",
-          "./js/pdf-report.js": "./js/pdf-report.js?v=338",
-          "./js/plant-export.js": "./js/plant-export.js?v=338",
-          "./js/rack-metrics.js": "./js/rack-metrics.js?v=338",
-          "./js/routing.js": "./js/routing.js?v=338",
-          "./js/runtime.js": "./js/runtime.js?v=338",
-          "./js/state.js": "./js/state.js?v=338",
-          "./js/styled-select.js": "./js/styled-select.js?v=338",
-          "./js/utils.js": "./js/utils.js?v=338"
+          "./js/bulk-assets.js": "./js/bulk-assets.js?v=339",
+          "./js/cables.js": "./js/cables.js?v=339",
+          "./js/catalogs.js": "./js/catalogs.js?v=339",
+          "./js/cloud-sync.js": "./js/cloud-sync.js?v=339",
+          "./js/dialogs.js": "./js/dialogs.js?v=339",
+          "./js/geometry.js": "./js/geometry.js?v=339",
+          "./js/inventory-import.js": "./js/inventory-import.js?v=339",
+          "./js/occupancy.js": "./js/occupancy.js?v=339",
+          "./js/pdf-report.js": "./js/pdf-report.js?v=339",
+          "./js/plant-export.js": "./js/plant-export.js?v=339",
+          "./js/rack-metrics.js": "./js/rack-metrics.js?v=339",
+          "./js/routing.js": "./js/routing.js?v=339",
+          "./js/runtime.js": "./js/runtime.js?v=339",
+          "./js/state.js": "./js/state.js?v=339",
+          "./js/styled-select.js": "./js/styled-select.js?v=339",
+          "./js/utils.js": "./js/utils.js?v=339"
         }
       }
     </script>
@@ -3392,31 +3392,61 @@
                     </button>
                   </div>
                 </div>
-                <div class="asset-ports-head">
-                  <span
-                    >Portas <b id="assetPortsCount">0</b
-                    ><small
-                      id="assetPortsUsedCount"
-                      class="asset-ports-used-count"
-                    ></small></span
-                  ><button
-                    type="button"
-                    id="assetPortsToggle"
-                    class="btn ghost small asset-ports-toggle"
-                    title="Mostrar/ocultar portas"
-                    aria-expanded="true"
-                  >
-                    <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M6 9l6 6 6-6" />
-                    </svg>
-                    Mostrar/ocultar
-                  </button>
+                <div class="asset-ports-bar">
+                  <div class="asset-ports-summary">
+                    <span>Portas <b id="assetPortsCount">0</b></span>
+                    <span class="asset-ports-dot" aria-hidden="true"></span>
+                    <b id="assetPortsUsedCount" class="asset-ports-used-count"></b>
+                    <span class="asset-ports-dot" aria-hidden="true"></span>
+                    <b id="assetPortsFreeCount" class="asset-ports-free-count"></b>
+                  </div>
+                  <div class="asset-ports-tools">
+                    <label class="asset-ports-search"
+                      ><svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="m21 21-4.3-4.3" /></svg
+                      ><input
+                        id="assetPortsSearch"
+                        type="search"
+                        placeholder="Buscar porta..."
+                        autocomplete="off"
+                    /></label>
+                    <select id="assetPortsFilter" aria-label="Mostrar portas">
+                      <option value="all">Mostrar: Todas</option>
+                      <option value="used">Mostrar: Em uso</option>
+                      <option value="free">Mostrar: Disponíveis</option>
+                    </select>
+                  </div>
                 </div>
-                <div id="assetPortsList" class="asset-ports-list"></div>
-                <div class="field-help">
-                  Preenchidas automaticamente a partir do modelo (Catálogo →
-                  Modelos). Podem ser escolhidas ao criar um cabo conectado a
-                  este asset.
+                <div class="asset-ports-table">
+                  <div class="asset-ports-thead" aria-hidden="true">
+                    <span>#</span><span>Porta / Interface</span><span>Conexão</span
+                    ><span>Status</span><span>PoE</span><span>Ações</span>
+                  </div>
+                  <div id="assetPortsList" class="asset-ports-list"></div>
+                </div>
+                <div class="asset-ports-hint">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 8v8M8 12h8" />
+                  </svg>
+                  <span
+                    >As portas podem ser preenchidas automaticamente a partir do modelo
+                    (Catálogo → Modelos) ou adicionadas manualmente.</span
+                  >
+                </div>
+                <div class="asset-ports-foot">
+                  <span class="asset-ports-tip"
+                    ><svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9V15h7v-1.1A6 6 0 0 0 12 3Z" /></svg
+                    >Dica: clique em uma porta para editar os detalhes da conexão.</span
+                  >
+                  <span class="asset-ports-totals"
+                    >Total: <b id="assetPortsTotalFoot">0</b> <i>|</i>
+                    <em>Em uso: <b id="assetPortsUsedFoot">0</b></em> <i>|</i>
+                    <b id="assetPortsFreeFoot">Disponíveis: 0</b></span
+                  >
                 </div>
               </section>
 
@@ -4150,6 +4180,6 @@
       <span class="task-bar-fill" aria-hidden="true"></span>
       <span class="task-bar-label" id="taskBarLabel">Processando…</span>
     </div>
-    <script type="module" src="app.js?v=338"></script>
+    <script type="module" src="app.js?v=339"></script>
   </body>
 </html>

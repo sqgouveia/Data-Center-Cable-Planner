@@ -886,99 +886,187 @@ select:disabled {
   color: var(--muted);
   font-size: var(--fs-micro);
 }
+/* ---------- Portas do asset: resumo, busca, tabela e rodapé ---------- */
+.asset-ports-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.asset-ports-summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.asset-ports-summary b { color: var(--text); font-weight: 800; }
+.asset-ports-used-count { color: var(--red) !important; }
+.asset-ports-free-count { color: var(--green) !important; }
+.asset-ports-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--muted) 65%, transparent);
+}
+.asset-ports-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.asset-ports-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  min-width: 240px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+}
+.asset-ports-search svg {
+  width: 15px; height: 15px; flex: none;
+  fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round;
+}
+.asset-ports-search input {
+  flex: 1; min-width: 0; padding: 0; border: 0; background: transparent;
+  color: var(--text); font: inherit; font-size: 12px;
+}
+.asset-ports-search input:focus { outline: 0; }
+.asset-ports-tools select {
+  height: 34px; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--panel); color: var(--text); font: inherit; font-size: 12px;
+}
+.asset-ports-table {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--panel2) 55%, transparent);
+}
+.asset-ports-thead,
+.asset-port-row {
+  display: grid;
+  grid-template-columns: 40px 40px minmax(108px, 1fr) minmax(140px, 1.6fr) 104px 64px 84px;
+  align-items: center;
+  gap: 8px;
+}
+.asset-ports-thead {
+  padding: 10px 12px;
+  font-size: 11px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
 .asset-ports-list {
-  max-height: 320px;
+  max-height: 340px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-}
-.asset-ports-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  flex: none;
-}
-.asset-ports-toggle svg {
-  width: 12px;
-  height: 12px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: transform 0.15s ease;
-}
-.asset-edit-section.ports-collapsed .asset-ports-toggle svg {
-  transform: rotate(-90deg);
-}
-.asset-edit-section.ports-collapsed #assetPortsList,
-.asset-edit-section.ports-collapsed .field-help {
-  display: none;
+  gap: 8px;
+  padding: 10px;
 }
 .asset-port-row {
-  display: grid;
-  grid-template-columns: 20px 1fr auto auto;
-  align-items: center;
-  gap: 6px;
-  border-radius: 4px;
-  padding: 3px 5px;
-  border: 1px solid transparent;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--panel);
 }
-.asset-port-row.is-free {
-  background: color-mix(in srgb, var(--green) 8%, transparent);
-  border-color: color-mix(in srgb, var(--green) 25%, var(--border));
-}
-.asset-port-row.is-used {
-  background: color-mix(in srgb, var(--red) 9%, transparent);
-  border-color: color-mix(in srgb, var(--red) 30%, var(--border));
-}
+.asset-port-row.is-free { border-left-color: var(--green); }
+.asset-port-row.is-used { border-left-color: var(--red); }
 .asset-port-index {
-  font-size: var(--fs-micro);
+  font: 700 12px "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
   color: var(--muted);
-  font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
   text-align: center;
 }
-.asset-port-fields {
-  min-width: 0;
+.asset-port-icon {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--panel2); color: var(--muted);
+}
+.asset-port-icon svg {
+  width: 17px; height: 17px;
+  fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round;
 }
 .asset-port-name {
-  padding: 6px 8px;
-  font-size: 11px;
-  height: 30px;
+  width: 100%; height: 32px; padding: 0;
+  border: 0; background: transparent; color: var(--text);
+  font: 700 13px var(--font-body);
 }
+.asset-port-name:focus { outline: 0; border-bottom: 1px solid var(--blue); }
 .asset-port-conn {
-  display: block;
-  font-size: var(--fs-micro);
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex; align-items: center; gap: 6px;
+  min-width: 0; font-size: 11.5px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.asset-port-row.is-used .asset-port-conn {
-  color: var(--red-ink);
+.asset-port-conn svg {
+  width: 13px; height: 13px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.8;
 }
-.asset-port-row.is-free .asset-port-conn.is-free-label {
-  color: var(--green);
+.asset-port-conn b { color: var(--text); }
+.asset-port-conn small { color: var(--muted); }
+.asset-port-status {
+  display: inline-flex; align-items: center; gap: 6px;
+  justify-self: start; padding: 4px 10px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 700;
 }
+.asset-port-status i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.asset-port-status.is-free { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
+.asset-port-status.is-used { color: var(--red); background: color-mix(in srgb, var(--red) 14%, transparent); }
 .asset-port-poe {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--fs-micro);
-  font-weight: 700;
-  color: var(--muted);
-  cursor: pointer;
-  white-space: nowrap;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--muted); cursor: pointer;
 }
-.asset-port-poe input {
-  width: 13px;
-  height: 13px;
-  margin: 0;
-  cursor: pointer;
+.asset-port-poe input { width: 15px; height: 15px; margin: 0; cursor: pointer; }
+.asset-port-poe:has(input:checked) { color: var(--orange); }
+.asset-port-actions { display: flex; align-items: center; gap: 6px; justify-self: end; }
+.asset-port-actions .iconbtn {
+  width: 32px; height: 32px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--panel2); color: var(--muted);
 }
-.asset-port-poe:has(input:checked) {
-  color: var(--orange);
+.asset-port-actions .iconbtn svg {
+  width: 15px; height: 15px;
+  fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.asset-port-actions .danger-icon {
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 35%, var(--border));
+}
+.asset-ports-hint {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 10px; padding: 10px 12px;
+  border: 1px dashed var(--border); border-radius: var(--r-md);
+  font-size: 12px; color: var(--muted);
+}
+.asset-ports-hint svg {
+  width: 17px; height: 17px; flex: none;
+  fill: none; stroke: var(--muted); stroke-width: 1.7; stroke-linecap: round;
+}
+.asset-ports-foot {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-top: 10px; font-size: 12px; color: var(--muted);
+}
+.asset-ports-tip { display: flex; align-items: center; gap: 7px; }
+.asset-ports-tip svg {
+  width: 15px; height: 15px;
+  fill: none; stroke: var(--orange); stroke-width: 1.7; stroke-linecap: round;
+}
+.asset-ports-totals { margin-left: auto; }
+.asset-ports-totals b { color: var(--text); }
+.asset-ports-totals em { font-style: normal; color: var(--red); }
+.asset-ports-totals em b { color: var(--red); }
+.asset-ports-totals #assetPortsFreeFoot { color: var(--green); }
+.asset-ports-totals i { font-style: normal; padding: 0 2px; color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.asset-ports-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 22px 10px; text-align: center; color: var(--muted);
+}
+.asset-ports-empty b { color: var(--text); font-size: 13px; }
+.asset-ports-empty > span:not(.asset-ports-empty-icon) { font-size: 11.5px; max-width: 420px; }
+.asset-ports-empty-icon svg {
+  width: 26px; height: 26px;
+  fill: none; stroke: currentColor; stroke-width: 1.6; opacity: 0.7;
 }
 .port-defs-section {
   border: 1px solid var(--border);

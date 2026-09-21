@@ -1936,17 +1936,34 @@ function allProjectCables(){
 function findPortConnection(portId){
   return allProjectCables().find(c=>c.originPortId===portId||c.destPortId===portId)||null;
 }
-function setAssetPortsCollapsed(collapsed){
-  const section=$('assetStepPortas'); if(!section)return;
-  section.classList.toggle('ports-collapsed',collapsed);
-  $('assetPortsToggle')?.setAttribute('aria-expanded',collapsed?'false':'true');
-}
+// Busca e filtro da lista de portas do editor de asset (só de tela, não vão para o asset).
+let assetPortsQuery='', assetPortsFilter='all';
+const PORT_ICON='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 17v4M17 17v4M9 10v4M15 10v4"/></svg>';
 function renderAssetPortsEditor(){
   const list=$('assetPortsList'); if(!list)return;
-  $('assetPortsCount').textContent=assetEditPorts.length;
-  const usedCount=assetEditPorts.filter(p=>findPortConnection(p.id)).length;
-  if($('assetPortsUsedCount'))$('assetPortsUsedCount').textContent=assetEditPorts.length?`· ${usedCount} em uso · ${assetEditPorts.length-usedCount} disponível(is)`:'';
-  list.innerHTML=assetEditPorts.length?assetEditPorts.map((p,i)=>{
+  const total=assetEditPorts.length;
+  const usados=assetEditPorts.filter(p=>findPortConnection(p.id)).length;
+  const livres=total-usados;
+  const texto=(id,v)=>{const el=$(id); if(el)el.textContent=v;};
+  texto('assetPortsCount',String(total));
+  texto('assetPortsUsedCount',`${usados} em uso`);
+  texto('assetPortsFreeCount',`${livres} disponível(is)`);
+  texto('assetPortsTotalFoot',String(total));
+  texto('assetPortsUsedFoot',String(usados));
+  texto('assetPortsFreeFoot',`Disponíveis: ${livres}`);
+  const busca=$('assetPortsSearch'), filtro=$('assetPortsFilter');
+  if(busca&&busca.value!==assetPortsQuery)busca.value=assetPortsQuery;
+  if(filtro&&filtro.value!==assetPortsFilter)filtro.value=assetPortsFilter;
+  const visiveis=assetEditPorts.filter(p=>{
+    const conn=findPortConnection(p.id);
+    if(assetPortsFilter==='used'&&!conn)return false;
+    if(assetPortsFilter==='free'&&conn)return false;
+    const q=assetPortsQuery.trim().toLowerCase();
+    if(!q)return true;
+    return String(p.label||'').toLowerCase().includes(q)||(conn?String(conn.name||'').toLowerCase().includes(q):false);
+  });
+  list.innerHTML=visiveis.length?visiveis.map(p=>{
+    const i=assetEditPorts.indexOf(p);
     const conn=findPortConnection(p.id);
     let connLabel='';
     if(conn){
@@ -1957,11 +1974,23 @@ function renderAssetPortsEditor(){
       const otherFace=isOrigin?conn.destFace:conn.originFace;
       connLabel=cableEndpointLabel(otherRackId,otherU,otherPortId,'',isOrigin?conn.destAssetName:conn.originAssetName,otherFace);
     }
-    return `<div class="asset-port-row ${conn?'is-used':'is-free'}"><span class="asset-port-index">${i+1}</span><div class="asset-port-fields"><input type="text" class="asset-port-name" data-port-id="${esc(p.id)}" value="${esc(p.label)}" placeholder="Nome da porta">${conn?`<small class="asset-port-conn" title="${esc(conn.name)} → ${esc(connLabel)}">${uiIcon('link')} ${esc(conn.name)} → ${esc(connLabel)}</small>`:'<small class="asset-port-conn is-free-label">Disponível</small>'}</div><label class="asset-port-poe" title="Porta PoE"><input type="checkbox" data-port-poe="${esc(p.id)}" ${p.poe?'checked':''}><span>PoE</span></label><button type="button" class="iconbtn danger-icon" data-port-remove="${esc(p.id)}" title="Remover porta">${uiIcon('close')}</button></div>`;
+    return `<div class="asset-port-row ${conn?'is-used':'is-free'}">
+      <span class="asset-port-index">${i+1}</span>
+      <span class="asset-port-icon">${PORT_ICON}</span>
+      <input type="text" class="asset-port-name" data-port-id="${esc(p.id)}" value="${esc(p.label)}" placeholder="Nome da porta" title="Nome da porta">
+      <span class="asset-port-conn ${conn?'':'is-free-label'}" title="${conn?`${esc(conn.name)} → ${esc(connLabel)}`:'Sem conexão'}">${conn?`${uiIcon('link')}<b>${esc(conn.name)}</b> → ${esc(connLabel)}`:'— <small>Sem conexão</small>'}</span>
+      <span class="asset-port-status ${conn?'is-used':'is-free'}"><i></i>${conn?'Em uso':'Disponível'}</span>
+      <label class="asset-port-poe" title="Porta PoE"><input type="checkbox" data-port-poe="${esc(p.id)}" ${p.poe?'checked':''}><span>PoE</span></label>
+      <span class="asset-port-actions">
+        <button type="button" class="iconbtn asset-port-edit" data-port-edit="${esc(p.id)}" title="Editar o nome desta porta">${uiIcon('pencil')}</button>
+        <button type="button" class="iconbtn danger-icon" data-port-remove="${esc(p.id)}" title="Remover porta">${uiIcon('trash')}</button>
+      </span>
+    </div>`;
   }).join(''):'<div class="asset-ports-empty"><span class="asset-ports-empty-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v4M15 4v4M9 16v4M15 16v4"/></svg></span><b>Nenhuma porta cadastrada</b><span>Adicione as portas do equipamento para facilitar o planejamento de conectividade.</span></div>';
   list.querySelectorAll('[data-port-id]').forEach(inp=>inp.oninput=()=>{const p=assetEditPorts.find(x=>x.id===inp.dataset.portId);if(p)p.label=inp.value;});
   list.querySelectorAll('[data-port-poe]').forEach(cb=>cb.onchange=()=>{const p=assetEditPorts.find(x=>x.id===cb.dataset.portPoe);if(p)p.poe=cb.checked;});
   list.querySelectorAll('[data-port-remove]').forEach(b=>b.onclick=()=>{assetEditPorts=assetEditPorts.filter(p=>p.id!==b.dataset.portRemove);renderAssetPortsEditor();});
+  list.querySelectorAll('[data-port-edit]').forEach(b=>b.onclick=()=>{const inp=list.querySelector(`[data-port-id="${CSS.escape(b.dataset.portEdit)}"]`);if(inp){inp.focus();inp.select();}});
 }
 async function exportAssetPortsXLSX(){
   try{
@@ -2038,7 +2067,6 @@ function openAssetModal(assetId=null, rackId=null, uStart=null){
   if($('assetFace'))$('assetFace').value=asset?.face||'';
   assetEditPorts=asset?.ports?cloneData(asset.ports):[];
   if(!assetEditPorts.length)autoFillPortsFromModelIfEmpty();
-  setAssetPortsCollapsed(false);
   renderAssetPortsEditor();
   autoFillPortsFromModelIfEmpty();
   if($('assetPowerW')){$('assetPowerW').value=asset?.powerW||'';if(!$('assetPowerW').value)autoFillPowerFromModelIfEmpty();}
@@ -4306,7 +4334,8 @@ function bind(){
   $('roomEditorClose')?.addEventListener('click',closeRoomEditor);
   $('roomEditorCancel')?.addEventListener('click',closeRoomEditor);
   $('assetPortsAdd')?.addEventListener('click',()=>{assetEditPorts.push({id:uid('port'),label:`Porta ${assetEditPorts.length+1}`,poe:false});renderAssetPortsEditor();const inputs=document.querySelectorAll('#assetPortsList .asset-port-name');const last=inputs[inputs.length-1];if(last){last.focus();last.select();}});
-  $('assetPortsToggle')?.addEventListener('click',()=>{const section=$('assetStepPortas');setAssetPortsCollapsed(!section?.classList.contains('ports-collapsed'));});
+  $('assetPortsSearch')?.addEventListener('input',e=>{assetPortsQuery=e.target.value||'';renderAssetPortsEditor();});
+  $('assetPortsFilter')?.addEventListener('change',e=>{assetPortsFilter=e.target.value||'all';renderAssetPortsEditor();});
   $('assetWarrantyExpiration')?.addEventListener('input',updateAssetLifecycleBadge);
   $('assetEndOfLife')?.addEventListener('input',updateAssetLifecycleBadge);
   $('assetNotes')?.addEventListener('input',updateAssetNotesCount);
