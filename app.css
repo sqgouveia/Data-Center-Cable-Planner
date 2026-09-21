@@ -1959,12 +1959,6 @@ body.guest-mode #btnSave {
   gap: 18px;
   align-items: start;
 }
-.projects-split.is-grid {
-  grid-template-columns: minmax(0, 1fr);
-}
-.projects-split.is-grid .projects-preview {
-  display: none;
-}
 .projects-preview {
   position: sticky;
   top: 18px;
@@ -1978,22 +1972,6 @@ body.guest-mode #btnSave {
 .prev-head { margin-bottom: 10px; }
 .prev-name { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
 .prev-meta { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
-.prev-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-.prev-chip {
-  border: 1px solid var(--border);
-  background: var(--panel);
-  color: var(--muted);
-  border-radius: 999px;
-  padding: 4px 11px;
-  font: 600 11.5px var(--font-body);
-  cursor: pointer;
-}
-.prev-chip:hover { color: var(--text); }
-.prev-chip.on {
-  color: #fff;
-  border-color: transparent;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--blue) 92%, white), var(--blue));
-}
 .prev-sketch {
   height: 150px;
   border-radius: var(--r-md);
@@ -2010,6 +1988,11 @@ body.guest-mode #btnSave {
   fill: color-mix(in srgb, var(--blue) 42%, var(--panel));
   stroke: color-mix(in srgb, var(--blue) 70%, transparent);
   stroke-width: 1;
+}
+.room-sketch .sketch-tray {
+  fill: var(--orange);
+  stroke: none;
+  opacity: 0.9;
 }
 .room-sketch-empty { fill: var(--muted); font-size: 12px; }
 .prev-rooms { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; }
@@ -2051,12 +2034,22 @@ body.guest-mode #btnSave {
   display: flex;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid var(--border);
-  padding: 12px 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--panel2) 62%, transparent);
   cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease;
 }
-.project-row:hover { background: color-mix(in srgb, var(--blue) 6%, transparent); }
-.project-row.on { background: color-mix(in srgb, var(--blue) 12%, transparent); box-shadow: inset 3px 0 0 var(--blue); }
+.project-row:hover {
+  border-color: color-mix(in srgb, var(--blue) 42%, var(--border));
+  background: color-mix(in srgb, var(--blue) 7%, transparent);
+}
+.project-row.on {
+  border-color: color-mix(in srgb, var(--blue) 55%, var(--border));
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  box-shadow: inset 3px 0 0 var(--blue);
+}
 .project-row .project-title-block { flex: 1; min-width: 0; }
 .project-row-chip {
   flex: none;
@@ -10399,7 +10392,8 @@ button.bayface-rack-state {
   margin-bottom: 18px;
 }
 .dashboard-search {
-  flex: 1;
+  /* Campo de busca mais curto: a linha também carrega o Novo projeto e a ordenação. */
+  flex: 0 1 520px;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -10409,6 +10403,14 @@ button.bayface-rack-state {
   border: 1px solid color-mix(in srgb, var(--blue) 28%, var(--border));
   border-radius: var(--r-lg);
   background: color-mix(in srgb, var(--panel2) 55%, var(--panel));
+}
+.dashboard-controls #dashboardNewProject {
+  align-self: stretch;
+  height: auto;
+  padding-inline: 18px;
+}
+.dashboard-controls .dashboard-sort-btn {
+  margin-left: auto;
 }
 .dashboard-search:focus-within {
   border-color: var(--blue);

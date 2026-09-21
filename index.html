@@ -13,27 +13,27 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=313" />
-    <link rel="stylesheet" href="macos.css?v=178" />
+    <link rel="stylesheet" href="app.css?v=314" />
+    <link rel="stylesheet" href="macos.css?v=179" />
     <script type="importmap">
       {
         "imports": {
-          "./js/bulk-assets.js": "./js/bulk-assets.js?v=327",
-          "./js/cables.js": "./js/cables.js?v=327",
-          "./js/catalogs.js": "./js/catalogs.js?v=327",
-          "./js/cloud-sync.js": "./js/cloud-sync.js?v=327",
-          "./js/dialogs.js": "./js/dialogs.js?v=327",
-          "./js/geometry.js": "./js/geometry.js?v=327",
-          "./js/inventory-import.js": "./js/inventory-import.js?v=327",
-          "./js/occupancy.js": "./js/occupancy.js?v=327",
-          "./js/pdf-report.js": "./js/pdf-report.js?v=327",
-          "./js/plant-export.js": "./js/plant-export.js?v=327",
-          "./js/rack-metrics.js": "./js/rack-metrics.js?v=327",
-          "./js/routing.js": "./js/routing.js?v=327",
-          "./js/runtime.js": "./js/runtime.js?v=327",
-          "./js/state.js": "./js/state.js?v=327",
-          "./js/styled-select.js": "./js/styled-select.js?v=327",
-          "./js/utils.js": "./js/utils.js?v=327"
+          "./js/bulk-assets.js": "./js/bulk-assets.js?v=328",
+          "./js/cables.js": "./js/cables.js?v=328",
+          "./js/catalogs.js": "./js/catalogs.js?v=328",
+          "./js/cloud-sync.js": "./js/cloud-sync.js?v=328",
+          "./js/dialogs.js": "./js/dialogs.js?v=328",
+          "./js/geometry.js": "./js/geometry.js?v=328",
+          "./js/inventory-import.js": "./js/inventory-import.js?v=328",
+          "./js/occupancy.js": "./js/occupancy.js?v=328",
+          "./js/pdf-report.js": "./js/pdf-report.js?v=328",
+          "./js/plant-export.js": "./js/plant-export.js?v=328",
+          "./js/rack-metrics.js": "./js/rack-metrics.js?v=328",
+          "./js/routing.js": "./js/routing.js?v=328",
+          "./js/runtime.js": "./js/runtime.js?v=328",
+          "./js/state.js": "./js/state.js?v=328",
+          "./js/styled-select.js": "./js/styled-select.js?v=328",
+          "./js/utils.js": "./js/utils.js?v=328"
         }
       }
     </script>
@@ -295,11 +295,6 @@
             <h2>Meus projetos</h2>
             <p>Abra, duplique, renomeie ou exclua seus projetos.</p>
           </div>
-          <button id="dashboardNewProject" class="btn primary ui-icon-label">
-            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 5v14M5 12h14" /></svg
-            >Novo projeto
-          </button>
         </div>
         <div class="dashboard-controls">
           <div class="dashboard-search">
@@ -314,6 +309,11 @@
               autocomplete="off"
             />
           </div>
+          <button id="dashboardNewProject" class="btn primary ui-icon-label">
+            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" /></svg
+            >Novo projeto
+          </button>
           <select
             id="projectsSort"
             aria-hidden="true"
@@ -341,35 +341,6 @@
               <path d="M6 9l6 6 6-6" />
             </svg>
           </button>
-          <div
-            class="dashboard-view-toggle"
-            role="group"
-            aria-label="Modo de exibição"
-          >
-            <button
-              type="button"
-              id="projectsViewList"
-              class="is-active"
-              title="Lista"
-              aria-label="Exibir em lista"
-            >
-              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" />
-              </svg></button
-            ><button
-              type="button"
-              id="projectsViewGrid"
-              title="Grade"
-              aria-label="Exibir em grade"
-            >
-              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="4" y="4" width="7" height="7" rx="1.5" />
-                <rect x="13" y="4" width="7" height="7" rx="1.5" />
-                <rect x="4" y="13" width="7" height="7" rx="1.5" />
-                <rect x="13" y="13" width="7" height="7" rx="1.5" />
-              </svg>
-            </button>
-          </div>
         </div>
         <div id="projectsSplit" class="projects-split">
           <div id="projectsGrid" class="projects-grid"></div>
@@ -4179,6 +4150,6 @@
       <span class="task-bar-fill" aria-hidden="true"></span>
       <span class="task-bar-label" id="taskBarLabel">Processando…</span>
     </div>
-    <script type="module" src="app.js?v=327"></script>
+    <script type="module" src="app.js?v=328"></script>
   </body>
 </html>

@@ -779,7 +779,6 @@ function hideDashboard(){
   $('mainTopbar')?.classList.remove('hidden'); document.querySelector('.app')?.classList.remove('hidden');
 }
 let dashboardProjects=[], projectsQuery='', projectsSort='recent';
-let projectsView=(()=>{try{return localStorage.getItem('dccp_projects_view')==='grid'?'grid':'list';}catch(_){return 'list';}})();
 const PROJECT_STAT_ICONS={
   rooms:'<path d="M4 21V5.5L12 3l8 2.5V21"/><path d="M9 21v-5h6v5M8 9h.01M12 9h.01M16 9h.01M8 13h.01M12 13h.01M16 13h.01"/>',
   rows:'<path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 13 9 5 9-5"/>',
@@ -797,19 +796,12 @@ function visibleDashboardProjects(){
   return list.sort(sorters[projectsSort]||sorters.recent);
 }
 function syncDashboardControls(){
-  $('projectsViewList')?.classList.toggle('is-active',projectsView==='list');
-  $('projectsViewGrid')?.classList.toggle('is-active',projectsView==='grid');
   syncSelectButton('projectsSort','projectsSortBtn');
 }
 // Lista (com prévia) ou grade: quem decide é o toggle do cabeçalho. A grade usa os cartões de
 // sempre; a lista mostra uma linha por projeto e a prévia do que está escolhido.
 let previewProjectId=null, previewRoomIndex=0;
-function paintDashboardProjects(){
-  const split=$('projectsSplit');
-  split?.classList.toggle('is-grid',projectsView==='grid');
-  if(projectsView==='grid'){previewProjectId=null;paintProjectsPreview(null);paintDashboardCards();return;}
-  paintDashboardRows();
-}
+function paintDashboardProjects(){ paintDashboardRows(); }
 // Salas do projeto, com os números de cada uma. Projeto antigo (sem `rooms`) vira uma sala só.
 function projectRoomList(project){
   const d=project?.data||{};
@@ -817,20 +809,31 @@ function projectRoomList(project){
   return rooms.map(r=>{
     const x=r.data||{};
     return {name:r.name||'Sala',rows:(x.rows||[]).length,racks:(x.racks||[]).length,
-      cables:(x.cables||[]).length,assets:(x.assets||[]).length,data:x};
+      cables:(x.cables||[]).length,trays:(x.trays||[]).length,assets:(x.assets||[]).length,data:x};
   });
 }
 // Desenho esquemático da planta da sala: uma barra por rack, agrupada por fileira.
 function projectRoomSketch(room){
   const rows=Array.isArray(room?.data?.rows)?room.data.rows:[];
   const w=300,h=150,pad=12;
-  const faixa=(h-pad*2)/Math.max(1,rows.length);
+  // Faixa e barra com teto: com poucas fileiras a barra ficava comprida demais.
+  const faixa=Math.min(34,(h-pad*2)/Math.max(1,rows.length));
+  const topo=(h-faixa*rows.length)/2;
+  const altura=Math.max(8,Math.min(13,faixa*0.42));
+  const calhas=Array.isArray(room?.data?.trays)?room.data.trays:[];
   let out='';
   rows.forEach((r,ri)=>{
     const n=Math.max(0,Number(r.rackCount)||0);
     const rw=Math.min(9,(w-pad*2)/Math.max(1,n)-3);
+    const larguraLinha=n?n*(rw+3)-3:0;
+    const x0=(w-larguraLinha)/2;
+    // Calha da fileira: um traço acima dos racks, como na planta.
+    if(calhas.some(t=>t&&(t.fromRowId===r.id||t.toRowId===r.id))){
+      const yc=topo+ri*faixa+(faixa-altura)/2-6;
+      out+=`<rect class="sketch-tray" x="${(w/2-Math.max(24,larguraLinha*0.42)).toFixed(1)}" y="${yc.toFixed(1)}" width="${Math.max(48,larguraLinha*0.84).toFixed(1)}" height="2.4" rx="1.2"/>`;
+    }
     for(let i=0;i<n;i++){
-      out+=`<rect x="${(pad+i*(rw+3)).toFixed(1)}" y="${(pad+ri*faixa+faixa*0.22).toFixed(1)}" width="${rw.toFixed(1)}" height="${(faixa*0.5).toFixed(1)}" rx="1.5"/>`;
+      out+=`<rect x="${(x0+i*(rw+3)).toFixed(1)}" y="${(topo+ri*faixa+(faixa-altura)/2).toFixed(1)}" width="${rw.toFixed(1)}" height="${altura.toFixed(1)}" rx="1.5"/>`;
     }
   });
   if(!out)out='<text class="room-sketch-empty" x="150" y="78" text-anchor="middle">sem racks nesta sala</text>';
@@ -848,9 +851,8 @@ function paintProjectsPreview(project){
       <div class="prev-name">${esc(project.name||'Projeto sem nome')}</div>
       <div class="prev-meta">${project.updated_at?`Atualizado em ${esc(formatProjectDate(project.updated_at))}`:'Sem data de atualização'}</div>
     </div>
-    ${rooms.length>1?`<div class="prev-chips">${rooms.map((r,k)=>`<button type="button" class="prev-chip ${k===i?'on':''}" data-prev-room="${k}">${esc(r.name)}</button>`).join('')}</div>`:''}
     <div class="prev-sketch">${projectRoomSketch(ativa)}</div>
-    ${rooms.length>1?`<div class="prev-rooms">${rooms.map((r,k)=>`<button type="button" class="prev-room ${k===i?'on':''}" data-prev-room="${k}"><b>${esc(r.name)}</b><span><b>${r.racks}</b> racks · <b>${r.cables}</b> cabos · <b>${r.assets}</b> assets</span></button>`).join('')}</div>`:''}
+    ${rooms.length>1?`<div class="prev-rooms">${rooms.map((r,k)=>`<button type="button" class="prev-room ${k===i?'on':''}" data-prev-room="${k}"><b>${esc(r.name)}</b><span><b>${r.racks}</b> racks · <b>${r.cables}</b> cabos · <b>${r.trays}</b> calhas · <b>${r.assets}</b> assets</span></button>`).join('')}</div>`:''}
     <div class="prev-totals">
       <span><b>${st.rooms}</b> sala${st.rooms===1?'':'s'}</span><span><b>${st.rows}</b> fileiras</span>
       <span><b>${st.racks}</b> racks</span><span><b>${st.cables}</b> cabos</span><span><b>${st.trays}</b> calhas</span>
@@ -866,7 +868,6 @@ function paintProjectsPreview(project){
 }
 function paintDashboardRows(){
   const grid=$('projectsGrid'); if(!grid)return;
-  grid.classList.remove('is-grid');
   const projects=visibleDashboardProjects();
   if(!projects.length){grid.innerHTML='<div class="dashboard-loading">Nenhum projeto encontrado.</div>';paintProjectsPreview(null);return;}
   if(!projects.some(p=>String(p.id)===String(previewProjectId))){previewProjectId=projects[0].id;previewRoomIndex=0;}
@@ -884,23 +885,6 @@ function paintDashboardRows(){
   }));
   paintProjectsPreview(projects.find(p=>String(p.id)===String(previewProjectId)));
 }
-function paintDashboardCards(){
-  const grid=$('projectsGrid'); if(!grid||!dashboardProjects.length)return;
-  grid.classList.toggle('is-grid',projectsView==='grid');
-  const projects=visibleDashboardProjects();
-  if(!projects.length){grid.innerHTML='<div class="dashboard-loading">Nenhum projeto encontrado.</div>';return;}
-  grid.innerHTML=projects.map(project=>{
-    const st=projectStats(project);
-    return `<article class="project-card" data-project-card="${esc(project.id)}">
-      <div class="project-card-head"><div class="project-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg></div><div class="project-title-block"><h3 class="project-name">${esc(project.name||'Projeto sem nome')}</h3><div class="project-date">${project.updated_at?`Atualizado em ${esc(formatProjectDate(project.updated_at))}`:'Sem data de atualização'}</div></div></div>
-      <div class="project-stats">${projectStatChip('rooms',st.rooms,'sala','salas')}${projectStatChip('rows',st.rows,'fileira','fileiras')}${projectStatChip('racks',st.racks,'rack','racks')}${projectStatChip('cables',st.cables,'cabo','cabos')}${projectStatChip('trays',st.trays,'calha','calhas')}</div>
-      <div class="project-menu"><button class="btn ghost" data-project-menu="${esc(project.id)}" title="Mais opções" aria-label="Mais opções">⋮</button></div>
-      <div class="project-actions"><button class="btn primary" data-project-open="${esc(project.id)}">Abrir</button></div>
-    </article>`;
-  }).join('');
-  bindProjectActions(grid);
-}
-// Abrir e menu "⋯" valem para os cartões da grade e para a prévia da lista.
 function bindProjectActions(root){
   root.querySelectorAll('[data-project-open]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();openCloudProject(b.dataset.projectOpen);});
   root.querySelectorAll('[data-project-menu]').forEach(b=>b.onclick=e=>{
@@ -1101,7 +1085,6 @@ export async function startAuth(){
   bindStyledSelect('projectsSort','projectsSortBtn');
   $('projectsSort')?.addEventListener('change',()=>{projectsSort=$('projectsSort').value;syncDashboardControls();paintDashboardProjects();});
   $('projectsSearch')?.addEventListener('input',()=>{projectsQuery=$('projectsSearch').value;paintDashboardProjects();});
-  [['projectsViewList','list'],['projectsViewGrid','grid']].forEach(([id,v])=>$(id)?.addEventListener('click',()=>{projectsView=v;try{localStorage.setItem('dccp_projects_view',v);}catch(_){}syncDashboardControls();paintDashboardProjects();}));
   syncDashboardControls();
   $('dashboardTheme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';applyTheme();localStorage.setItem(THEME_STORAGE,state.theme);toast(state.theme==='light'?'Tema claro':'Tema escuro');};
   $('authTheme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';localStorage.setItem(THEME_STORAGE,state.theme);applyTheme();};
