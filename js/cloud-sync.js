@@ -852,7 +852,7 @@ function paintProjectsPreview(project){
       <div class="prev-meta">${project.updated_at?`Atualizado em ${esc(formatProjectDate(project.updated_at))}`:'Sem data de atualização'}</div>
     </div>
     <div class="prev-sketch">${projectRoomSketch(ativa)}</div>
-    ${rooms.length>1?`<div class="prev-rooms">${rooms.map((r,k)=>`<button type="button" class="prev-room ${k===i?'on':''}" data-prev-room="${k}"><b>${esc(r.name)}</b><span><b>${r.racks}</b> racks · <b>${r.cables}</b> cabos · <b>${r.trays}</b> calhas · <b>${r.assets}</b> assets</span></button>`).join('')}</div>`:''}
+    <div class="prev-rooms">${rooms.map((r,k)=>`<button type="button" class="prev-room ${k===i?'on':''}" data-prev-room="${k}"><b>${esc(r.name)}</b><span><b>${r.racks}</b> racks · <b>${r.cables}</b> cabos · <b>${r.trays}</b> calha${r.trays===1?'':'s'} · <b>${r.assets}</b> assets</span></button>`).join('')}</div>
     <div class="prev-totals">
       <span><b>${st.rooms}</b> sala${st.rooms===1?'':'s'}</span><span><b>${st.rows}</b> fileiras</span>
       <span><b>${st.racks}</b> racks</span><span><b>${st.cables}</b> cabos</span><span><b>${st.trays}</b> calhas</span>

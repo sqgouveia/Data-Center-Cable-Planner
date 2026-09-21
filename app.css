@@ -10392,8 +10392,10 @@ button.bayface-rack-state {
   margin-bottom: 18px;
 }
 .dashboard-search {
-  /* Campo de busca mais curto: a linha também carrega o Novo projeto e a ordenação. */
-  flex: 0 1 520px;
+  /* A busca tem exatamente a largura da coluna dos cartões; o Novo projeto fica no vão ao
+     lado dela e a ordenação vai para o fim da linha. */
+  flex: 0 0 auto;
+  width: calc(100% - 438px);
   min-width: 0;
   display: flex;
   align-items: center;
@@ -10408,6 +10410,7 @@ button.bayface-rack-state {
   align-self: stretch;
   height: auto;
   padding-inline: 18px;
+  border-radius: 12px;
 }
 .dashboard-controls .dashboard-sort-btn {
   margin-left: auto;
