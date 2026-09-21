@@ -8,6 +8,10 @@ Stratum: a static-site (no build step) tool for planning and documenting a data 
 
 ## Commands
 
+Antes de mexer no código, veja **[`SYSTEM-MAP.md`](SYSTEM-MAP.md)**: é o mapa do sistema (arquivos,
+módulos de `js/`, funções do `app.js` com linha, estado, camadas de CSS e a tabela "onde mexer
+quando…"). Regenere com `node scripts/system-map.mjs` depois de mudanças estruturais.
+
 Run tests (Node's built-in test runner, no framework/dependencies):
 ```
 node --test "js/test/*.test.mjs"
