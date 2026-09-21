@@ -1074,6 +1074,9 @@ select:disabled {
 .asset-port-actions .iconbtn {
   width: 22px; height: 22px;
   display: grid; place-items: center;
+  /* O .iconbtn do app tem padding 1px 6px: dentro de uma caixa de 22px o ícone ficava 7px da
+     esquerda e 1px da direita. */
+  padding: 0;
   border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--panel2); color: var(--muted);
 }
