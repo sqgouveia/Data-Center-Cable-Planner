@@ -854,31 +854,45 @@ function projectRoomSketch(project,room){
         state.rackDepth=Number(d.rackDepth)||guarda.dep;
         const g=geometry();
         const pecas=[];
+        // Calha ligada a duas fileiras é recalculada pela geometria (fica no mesmo espaço dos
+        // racks); sem vínculo, valem as coordenadas gravadas.
         state.trays.forEach(t=>{
-          let {x1,y1,x2,y2}=t;
-          // Calha antiga (gravada como "de fileira A para a B") não tem coordenadas: calcula
-          // como a migração faz, para ela aparecer no desenho.
-          if(![x1,y1,x2,y2].map(Number).every(Number.isFinite)){
-            const ia=state.rows.findIndex(r=>r.id===t.fromRowId), ib=state.rows.findIndex(r=>r.id===t.toRowId);
-            if(ia<0||ib<0)return;
+          let p=null;
+          const ia=state.rows.findIndex(r=>r.id===t.fromRowId), ib=state.rows.findIndex(r=>r.id===t.toRowId);
+          if(ia>=0&&ib>=0){
             const sa=trayPointForRowIndex(state.rows[ia],ia,g,t.sideFrom||null);
             const sb=trayPointForRowIndex(state.rows[ib],ib,g,t.sideTo||null);
-            x1=sa.x;y1=sa.y;x2=sb.x;y2=sb.y;
+            if([sa.x,sa.y,sb.x,sb.y].every(Number.isFinite))p={x1:sa.x,y1:sa.y,x2:sb.x,y2:sb.y};
           }
-          x1=Number(x1);y1=Number(y1);x2=Number(x2);y2=Number(y2);
-          if([x1,y1,x2,y2].every(Number.isFinite))pecas.push({tipo:'calha',x1,y1,x2,y2});
+          if(!p){
+            const x1=Number(t.x1),y1=Number(t.y1),x2=Number(t.x2),y2=Number(t.y2);
+            if([x1,y1,x2,y2].every(Number.isFinite))p={x1,y1,x2,y2};
+          }
+          if(p)pecas.push({tipo:'calha',...p});
         });
         state.racks.forEach(r=>{
           const q=rackRect(r,g);
           pecas.push({tipo:'rack',x1:q.x,y1:q.y,x2:q.x+q.w,y2:q.y+q.h});
         });
-        if(pecas.length){
-          const xs=pecas.flatMap(p=>[p.x1,p.x2]), ys=pecas.flatMap(p=>[p.y1,p.y2]);
+        // O enquadramento é dos racks; calha que caiu fora (coordenada de outra escala) não
+        // estica o desenho nem some com ele.
+        const racks=pecas.filter(p=>p.tipo==='rack');
+        const base=racks.length?racks:pecas;
+        const bxs=base.flatMap(q=>[q.x1,q.x2]), bys=base.flatMap(q=>[q.y1,q.y2]);
+        const bx0=Math.min(...bxs),bx1=Math.max(...bxs),by0=Math.min(...bys),by1=Math.max(...bys);
+        const mx=(bx1-bx0)*0.25, my=(by1-by0)*0.25;
+        const dentro=p=>{
+          const cx=(p.x1+p.x2)/2, cy=(p.y1+p.y2)/2;
+          return cx>=bx0-mx&&cx<=bx1+mx&&cy>=by0-my&&cy<=by1+my;
+        };
+        const usadas=pecas.filter(p=>p.tipo==='rack'||dentro(p));
+        if(usadas.length){
+          const xs=usadas.flatMap(p=>[p.x1,p.x2]), ys=usadas.flatMap(p=>[p.y1,p.y2]);
           const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
           const w=300,h=150,pad=14;
           const esc=Math.min((w-pad*2)/Math.max(1,x1-x0),(h-pad*2)/Math.max(1,y1-y0));
           const ox=(w-(x1-x0)*esc)/2-x0*esc, oy=(h-(y1-y0)*esc)/2-y0*esc;
-          pecas.forEach(p=>{
+          usadas.forEach(p=>{
             const X=v=>(v*esc+ox).toFixed(1), Y=v=>(v*esc+oy).toFixed(1);
             if(p.tipo==='calha'){
               saida+=`<line class="sketch-tray" x1="${X(p.x1)}" y1="${Y(p.y1)}" x2="${X(p.x2)}" y2="${Y(p.y2)}"/>`;
