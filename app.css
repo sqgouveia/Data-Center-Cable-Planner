@@ -914,9 +914,20 @@ select:disabled {
 .asset-ports-toggle { white-space: nowrap; }
 .asset-ports-toggle svg { transition: transform 0.15s ease; }
 .asset-edit-section.ports-collapsed .asset-ports-toggle svg { transform: rotate(-90deg); }
-.asset-edit-section.ports-collapsed .asset-ports-table,
+.asset-ports-hint,
+.asset-ports-foot {
+  max-height: 120px;
+  overflow: hidden;
+  transition: max-height 240ms cubic-bezier(0.22, 0.61, 0.36, 1), opacity 180ms ease,
+    margin-top 180ms ease;
+}
 .asset-edit-section.ports-collapsed .asset-ports-hint,
-.asset-edit-section.ports-collapsed .asset-ports-foot { display: none; }
+.asset-edit-section.ports-collapsed .asset-ports-foot {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  pointer-events: none;
+}
 .asset-ports-search {
   display: flex;
   align-items: center;
@@ -936,22 +947,51 @@ select:disabled {
   flex: 1; min-width: 0; padding: 0; border: 0; background: transparent;
   color: var(--text); font: inherit; font-size: 12px;
 }
-.asset-ports-search input:focus { outline: 0; }
-.asset-ports-tools select {
-  height: 34px; padding: 0 8px;
-  border: 1px solid var(--border); border-radius: var(--r-sm);
-  background: var(--panel); color: var(--text); font: inherit; font-size: 12px;
+/* O campo herda a skin de input do app (borda + anel de foco) e ficava com um contorno azul
+   dentro da nossa moldura; aqui ele é só texto. */
+.asset-ports-search input,
+.asset-ports-search input:focus,
+.asset-ports-search input:focus-visible {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+  background: transparent !important;
+}
+/* Mesma altura e mesmo padding do campo de busca, senão o select desalinha. */
+.asset-ports-tools select#assetPortsFilter {
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: none;
+  background-color: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  box-sizing: border-box;
 }
 .asset-ports-table {
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   overflow: hidden;
   background: color-mix(in srgb, var(--panel2) 55%, transparent);
+  /* Mostrar/ocultar animado: display none não interpola, então quem fecha é a altura. */
+  max-height: 420px;
+  transition: max-height 240ms cubic-bezier(0.22, 0.61, 0.36, 1), opacity 180ms ease,
+    border-color 180ms ease;
+}
+.asset-edit-section.ports-collapsed .asset-ports-table {
+  max-height: 0;
+  opacity: 0;
+  border-color: transparent;
+  pointer-events: none;
 }
 .asset-ports-thead,
 .asset-port-row {
   display: grid;
-  grid-template-columns: 40px 40px minmax(108px, 1fr) minmax(140px, 1.6fr) 104px 64px 84px;
+  /* Conexão é o campo que precisa de largura: o resto cede. */
+  grid-template-columns: 34px 38px minmax(96px, 0.9fr) minmax(190px, 2.2fr) 100px 60px 78px;
   align-items: center;
   gap: 8px;
 }
