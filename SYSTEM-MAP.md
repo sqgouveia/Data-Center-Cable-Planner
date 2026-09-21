@@ -3,7 +3,7 @@
 Gerado por `node scripts/system-map.mjs`. **Rode o script depois de mexer no código** para o
 mapa continuar valendo (ele lê as linhas de verdade, não é escrito à mão).
 
-Última geração: 2026-09-21 17:29 · app.js com 4473 linhas · 16 módulos em js/ · app.css 11281 · macos.css 3594
+Última geração: 2026-09-21 17:33 · app.js com 4473 linhas · 16 módulos em js/ · app.css 11280 · macos.css 3597
 
 ## 1. O que é o quê
 
@@ -94,7 +94,7 @@ graph LR
 | `js/bulk-assets.js` | 189 | configureBulkAssets:13, addBulkRow:162, openBulkAssetsModal:168, closeBulkAssetsModal:169, saveBulkAssets:170, openAssetsImportModal:178, bindImportUI:182 | utils.js, state.js, occupancy.js, inventory-import.js, cloud-sync.js, geometry.js |
 | `js/cables.js` | 510 | cables:10, configureCables:16, addCable:21, downloadCableTemplate:114, importCablesXLSX:156, closeCableTypeReviewModal:211, processCableImportRows:215, cableSummaryRows:288, … | utils.js, state.js, dialogs.js, geometry.js, routing.js, occupancy.js |
 | `js/catalogs.js` | 455 | catalogs:9, configureCatalogs:16, DEFAULT_ASSET_TYPES:22, DEFAULT_ASSET_STATUSES:23, DEFAULT_ASSET_SUBSTATUSES:24, normalizeAssetCatalogs:25, bayfaceTypeColor:63, renderCableTypesCatalog:65, … | utils.js, state.js, dialogs.js, inventory-import.js, cables.js |
-| `js/cloud-sync.js` | 1167 | cloud:9, configureCloudSync:17, setCloudStatus:70, updatePlannerProjectName:89, assetLogDiff:132, recordAssetAudit:175, openAssetHistory:486, closeAssetHistory:523, … | utils.js, state.js, dialogs.js, styled-select.js, runtime.js |
+| `js/cloud-sync.js` | 1175 | cloud:9, configureCloudSync:17, setCloudStatus:70, updatePlannerProjectName:89, assetLogDiff:132, recordAssetAudit:175, openAssetHistory:486, closeAssetHistory:523, … | utils.js, state.js, dialogs.js, styled-select.js, runtime.js |
 | `js/dialogs.js` | 80 | uiConfirm:19, uiPrompt:44 | utils.js |
 | `js/geometry.js` | 391 | VIEW_PAD:8, rowForRack:11, rackDisplayName:15, findRackByLabel:24, rowIndex:44, racksInRow:45, rackAt:46, makeRack:52, … | state.js, utils.js |
 | `js/inventory-import.js` | 790 | importSession:9, configureInventoryImport:19, assetStatusValues:46, makeAssetsTemplate:47, validateAssetImportRows:214, renderEditableAssetImportPreview:357, updateImportPreviewSummary:421, closeImportPreview:450, … | utils.js, state.js, occupancy.js, geometry.js |
@@ -180,20 +180,20 @@ Ids (404) e suas linhas estão no fim deste arquivo, na seção 8.
 ### Seções do tema (macos.css)
 
 - Stratum — camada de identidade visual "Console Óptico" — linha 1
-- Busca geral na barra de topo — linha 471
-- Tipografia de painel e barras laterais — linha 625
-- Cabeçalho: topbar e barra da planta — linha 704
-- Controles flutuantes sobre a planta — linha 1087
-- Ajuda — linha 1152
-- Barra inferior da planta: zoom, camadas e exportar — linha 1249
-- Editor de cadastro (modelos): sheet em dois passos numerados — linha 1518
-- Aba Propriedades: cabeçalho contextual e painel do cabo — linha 1967
-- Aba Propriedades: painel do rack — linha 2369
-- Racks na planta: faceplate de metal anodizado — linha 3197
-- Barra de topo — estilo plano (referência do cliente) — linha 3379
+- Busca geral na barra de topo — linha 474
+- Tipografia de painel e barras laterais — linha 628
+- Cabeçalho: topbar e barra da planta — linha 707
+- Controles flutuantes sobre a planta — linha 1090
+- Ajuda — linha 1155
+- Barra inferior da planta: zoom, camadas e exportar — linha 1252
+- Editor de cadastro (modelos): sheet em dois passos numerados — linha 1521
+- Aba Propriedades: cabeçalho contextual e painel do cabo — linha 1970
+- Aba Propriedades: painel do rack — linha 2372
+- Racks na planta: faceplate de metal anodizado — linha 3200
+- Barra de topo — estilo plano (referência do cliente) — linha 3382
 
 Regras com `:not(#\9)` (truque de especificidade para vencer o app.css): linhas
-34, 37, 51, 59, 64, 68, 77, 83, 86, 91, 95, 100, 101, 102, 108, 109, 110, 115, 125, 130, 136, 737, 746, 969, 2698, 2704, 3414, 3415, 3418, 3421, ….
+34, 37, 51, 54, 62, 67, 71, 80, 86, 89, 94, 98, 103, 104, 105, 111, 112, 113, 118, 128, 133, 139, 740, 749, 972, 2701, 2707, 3417, 3418, 3421, ….
 
 ## 8. Ids do index.html
 

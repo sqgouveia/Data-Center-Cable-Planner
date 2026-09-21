@@ -48,6 +48,9 @@ textarea {
     color 0.14s ease,
     box-shadow 0.14s ease;
 }
+.dashboard-controls #dashboardNewProject:not(#\9) {
+  border-radius: 12px;
+}
 .btn:not(#\9):hover:not(:disabled) {
   background: var(--panel3);
   border-color: var(--border-strong);

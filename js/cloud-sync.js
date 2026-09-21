@@ -821,6 +821,14 @@ function projectRoomSketch(room){
   const topo=(h-faixa*rows.length)/2;
   const altura=Math.max(8,Math.min(13,faixa*0.42));
   const calhas=Array.isArray(room?.data?.trays)?room.data.trays:[];
+  // Calha sem vínculo de fileira (calha solta, ou dado antigo) também entra: distribui pelas
+  // fileiras na ordem, para o desenho nunca ficar sem calha.
+  const indiceDaFileira=new Map(rows.map((r,i)=>[r.id,i]));
+  const calhasPorFileira=new Map();
+  calhas.forEach((t,k)=>{
+    const i=indiceDaFileira.has(t?.fromRowId)?indiceDaFileira.get(t.fromRowId):(rows.length?k%rows.length:0);
+    calhasPorFileira.set(i,(calhasPorFileira.get(i)||0)+1);
+  });
   let out='';
   rows.forEach((r,ri)=>{
     const n=Math.max(0,Number(r.rackCount)||0);
@@ -828,8 +836,8 @@ function projectRoomSketch(room){
     const larguraLinha=n?n*(rw+3)-3:0;
     const x0=(w-larguraLinha)/2;
     // Calha da fileira: um traço acima dos racks, como na planta.
-    if(calhas.some(t=>t&&(t.fromRowId===r.id||t.toRowId===r.id))){
-      const yc=topo+ri*faixa+(faixa-altura)/2-6;
+    for(let c=0;c<(calhasPorFileira.get(ri)||0);c++){
+      const yc=topo+ri*faixa+(faixa-altura)/2-6-c*4.5;
       out+=`<rect class="sketch-tray" x="${(w/2-Math.max(24,larguraLinha*0.42)).toFixed(1)}" y="${yc.toFixed(1)}" width="${Math.max(48,larguraLinha*0.84).toFixed(1)}" height="2.4" rx="1.2"/>`;
     }
     for(let i=0;i<n;i++){
