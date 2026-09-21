@@ -3,7 +3,7 @@
 Gerado por `node scripts/system-map.mjs`. **Rode o script depois de mexer no código** para o
 mapa continuar valendo (ele lê as linhas de verdade, não é escrito à mão).
 
-Última geração: 2026-09-21 15:32 · app.js com 4465 linhas · 16 módulos em js/ · app.css 11106 · macos.css 3588
+Última geração: 2026-09-21 15:44 · app.js com 4465 linhas · 16 módulos em js/ · app.css 11106 · macos.css 3588
 
 ## 1. O que é o quê
 

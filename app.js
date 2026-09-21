@@ -176,7 +176,7 @@ function applyTheme(){
   // A barra do navegador no celular acompanha o tema em vez de ficar presa no
   // cinza padrão.
   const themeMeta=document.querySelector('meta[name="theme-color"]');
-  if(themeMeta)themeMeta.setAttribute('content',light?'#dfe6f1':'#1c2431');
+  if(themeMeta)themeMeta.setAttribute('content',light?'#dfe6f1':'#1f2937');
   const icon=light?THEME_ICON_SUN:THEME_ICON_MOON;
   const b=$('btnTheme');
   // Só o ícone: o rótulo ocupava ~50px na barra e o print de referência mostra o botão

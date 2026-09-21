@@ -29,29 +29,29 @@
    neutro frio, não papel quente. */
 :root {
   color-scheme: dark;
-  /* Paleta do console: azul-noite em camadas curtas (o fundo e o painel ficam a 2 pontos um do
-     outro), azul de sinal mais saturado e estados vivos. Valores medidos da referência do
-     cliente: fundo #141e28, painel #16202a, cartão #19242f, sinal #397ff5. */
-  --bg: #141e28;
-  --panel: #16202a;
-  --panel2: #19242f;
-  --panel3: #22303c;
-  --border: #26333f;
-  --border-strong: #35485a;
+  /* Paleta do console: cinza-azulado em camadas curtas, com o fundo bem acima do preto (o
+     escuro anterior, #141e28, foi reprovado por escuro demais em tela de 1080). Degraus:
+     fundo #1f2937, painel #273449, cartão #2f3d54, sinal #60a5fa. */
+  --bg: #1f2937;
+  --panel: #273449;
+  --panel2: #2f3d54;
+  --panel3: #3a4a63;
+  --border: #44546d;
+  --border-strong: #5b6d88;
   --edge: rgba(255, 255, 255, 0.06);
-  --text: #e9f0f6;
-  --muted: #8b9dae;
-  --blue: #397ff5;
+  --text: #f1f5f9;
+  --muted: #a7b4c6;
+  --blue: #60a5fa;
   --green: #35e48d;
   --orange: #f0a24a;
   --red: #ef4f3b;
-  --route: #397ff5;
-  --grid: #1e2b36;
-  --shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
-  --glow: 0 0 0 1px rgba(57, 127, 245, 0.42), 0 8px 22px rgba(57, 127, 245, 0.22);
-  --blue2: #397ff5;
-  --chrome-1: #16202a;
-  --chrome-2: #16202a;
+  --route: #60a5fa;
+  --grid: #2b394f;
+  --shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
+  --glow: 0 0 0 1px rgba(96, 165, 250, 0.42), 0 8px 22px rgba(96, 165, 250, 0.22);
+  --blue2: #60a5fa;
+  --chrome-1: #273449;
+  --chrome-2: #273449;
   --on-accent: #0b1220;
   --r-xs: 3px;
   --r-sm: 5px;
