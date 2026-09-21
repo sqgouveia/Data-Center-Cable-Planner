@@ -767,13 +767,27 @@ function bindRowReorder(panel){
 // Altura do cabeçalho da seção: é o que sobra quando o cartão está recolhido.
 function sectionHeadHeight(sec){
   const head=sec.querySelector(':scope > .section-head-sticky, :scope > .prop-head, :scope > .rows-head, :scope > .cables-head');
-  return Math.round((head?head.getBoundingClientRect().height:0)+2);
+  const altura=head?Math.round(head.getBoundingClientRect().height):0;
+  // Cabeçalho medido com a tela escondida (o app ainda não apareceu, por exemplo) dá 0, e o
+  // cartão recolhido ficava com 2px de altura — era assim que o de Propriedades sumia ao
+  // restaurar o estado recolhido. Sem medida boa, vale a última altura gravada (ou o padrão do
+  // CSS, 56px).
+  if(altura>=16)return altura+2;
+  const anterior=parseFloat(getComputedStyle(sec).getPropertyValue('--collapsed-h'));
+  return Number.isFinite(anterior)&&anterior>=16?Math.round(anterior):56;
 }
 // Recolher/expandir animando a altura. Antes o corpo ia para display:none, que não tem
 // transição: o cartão fechava de uma vez. Aqui a seção recebe um teto de altura explícito
 // (--collapsed-h) e o corpo fica recortado, então a altura interpola até o cabeçalho.
+// Animação da folga do puxador que anda junto com o recolher/expandir de Propriedades.
+let animacaoFolga=null;
 function animateSectionCollapse(sec,collapsed,animate=true){
   if(!sec)return;
+  // O puxador é quem carrega a folga entre Propriedades e Cabos: o JS escreve margem nele para
+  // Cabos ficar no lugar (ver __dccpRightSplit). A folga que ele tem agora é o ponto de partida
+  // da animação.
+  const puxador=sec.nextElementSibling&&sec.nextElementSibling.classList.contains('prop-section-resize')?sec.nextElementSibling:null;
+  const margemInicial=puxador?(parseFloat(getComputedStyle(puxador).marginTop)||0):0;
   sec.style.setProperty('--collapsed-h',sectionHeadHeight(sec)+'px');
   if(!animate){sec.classList.toggle('collapsed',collapsed);return;}
   // Enquanto a altura está animando, o layout da coluna direita não pode medir a seção: ele
@@ -786,9 +800,29 @@ function animateSectionCollapse(sec,collapsed,animate=true){
   // recebe, então medir o conteúdo daria um salto no fim).
   sec.classList.toggle('collapsed',collapsed);
   sec.style.height='';
-  sec.style.maxHeight='none';
-  if(!collapsed){delete sec.dataset.animating;window.__dccpRightSplit?.();sec.dataset.animating='1';}
+  // Recolhendo, o layout precisa ver o corte final (o max-height que o recolhido aplica) para
+  // achar a folga do puxador; expandindo, o teto sai do caminho.
+  sec.style.maxHeight=collapsed?'':'none';
+  // A folga do puxador sai daqui: é o layout quem sabe onde Cabos fica (divisão arrastada ou
+  // automática), e é essa folga que mantém o cartão parado enquanto Propriedades anima.
+  delete sec.dataset.animating;
+  window.__dccpRightSplit?.();
+  sec.dataset.animating='1';
   const fim=collapsed?sectionHeadHeight(sec):sec.offsetHeight;
+  const margemAlvo=puxador?(parseFloat(getComputedStyle(puxador).marginTop)||0):0;
+  // Recolhendo, a altura que o layout escreveu é a final: a animação parte da inicial, então ela
+  // sai daqui e quem manda na altura durante a animação é o max-height.
+  if(collapsed)sec.style.height='';
+  if(puxador){
+    // A margem anda junto com a altura do cartão, com a mesma curva: as duas se cancelam e Cabos
+    // fica parado no lugar em que o layout o deixaria.
+    if(margemAlvo!==margemInicial&&puxador.animate){
+      const semMovimento=matchMedia('(prefers-reduced-motion: reduce)').matches;
+      animacaoFolga?.cancel();
+      animacaoFolga=puxador.animate([{marginTop:margemInicial+'px'},{marginTop:margemAlvo+'px'}],
+        {duration:semMovimento?0:240,easing:'cubic-bezier(0.22, 0.61, 0.36, 1)'});
+    }
+  }
   // Volta ao ponto de partida sem transição e anima até o alvo.
   sec.style.transition='none';
   sec.style.maxHeight=inicio+'px';
@@ -796,6 +830,10 @@ function animateSectionCollapse(sec,collapsed,animate=true){
   sec.style.transition='';
   sec.style.maxHeight=fim+'px';
   const terminar=()=>{
+    // A animação da folga vence o estilo inline: enquanto ela vive, o layout mede o vão errado
+    // (a margem que ele acabou de limpar continua valendo). Cancelar antes de medir.
+    animacaoFolga?.cancel();
+    animacaoFolga=null;
     sec.style.transition='';
     sec.style.maxHeight='';
     delete sec.dataset.animating;
@@ -805,7 +843,11 @@ function animateSectionCollapse(sec,collapsed,animate=true){
     if(sec.dataset.keepHeight!==undefined)sec.style.height=sec.dataset.keepHeight||'';
     requestAnimationFrame(()=>window.__dccpRightSplit?.());
   };
-  sec.addEventListener('transitionend',terminar,{once:true});
+  // Só a transição da própria seção interessa: a seta do cabeçalho também tem transição e o
+  // transitionend dela sobe (bubbles) até aqui, o que encerrava a animação no meio — o layout
+  // media a altura ainda em movimento e Cabos parava alguns px fora do lugar.
+  const aoTerminar=ev=>{if(ev.target!==sec)return;sec.removeEventListener('transitionend',aoTerminar);terminar();};
+  sec.addEventListener('transitionend',aoTerminar);
   setTimeout(terminar,420); // rede de segurança quando não há transição (ex.: prefers-reduced-motion)
 }
 function bindSectionCollapse(){
