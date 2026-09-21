@@ -948,7 +948,7 @@ function setupFocusMode(){
     if(String(ev.key).toLowerCase()!=='b')return;
     ev.preventDefault();
     const hidden=shell.classList.toggle('panels-hidden');
-    requestAnimationFrame(()=>window.__updateMinimap?.());
+    requestAnimationFrame(()=>{window.__updateMinimap?.();fitBottomRow();});
     toast(hidden?'Painéis ocultos — Ctrl+B para voltar':'Painéis de volta');
   });
 }
@@ -4056,6 +4056,25 @@ function updateMinimap(){
   out+=`<rect class="minimap-viewport" rx="4" x="${X(vx1)}" y="${Y(vy1)}" width="${(vx2-vx1)*sc}" height="${(vy2-vy1)*sc}"/>`;
   svg.innerHTML=out;svg.dataset.ox=ox;svg.dataset.oy=oy;svg.dataset.scale=sc;
 }
+// Rodapé: a barra de zoom (canto esquerdo), a barra central e o minimapa (canto direito)
+// dividem a mesma linha. Em janela estreita eles se cruzam, e quem pode subir sobe uma linha
+// (classe is-raised) em vez de encostar no vizinho. O limite não é fixo — muda com a largura das
+// laterais, com os rótulos que aparecem/somem e com a escala da tela —, então a decisão sai da
+// medição, não de uma media query por largura de janela.
+function fitBottomRow(){
+  const zoom=$('canvasZoomBar'), heat=$('heatControl'), mm=$('minimap');
+  if(!zoom||!heat||!mm)return;
+  zoom.classList.remove('is-raised');
+  mm.classList.remove('is-raised');
+  const caixa=el=>el.getBoundingClientRect();
+  const cruza=(a,b)=>a.left<b.right-1&&b.left<a.right-1&&a.top<b.bottom-1&&b.top<a.bottom-1;
+  const barraCentral=caixa(heat);
+  // A barra de zoom cabe entre a lateral e a barra central? Se não, sobe.
+  if(cruza(caixa(zoom),barraCentral))zoom.classList.add('is-raised');
+  // O minimapa refaz a conta com as posições já corrigidas, então também enxerga a barra de
+  // zoom que acabou de subir.
+  if(cruza(caixa(mm),barraCentral)||cruza(caixa(mm),caixa(zoom)))mm.classList.add('is-raised');
+}
 function setupMinimap(){
   const box=$('minimap'),svg=$('minimapSvg'); if(!box||!svg)return;
   // Ponto da planta sob o ponteiro (o mapa é um SVG com viewBox fixo).
@@ -4097,8 +4116,8 @@ function setupMinimap(){
     window.__zoomAt({clientX:r.left+(inView?sx:v.vis.left+v.vis.width/2),clientY:r.top+(inView?sy:v.vis.height/2),deltaY:e.deltaY,ctrlKey:false,preventDefault(){}});
     updateMinimap();
   },{passive:false});
-  window.addEventListener('resize',()=>updateMinimap());
-  requestAnimationFrame(updateMinimap);
+  window.addEventListener('resize',()=>{updateMinimap();fitBottomRow();});
+  requestAnimationFrame(()=>{updateMinimap();fitBottomRow();});
 }
 async function newProject(){
   const ok=await uiConfirm('O projeto atual continuará salvo na nuvem.',{title:'Criar um novo projeto?',confirmText:'Criar novo projeto'});
@@ -4124,7 +4143,9 @@ function setupSidebarToggle(){
     sidebarToggle.title=collapsed?'Expandir barra lateral':'Recolher barra lateral';
     sidebarToggle.setAttribute('aria-label',sidebarToggle.title);
     if(persist)localStorage.setItem(sidebarKey,collapsed?'1':'0');
-    requestAnimationFrame(()=>{ window.__updateMinimap?.(); });
+    // A barra de zoom acompanha a lateral com transição de 220ms: medir só depois que ela para.
+    requestAnimationFrame(()=>{ window.__updateMinimap?.(); fitBottomRow(); });
+    setTimeout(fitBottomRow,240);
   };
   setSidebarCollapsed(localStorage.getItem(sidebarKey)==='1',false);
   sidebarToggle.addEventListener('click',()=>setSidebarCollapsed(!appShell.classList.contains('sidebar-collapsed')));

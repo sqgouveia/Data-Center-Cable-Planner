@@ -3,14 +3,14 @@
 Gerado por `node scripts/system-map.mjs`. **Rode o script depois de mexer no código** para o
 mapa continuar valendo (ele lê as linhas de verdade, não é escrito à mão).
 
-Última geração: 2026-09-21 15:14 · app.js com 4444 linhas · 16 módulos em js/ · app.css 11106 · macos.css 3595
+Última geração: 2026-09-21 15:32 · app.js com 4465 linhas · 16 módulos em js/ · app.css 11106 · macos.css 3588
 
 ## 1. O que é o quê
 
 | arquivo | papel |
 |---|---|
 | index.html | casca: barra de topo, duas laterais flutuantes, canvas, barra inferior e todos os modais |
-| app.js | orquestra tudo: estado, render, interação do canvas e das laterais (`4444` linhas) |
+| app.js | orquestra tudo: estado, render, interação do canvas e das laterais (`4465` linhas) |
 | js/state.js | objeto `state` compartilhado (fonte da verdade em memória) |
 | js/geometry.js | posições físicas de fileira/rack/calha + rótulo do rack (`rackDisplayName`, `findRackByLabel`) |
 | js/routing.js | grafo de rota e cálculo de metragem de cabo |
@@ -116,7 +116,7 @@ graph LR
 
 ### Ligações de UI (setup/bind)
 
-`bindRowPanelActions` (626) · `bindRowReorder` (740) · `bindSectionCollapse` (871) · `setupFocusMode` (942) · `setupSummaryRefit` (1098) · `setupEnvAdvanced` (1106) · `setupPlantExport` (1129) · `setupHeatControl` (1137) · `setupRackTooltip` (1176) · `bindAssetColumnResize` (2243) · `bindPropPanel` (2883) · `setupPropCards` (2932) · `bindCablePanelSections` (3317) · `bindManualRouteControls` (3360) · `setupPropSectionResize` (3489) · `setupPan` (3628) · `bindTopSearch` (3916) · `setupMinimap` (4059) · `setupSidebarToggle` (4112) · `setupStructureLockControl` (4132) · `bind` (4144)
+`bindRowPanelActions` (626) · `bindRowReorder` (740) · `bindSectionCollapse` (871) · `setupFocusMode` (942) · `setupSummaryRefit` (1098) · `setupEnvAdvanced` (1106) · `setupPlantExport` (1129) · `setupHeatControl` (1137) · `setupRackTooltip` (1176) · `bindAssetColumnResize` (2243) · `bindPropPanel` (2883) · `setupPropCards` (2932) · `bindCablePanelSections` (3317) · `bindManualRouteControls` (3360) · `setupPropSectionResize` (3489) · `setupPan` (3628) · `bindTopSearch` (3916) · `setupMinimap` (4078) · `setupSidebarToggle` (4131) · `setupStructureLockControl` (4153) · `bind` (4165)
 
 ### Criação e edição de dados
 
@@ -186,14 +186,14 @@ Ids (401) e suas linhas estão no fim deste arquivo, na seção 8.
 - Controles flutuantes sobre a planta — linha 1087
 - Ajuda — linha 1152
 - Barra inferior da planta: zoom, camadas e exportar — linha 1249
-- Editor de cadastro (modelos): sheet em dois passos numerados — linha 1525
-- Aba Propriedades: cabeçalho contextual e painel do cabo — linha 1968
-- Aba Propriedades: painel do rack — linha 2370
-- Racks na planta: faceplate de metal anodizado — linha 3198
-- Barra de topo — estilo plano (referência do cliente) — linha 3380
+- Editor de cadastro (modelos): sheet em dois passos numerados — linha 1518
+- Aba Propriedades: cabeçalho contextual e painel do cabo — linha 1961
+- Aba Propriedades: painel do rack — linha 2363
+- Racks na planta: faceplate de metal anodizado — linha 3191
+- Barra de topo — estilo plano (referência do cliente) — linha 3373
 
 Regras com `:not(#\9)` (truque de especificidade para vencer o app.css): linhas
-34, 37, 51, 59, 64, 68, 77, 83, 86, 91, 95, 100, 101, 102, 108, 109, 110, 115, 125, 130, 136, 737, 746, 969, 2699, 2705, 3415, 3416, 3419, 3422, ….
+34, 37, 51, 59, 64, 68, 77, 83, 86, 91, 95, 100, 101, 102, 108, 109, 110, 115, 125, 130, 136, 737, 746, 969, 2692, 2698, 3408, 3409, 3412, 3415, ….
 
 ## 8. Ids do index.html
 

@@ -1376,20 +1376,13 @@ label {
   --mm-h: 130px;
   opacity: 1;
 }
-/* Os dois cabem na mesma linha a partir de ~1830px de largura — a barra tem
-   755px e o minimapa 208px. Abaixo disso o minimapa sobe uma linha em vez de
-   cruzar o fim da barra. */
-@media (max-width: 1829px) {
-  .minimap {
-    bottom: 66px;
-  }
-}
-/* Entre 1910px e 1919px os rótulos da barra aparecem (~90px a mais de largura)
-   e não sobra espaço na mesma linha: o minimapa sobe nessa faixa. */
-@media (min-width: 1910px) and (max-width: 1919px) {
-  .minimap {
-    bottom: 66px;
-  }
+/* Rodapé: barra de zoom, barra central e minimapa dividem a mesma linha. Quem não couber sobe
+   uma linha em vez de encostar no vizinho. O limite não é fixo — depende das laterais, do texto
+   dos botões e da escala da tela —, então quem decide é fitBottomRow() no app.js, medindo de
+   verdade; aqui fica só o degrau. */
+.minimap.is-raised,
+.canvas-zoom-bar.is-raised {
+  bottom: 66px;
 }
 .minimap::before {
   content: "";
