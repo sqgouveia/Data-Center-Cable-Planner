@@ -2600,7 +2600,9 @@ label {
   padding: 0;
 }
 .sidebar.left > section > .prop-head {
-  margin: 0;
+  /* A faixa do cabeçalho fica do tamanho dela (9px) e o vão para o corpo do cartão vem de
+     margem: assim o cabeçalho não cresce, só descola do primeiro campo. */
+  margin: 0 0 12px;
   padding: 9px;
 }
 .sidebar.left > section > .prop-card,
@@ -2617,7 +2619,7 @@ label {
    ganhar, a faixa fica 15px acima do cartão e 28px mais larga: no estado recolhido o cartão
    corta o título. Este seletor empata na especificidade e vence por vir depois. */
 .sidebar.right > section:first-child > .section-head-sticky {
-  margin: 0;
+  margin: 0 0 12px;
   padding: 13px 13px 10px;
   border-bottom: 0;
   transform: none;
@@ -2655,7 +2657,8 @@ label {
 }
 .sidebar.right > section > .section-head-sticky,
 .sidebar.right > .cables-section > .cables-head {
-  margin: 0;
+  /* Vão entre a faixa do cabeçalho e o corpo do cartão. */
+  margin: 0 0 12px;
   /* A faixa da direita tem título com subtítulo e pílula: precisa de mais respiro que a da
      esquerda, senão o ícone encosta na borda e o bloco fica apertado. */
   /* Folga lateral maior: o bloco (ícone, título, seta e pílula) respira na largura de 340px. */

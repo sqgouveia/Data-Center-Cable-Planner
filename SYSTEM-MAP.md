@@ -3,7 +3,7 @@
 Gerado por `node scripts/system-map.mjs`. **Rode o script depois de mexer no código** para o
 mapa continuar valendo (ele lê as linhas de verdade, não é escrito à mão).
 
-Última geração: 2026-09-21 01:04 · app.js com 4311 linhas · 16 módulos em js/ · app.css 11106 · macos.css 3581
+Última geração: 2026-09-21 13:13 · app.js com 4311 linhas · 16 módulos em js/ · app.css 11106 · macos.css 3584
 
 ## 1. O que é o quê
 
@@ -189,11 +189,11 @@ Ids (401) e suas linhas estão no fim deste arquivo, na seção 8.
 - Editor de cadastro (modelos): sheet em dois passos numerados — linha 1525
 - Aba Propriedades: cabeçalho contextual e painel do cabo — linha 1968
 - Aba Propriedades: painel do rack — linha 2370
-- Racks na planta: faceplate de metal anodizado — linha 3184
-- Barra de topo — estilo plano (referência do cliente) — linha 3366
+- Racks na planta: faceplate de metal anodizado — linha 3187
+- Barra de topo — estilo plano (referência do cliente) — linha 3369
 
 Regras com `:not(#\9)` (truque de especificidade para vencer o app.css): linhas
-34, 37, 51, 59, 64, 68, 77, 83, 86, 91, 95, 100, 101, 102, 108, 109, 110, 115, 125, 130, 136, 737, 746, 969, 2696, 2702, 3401, 3402, 3405, 3408, ….
+34, 37, 51, 59, 64, 68, 77, 83, 86, 91, 95, 100, 101, 102, 108, 109, 110, 115, 125, 130, 136, 737, 746, 969, 2699, 2705, 3404, 3405, 3408, 3411, ….
 
 ## 8. Ids do index.html
 
