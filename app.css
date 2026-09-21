@@ -934,7 +934,14 @@ select:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* altura travada: o label herda margin/line-height de label do app e ficava 7px mais alto
+     que o select, com os dois desalinhados na linha. */
   height: 34px;
+  min-height: 34px;
+  max-height: 34px;
+  margin: 0;
+  box-sizing: border-box;
+  align-self: center;
   flex: 1 1 220px;
   max-width: 420px;
   padding: 0 10px;
@@ -966,6 +973,8 @@ select:disabled {
   flex: none;
   width: auto;
   max-width: 200px;
+  /* o select do app vem com margin-top: 5px, que empurrava o filtro para baixo do campo */
+  margin: 0;
   height: 34px;
   padding: 0 8px;
   border: 1px solid var(--border);
