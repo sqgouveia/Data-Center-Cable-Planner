@@ -351,6 +351,13 @@ function flashElement(el){
   clearTimeout(el.__flashTimer);
   el.__flashTimer=setTimeout(()=>el.classList.remove('is-flash'),900);
 }
+// Traz o item da lista para a parte visível do painel e pisca: com muitas fileiras (ou cabos) o
+// resultado escolhido na busca pode estar fora do que aparece na tela.
+function focusPanelItem(seletor){
+  const el=document.querySelector(seletor); if(!el)return;
+  el.scrollIntoView({block:'nearest'});
+  flashElement(el);
+}
 function flashSelection(){
   const sel=state.selected; if(!sel)return;
   const svg=$('layout');
@@ -3913,8 +3920,6 @@ function activateSearchResult(type,id){
       const pan=window.__canvasPan||{x:0,y:0,zoom:1}, wrap=$('canvasWrap');
       centerOnPoint({x:(-pan.x+wrap.clientWidth/2)/pan.zoom,y:rowCenterY(idx,g)});
     }
-    const card=document.querySelector(`[data-row-card="${id}"]`);
-    if(card){card.scrollIntoView({block:'nearest'});card.classList.add('is-found');setTimeout(()=>card.classList.remove('is-found'),1400);}
   }
   else if(type==='asset'){
     // Asset: centraliza no rack dele e abre o inventário já filtrado pelo nome.
@@ -3925,7 +3930,13 @@ function activateSearchResult(type,id){
     const s=$('assetsSearch'); if(s){s.value=a.name||'';s.dispatchEvent(new Event('input',{bubbles:true}));}
   }
   else {const c=state.cables.find(x=>x.id===id);if(!c)return;state.selected={type:'cable',id};const pts=computeRoute(c,g);if(pts.length)centerOnPoint({x:pts.reduce((a,p)=>a+p.x,0)/pts.length,y:pts.reduce((a,p)=>a+p.y,0)/pts.length});}
-  closeQuickSearch();closeTopSearch();renderAll(false);requestAnimationFrame(()=>window.__applyCanvasPan?.());
+  closeQuickSearch();closeTopSearch();renderAll(false);
+  // Depois do render: a lista é reescrita inteira, então o cartão marca aí e não antes.
+  requestAnimationFrame(()=>{
+    if(type==='row')focusPanelItem(`[data-row-card="${id}"]`);
+    else if(type==='cable')focusPanelItem(`.cable-item[data-cable="${id}"]`);
+    window.__applyCanvasPan?.();
+  });
 }
 function openHelpModal(){const m=$('helpModal');if(!m)return;m.classList.remove('hidden');m.classList.add('open');m.setAttribute('aria-hidden','false');}
 function closeHelpModal(){const m=$('helpModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
