@@ -5587,6 +5587,9 @@ button.bayface-rack-state:hover {
   display: flex;
   gap: 4px;
   flex: none;
+  /* Os botões têm 26px e o ícone do cabeçalho 36px: centrar com o ícone (5px) em vez de encostar
+     no topo da linha, que é o que fazia o par parecer deslocado para cima. */
+  margin-top: 5px;
 }
 .catalog-section-utility .iconbtn {
   width: 26px;
