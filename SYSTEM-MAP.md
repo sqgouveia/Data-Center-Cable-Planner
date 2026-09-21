@@ -3,7 +3,7 @@
 Gerado por `node scripts/system-map.mjs`. **Rode o script depois de mexer no código** para o
 mapa continuar valendo (ele lê as linhas de verdade, não é escrito à mão).
 
-Última geração: 2026-09-21 16:55 · app.js com 4473 linhas · 16 módulos em js/ · app.css 11161 · macos.css 3594
+Última geração: 2026-09-21 17:16 · app.js com 4473 linhas · 16 módulos em js/ · app.css 11276 · macos.css 3594
 
 ## 1. O que é o quê
 
@@ -94,7 +94,7 @@ graph LR
 | `js/bulk-assets.js` | 189 | configureBulkAssets:13, addBulkRow:162, openBulkAssetsModal:168, closeBulkAssetsModal:169, saveBulkAssets:170, openAssetsImportModal:178, bindImportUI:182 | utils.js, state.js, occupancy.js, inventory-import.js, cloud-sync.js, geometry.js |
 | `js/cables.js` | 510 | cables:10, configureCables:16, addCable:21, downloadCableTemplate:114, importCablesXLSX:156, closeCableTypeReviewModal:211, processCableImportRows:215, cableSummaryRows:288, … | utils.js, state.js, dialogs.js, geometry.js, routing.js, occupancy.js |
 | `js/catalogs.js` | 455 | catalogs:9, configureCatalogs:16, DEFAULT_ASSET_TYPES:22, DEFAULT_ASSET_STATUSES:23, DEFAULT_ASSET_SUBSTATUSES:24, normalizeAssetCatalogs:25, bayfaceTypeColor:63, renderCableTypesCatalog:65, … | utils.js, state.js, dialogs.js, inventory-import.js, cables.js |
-| `js/cloud-sync.js` | 1097 | cloud:9, configureCloudSync:17, setCloudStatus:70, updatePlannerProjectName:89, assetLogDiff:132, recordAssetAudit:175, openAssetHistory:486, closeAssetHistory:523, … | utils.js, state.js, dialogs.js, styled-select.js, runtime.js |
+| `js/cloud-sync.js` | 1184 | cloud:9, configureCloudSync:17, setCloudStatus:70, updatePlannerProjectName:89, assetLogDiff:132, recordAssetAudit:175, openAssetHistory:486, closeAssetHistory:523, … | utils.js, state.js, dialogs.js, styled-select.js, runtime.js |
 | `js/dialogs.js` | 80 | uiConfirm:19, uiPrompt:44 | utils.js |
 | `js/geometry.js` | 391 | VIEW_PAD:8, rowForRack:11, rackDisplayName:15, findRackByLabel:24, rowIndex:44, racksInRow:45, rackAt:46, makeRack:52, … | state.js, utils.js |
 | `js/inventory-import.js` | 790 | importSession:9, configureInventoryImport:19, assetStatusValues:46, makeAssetsTemplate:47, validateAssetImportRows:214, renderEditableAssetImportPreview:357, updateImportPreviewSummary:421, closeImportPreview:450, … | utils.js, state.js, occupancy.js, geometry.js |
@@ -166,14 +166,14 @@ graph LR
 
 | marco | linha |
 |---|---|
-| topbar | 389 |
-| sidebar left | 668 |
-| sidebar right | 1039 |
-| canvasWrap | 908 |
-| heatControl | 913 |
-| quickSearchModal | 1212 |
+| topbar | 392 |
+| sidebar left | 671 |
+| sidebar right | 1042 |
+| canvasWrap | 911 |
+| heatControl | 916 |
+| quickSearchModal | 1215 |
 
-Ids (404) e suas linhas estão no fim deste arquivo, na seção 8.
+Ids (406) e suas linhas estão no fim deste arquivo, na seção 8.
 
 ## 7. CSS
 
@@ -207,97 +207,97 @@ Regras com `:not(#\9)` (truque de especificidade para vencer o app.css): linhas
 
 `dashboardScreen` 264 · `dashboardUserEmail` 278 · `dashboardTheme` 280 · `dashboardLogout` 285 · `dashboardNewProject` 298 · `projectsSearch` 311 · `projectsSort` 318 · `projectsSortBtn` 330
 
-`projectsViewList` 351 · `projectsViewGrid` 361 · `projectsGrid` 374 · `projectsEmpty` 375 · `dashboardNewProjectEmpty` 383 · `mainTopbar` 389 · `sidebarToggle` 399 · `btnUndo` 412
+`projectsViewList` 351 · `projectsViewGrid` 361 · `projectsSplit` 374 · `projectsGrid` 375 · `projectsPreview` 376 · `projectsEmpty` 378 · `dashboardNewProjectEmpty` 386 · `mainTopbar` 392
 
-`btnRedo` 422 · `btnTheme` 434 · `btnProjects` 446 · `topSearchWrap` 458 · `topSearch` 464 · `topSearchResults` 475 · `locationSelect` 484 · `locationSelectBtn` 491
+`sidebarToggle` 402 · `btnUndo` 415 · `btnRedo` 425 · `btnTheme` 437 · `btnProjects` 449 · `topSearchWrap` 461 · `topSearch` 467 · `topSearchResults` 478
 
-`roomSelect` 506 · `roomSelectBtn` 513 · `btnLocations` 526 · `autosaveLabel` 539 · `autosaveToggle` 542 · `cloudStatus` 550 · `btnSave` 556 · `btnImportProject` 566
+`locationSelect` 487 · `locationSelectBtn` 494 · `roomSelect` 509 · `roomSelectBtn` 516 · `btnLocations` 529 · `autosaveLabel` 542 · `autosaveToggle` 545 · `cloudStatus` 553
 
-`btnExport` 576 · `btnPdfReport` 586 · `btnAddTray` 597 · `btnAssets` 602 · `btnCatalogs` 612 · `btnAlertsCenter` 622 · `alertsCenterCount` 631 · `btnHelp` 633
+`btnSave` 559 · `btnImportProject` 569 · `btnExport` 579 · `btnPdfReport` 589 · `btnAddTray` 600 · `btnAssets` 605 · `btnCatalogs` 615 · `btnAlertsCenter` 625
 
-`userMenuBtn` 637 · `userAvatar` 644 · `authUserEmail` 649 · `btnLogout` 651 · `projectInput` 660 · `envCollapse` 681 · `btnReset` 694 · `projectName` 707
+`alertsCenterCount` 634 · `btnHelp` 636 · `userMenuBtn` 640 · `userAvatar` 647 · `authUserEmail` 652 · `btnLogout` 654 · `projectInput` 663 · `envCollapse` 684
 
-`rowCount` 715 · `defaultRacks` 726 · `rackUnits` 738 · `envAdvancedToggle` 745 · `envAdvanced` 756 · `rackWidth` 763 · `rackDepth` 774 · `rackGap` 786
+`btnReset` 697 · `projectName` 710 · `rowCount` 718 · `defaultRacks` 729 · `rackUnits` 741 · `envAdvancedToggle` 748 · `envAdvanced` 759 · `rackWidth` 766
 
-`rackPowerCapacity` 801 · `rackWeightCapacity` 816 · `defaultRowGap` 827 · `lastUToTray` 838 · `defaultSlack` 849 · `btnBuildRows` 856 · `rowsCollapse` 877 · `rowsSearch` 897
+`rackDepth` 777 · `rackGap` 789 · `rackPowerCapacity` 804 · `rackWeightCapacity` 819 · `defaultRowGap` 830 · `lastUToTray` 841 · `defaultSlack` 852 · `btnBuildRows` 859
 
-`rowsPanel` 904 · `canvasWrap` 908 · `canvasStage` 909 · `layout` 910 · `heatControl` 913 · `btnExportPlant` 929 · `plantExportMenu` 932 · `structureLock` 938
+`rowsCollapse` 880 · `rowsSearch` 900 · `rowsPanel` 907 · `canvasWrap` 911 · `canvasStage` 912 · `layout` 913 · `heatControl` 916 · `btnExportPlant` 932
 
-`structureLockIcon` 944 · `heatLegend` 951 · `canvasZoomBar` 954 · `zoomOut` 959 · `zoomRange` 970 · `zoomIn` 980 · `zoomReset` 991 · `zoomFit` 1000
+`plantExportMenu` 935 · `structureLock` 941 · `structureLockIcon` 947 · `heatLegend` 954 · `canvasZoomBar` 957 · `zoomOut` 962 · `zoomRange` 973 · `zoomIn` 983
 
-`rackTooltip` 1011 · `canvasEmptyHint` 1012 · `canvasEmptyHintClose` 1015 · `canvasEmptyHintHelp` 1028 · `minimap` 1034 · `minimapSvg` 1035 · `propHeadIcon` 1043 · `propHeadTitle` 1045
+`zoomReset` 994 · `zoomFit` 1003 · `rackTooltip` 1014 · `canvasEmptyHint` 1015 · `canvasEmptyHintClose` 1018 · `canvasEmptyHintHelp` 1031 · `minimap` 1037 · `minimapSvg` 1038
 
-`propHeadSubtitle` 1046 · `propCollapse` 1052 · `propTitleSticky` 1064 · `properties` 1066 · `propSectionResize` 1071 · `cablesCollapse` 1088 · `cableCount` 1100 · `btnAddCablePanel` 1102
+`propHeadIcon` 1046 · `propHeadTitle` 1048 · `propHeadSubtitle` 1049 · `propCollapse` 1055 · `propTitleSticky` 1067 · `properties` 1069 · `propSectionResize` 1074 · `cablesCollapse` 1091
 
-`btnImport` 1114 · `btnTemplate` 1125 · `btnExportCables` 1136 · `excelInput` 1147 · `cablesSelectAll` 1158 · `cablesSearch` 1163 · `cablesFilter` 1170 · `cablesFilterBtn` 1181
+`cableCount` 1103 · `btnAddCablePanel` 1105 · `btnImport` 1117 · `btnTemplate` 1128 · `btnExportCables` 1139 · `excelInput` 1150 · `cablesSelectAll` 1161 · `cablesSearch` 1166
 
-`cablesBulkBar` 1193 · `cablesBulkCount` 1197 · `cablesBulkClear` 1201 · `cablesBulkDelete` 1203 · `cablesList` 1208 · `quickSearchModal` 1212 · `quickSearchTitle` 1227 · `quickSearchClose` 1231
+`cablesFilter` 1173 · `cablesFilterBtn` 1184 · `cablesBulkBar` 1196 · `cablesBulkCount` 1200 · `cablesBulkClear` 1204 · `cablesBulkDelete` 1206 · `cablesList` 1211 · `quickSearchModal` 1215
 
-`quickSearchInput` 1242 · `quickSearchResults` 1248 · `projectSummaryModal` 1258 · `projectSummaryTitle` 1280 · `summaryProjectName` 1281 · `summaryClose` 1284 · `projectSummaryGrid` 1292 · `toast` 1295
+`quickSearchTitle` 1230 · `quickSearchClose` 1234 · `quickSearchInput` 1245 · `quickSearchResults` 1251 · `projectSummaryModal` 1261 · `projectSummaryTitle` 1283 · `summaryProjectName` 1284 · `summaryClose` 1287
 
-`assetsModal` 1297 · `assetsTitle` 1314 · `assetsBulk` 1318 · `assetsExport` 1323 · `assetsNew` 1328 · `assetsClose` 1333 · `assetsKpiRow` 1341 · `assetsSearch` 1346
+`projectSummaryGrid` 1295 · `toast` 1298 · `assetsModal` 1300 · `assetsTitle` 1317 · `assetsBulk` 1321 · `assetsExport` 1326 · `assetsNew` 1331 · `assetsClose` 1336
 
-`assetsFilterBar` 1352 · `assetsClearFilters` 1470 · `assetsAttentionBanner` 1478 · `assetsAttentionClear` 1482 · `assetsBulkBar` 1488 · `assetsSelectedCount` 1492 · `assetsBulkStatus` 1497 · `assetsBulkStatusBtn` 1501
+`assetsKpiRow` 1344 · `assetsSearch` 1349 · `assetsFilterBar` 1355 · `assetsClearFilters` 1473 · `assetsAttentionBanner` 1481 · `assetsAttentionClear` 1485 · `assetsBulkBar` 1491 · `assetsSelectedCount` 1495
 
-`assetsBulkSubstatus` 1517 · `assetsBulkSubstatusBtn` 1521 · `assetsBulkLocation` 1539 · `assetsBulkLocationBtn` 1543 · `assetsBulkClear` 1561 · `assetsBulkDelete` 1563 · `assetsTableHead` 1569 · `assetsSelectAll` 1573
+`assetsBulkStatus` 1500 · `assetsBulkStatusBtn` 1504 · `assetsBulkSubstatus` 1520 · `assetsBulkSubstatusBtn` 1524 · `assetsBulkLocation` 1542 · `assetsBulkLocationBtn` 1546 · `assetsBulkClear` 1564 · `assetsBulkDelete` 1566
 
-`assetsList` 1915 · `assetsSelectedCountFooter` 1919 · `assetsPageSize` 1923 · `assetsPageRange` 1930 · `assetsPageButtons` 1933 · `assetHistoryModal` 1939 · `assetHistoryTitle` 1957 · `assetHistorySubtitle` 1958
+`assetsTableHead` 1572 · `assetsSelectAll` 1576 · `assetsList` 1918 · `assetsSelectedCountFooter` 1922 · `assetsPageSize` 1926 · `assetsPageRange` 1933 · `assetsPageButtons` 1936 · `assetHistoryModal` 1942
 
-`assetHistoryExport` 1965 · `assetHistoryClose` 1975 · `assetHistoryAssetName` 1995 · `assetHistoryUser` 2008 · `assetHistoryLocation` 2020 · `assetHistoryStatusIcon` 2024 · `assetHistoryStatus` 2032 · `assetHistorySearch` 2044
+`assetHistoryTitle` 1960 · `assetHistorySubtitle` 1961 · `assetHistoryExport` 1968 · `assetHistoryClose` 1978 · `assetHistoryAssetName` 1998 · `assetHistoryUser` 2011 · `assetHistoryLocation` 2023 · `assetHistoryStatusIcon` 2027
 
-`assetHistoryType` 2051 · `assetHistoryField` 2056 · `assetHistoryDate` 2061 · `assetHistoryRange` 2065 · `assetHistoryDateFrom` 2069 · `assetHistoryDateTo` 2077 · `assetHistoryCount` 2083 · `assetHistoryList` 2085
+`assetHistoryStatus` 2035 · `assetHistorySearch` 2047 · `assetHistoryType` 2054 · `assetHistoryField` 2059 · `assetHistoryDate` 2064 · `assetHistoryRange` 2068 · `assetHistoryDateFrom` 2072 · `assetHistoryDateTo` 2080
 
-`assetCatalogModal` 2091 · `assetCatalogTitle` 2109 · `assetCatalogClose` 2117 · `catalogTypeSearch` 2176 · `catalogTypes` 2182 · `catalogCableTypeAdd` 2224 · `catalogCableTypeSearch` 2232 · `catalogCableTypes` 2238
+`assetHistoryCount` 2086 · `assetHistoryList` 2088 · `assetCatalogModal` 2094 · `assetCatalogTitle` 2112 · `assetCatalogClose` 2120 · `catalogTypeSearch` 2179 · `catalogTypes` 2185 · `catalogCableTypeAdd` 2227
 
-`catalogManufacturerSearch` 2290 · `catalogManufacturers` 2296 · `catalogModelAdd` 2339 · `catalogModelSearch` 2347 · `catalogModelType` 2355 · `catalogModelManufacturer` 2359 · `catalogModels` 2364 · `catalogStatusSearch` 2413
+`catalogCableTypeSearch` 2235 · `catalogCableTypes` 2241 · `catalogManufacturerSearch` 2293 · `catalogManufacturers` 2299 · `catalogModelAdd` 2342 · `catalogModelSearch` 2350 · `catalogModelType` 2358 · `catalogModelManufacturer` 2362
 
-`catalogStatuses` 2419 · `catalogSubstatusSearch` 2471 · `catalogSubstatuses` 2477 · `catalogLocationSearch` 2502 · `catalogLocationAdd` 2511 · `catalogLocations` 2516 · `locationsFooter` 2519 · `locationsFooterStats` 2520
+`catalogModels` 2367 · `catalogStatusSearch` 2416 · `catalogStatuses` 2422 · `catalogSubstatusSearch` 2474 · `catalogSubstatuses` 2480 · `catalogLocationSearch` 2505 · `catalogLocationAdd` 2514 · `catalogLocations` 2519
 
-`catalogImportFile` 2531 · `assetsImportFile` 2532 · `assetsImportModal` 2534 · `assetsImportTitle` 2551 · `assetsImportClose` 2558 · `assetsImportDrop` 2566 · `assetsImportChoose` 2576 · `assetsImportTemplate` 2595
+`locationsFooter` 2522 · `locationsFooterStats` 2523 · `catalogImportFile` 2534 · `assetsImportFile` 2535 · `assetsImportModal` 2537 · `assetsImportTitle` 2554 · `assetsImportClose` 2561 · `assetsImportDrop` 2569
 
-`assetsImportFileInfo` 2605 · `assetsImportMapping` 2607 · `assetsImportBack` 2611 · `assetsImportCancel` 2618 · `assetsImportContinue` 2621 · `importPreviewModal` 2633 · `importPreviewTitle` 2651 · `importPreviewSubtitle` 2652
+`assetsImportChoose` 2579 · `assetsImportTemplate` 2598 · `assetsImportFileInfo` 2608 · `assetsImportMapping` 2610 · `assetsImportBack` 2614 · `assetsImportCancel` 2621 · `assetsImportContinue` 2624 · `importPreviewModal` 2636
 
-`importPreviewClose` 2657 · `importPreviewSummary` 2665 · `importPreviewErrors` 2667 · `importPreviewTable` 2670 · `importPreviewFooterStats` 2673 · `importPreviewCancel` 2676 · `importPreviewConfirm` 2679 · `importPreviewConfirmLabel` 2688
+`importPreviewTitle` 2654 · `importPreviewSubtitle` 2655 · `importPreviewClose` 2660 · `importPreviewSummary` 2668 · `importPreviewErrors` 2670 · `importPreviewTable` 2673 · `importPreviewFooterStats` 2676 · `importPreviewCancel` 2679
 
-`catalogEditorModal` 2694 · `catalogEditorTitle` 2712 · `catalogEditorSubtitle` 2713 · `catalogEditorClose` 2719 · `catalogEditorKind` 2727 · `catalogEditorId` 2728 · `catalogStepBasic` 2731 · `catalogStepBasicTitle` 2734
+`importPreviewConfirm` 2682 · `importPreviewConfirmLabel` 2691 · `catalogEditorModal` 2697 · `catalogEditorTitle` 2715 · `catalogEditorSubtitle` 2716 · `catalogEditorClose` 2722 · `catalogEditorKind` 2730 · `catalogEditorId` 2731
 
-`catalogStepBasicHint` 2735 · `catalogEditorNameLabel` 2741 · `catalogEditorName` 2745 · `catalogEditorTypeWrap` 2753 · `catalogEditorType` 2759 · `catalogEditorManufacturerWrap` 2764 · `catalogEditorManufacturer` 2770 · `catalogEditorPowerWrap` 2775
+`catalogStepBasic` 2734 · `catalogStepBasicTitle` 2737 · `catalogStepBasicHint` 2738 · `catalogEditorNameLabel` 2744 · `catalogEditorName` 2748 · `catalogEditorTypeWrap` 2756 · `catalogEditorType` 2762 · `catalogEditorManufacturerWrap` 2767
 
-`catalogEditorPowerW` 2779 · `catalogEditorWeightWrap` 2791 · `catalogEditorWeightKg` 2795 · `catalogEditorPortsWrap` 2810 · `catalogPortDefsList` 2819 · `catalogPortDefsTotal` 2820 · `portRangeStart` 2838 · `portRangeEnd` 2846
+`catalogEditorManufacturer` 2773 · `catalogEditorPowerWrap` 2778 · `catalogEditorPowerW` 2782 · `catalogEditorWeightWrap` 2794 · `catalogEditorWeightKg` 2798 · `catalogEditorPortsWrap` 2813 · `catalogPortDefsList` 2822 · `catalogPortDefsTotal` 2823
 
-`portRangePoe` 2854 · `portRangeAdd` 2858 · `portSingleName` 2886 · `portSinglePoe` 2893 · `portSingleAdd` 2897 · `catalogEditorHelpText` 2912 · `catalogEditorCancel` 2918 · `catalogEditorSave` 2923
+`portRangeStart` 2841 · `portRangeEnd` 2849 · `portRangePoe` 2857 · `portRangeAdd` 2861 · `portSingleName` 2889 · `portSinglePoe` 2896 · `portSingleAdd` 2900 · `catalogEditorHelpText` 2915
 
-`catalogEditorSaveLabel` 2927 · `assetsBulkModal` 2932 · `assetsBulkTitle` 2947 · `assetsBulkClose` 2951 · `assetsBulkChooser` 2959 · `assetsBulkManual` 2966 · `assetsBulkImport` 2984 · `assetsBulkEditor` 3003
+`catalogEditorCancel` 2921 · `catalogEditorSave` 2926 · `catalogEditorSaveLabel` 2930 · `assetsBulkModal` 2935 · `assetsBulkTitle` 2950 · `assetsBulkClose` 2954 · `assetsBulkChooser` 2962 · `assetsBulkManual` 2969
 
-`assetsBulkAddRow` 3013 · `assetsBulkSummary` 3015 · `assetsBulkBody` 3073 · `assetsBulkBack` 3077 · `assetsBulkCancel` 3081 · `assetsBulkSave` 3083 · `assetEditModal` 3091 · `assetEditTitle` 3107
+`assetsBulkImport` 2987 · `assetsBulkEditor` 3006 · `assetsBulkAddRow` 3016 · `assetsBulkSummary` 3018 · `assetsBulkBody` 3076 · `assetsBulkBack` 3080 · `assetsBulkCancel` 3084 · `assetsBulkSave` 3086
 
-`assetEditHistory` 3114 · `assetEditCancelTop` 3121 · `assetEditNav` 3131 · `assetEditContent` 3169 · `assetEditForm` 3170 · `assetEditId` 3171 · `assetStepDados` 3172 · `assetName` 3192
+`assetEditModal` 3094 · `assetEditTitle` 3110 · `assetEditHistory` 3117 · `assetEditCancelTop` 3124 · `assetEditNav` 3134 · `assetEditContent` 3172 · `assetEditForm` 3173 · `assetEditId` 3174
 
-`assetTag` 3210 · `assetSerial` 3220 · `assetLocation` 3235 · `assetRack` 3243 · `assetUStart` 3251 · `assetUHeight` 3266 · `assetFace` 3284 · `assetStepEspec` 3302
+`assetStepDados` 3175 · `assetName` 3195 · `assetTag` 3213 · `assetSerial` 3223 · `assetLocation` 3238 · `assetRack` 3246 · `assetUStart` 3254 · `assetUHeight` 3269
 
-`assetType` 3318 · `assetManufacturer` 3327 · `assetModel` 3336 · `assetStatus` 3350 · `assetSubstatus` 3360 · `assetPowerW` 3369 · `assetWeightKg` 3384 · `assetStepPortas` 3394
+`assetFace` 3287 · `assetStepEspec` 3305 · `assetType` 3321 · `assetManufacturer` 3330 · `assetModel` 3339 · `assetStatus` 3353 · `assetSubstatus` 3363 · `assetPowerW` 3372
 
-`assetPortsExport` 3404 · `assetPortsAdd` 3414 · `assetPortsCount` 3423 · `assetPortsUsedCount` 3425 · `assetPortsToggle` 3430 · `assetPortsList` 3441 · `assetStepCiclo` 3449 · `assetLifecycleBadge` 3457
+`assetWeightKg` 3387 · `assetStepPortas` 3397 · `assetPortsExport` 3407 · `assetPortsAdd` 3417 · `assetPortsCount` 3426 · `assetPortsUsedCount` 3428 · `assetPortsToggle` 3433 · `assetPortsList` 3444
 
-`assetPurchaseDate` 3468 · `assetWarrantyExpiration` 3477 · `assetEndOfLife` 3485 · `assetNotes` 3490 · `assetNotesCount` 3494 · `assetEditCancel` 3501 · `bayfaceModal` 3512 · `bayfaceTitle` 3529
+`assetStepCiclo` 3452 · `assetLifecycleBadge` 3460 · `assetPurchaseDate` 3471 · `assetWarrantyExpiration` 3480 · `assetEndOfLife` 3488 · `assetNotes` 3493 · `assetNotesCount` 3497 · `assetEditCancel` 3504
 
-`bayfaceClose` 3533 · `bayfaceContent` 3541 · `bayfaceAssetPickerModal` 3545 · `bayfaceAssetPickerTitle` 3565 · `bayfaceAssetPickerSubtitle` 3566 · `bayfaceAssetPickerClose` 3571 · `bayfaceAssetPickerSearch` 3585 · `bayfaceAssetPickerCount` 3591
+`bayfaceModal` 3515 · `bayfaceTitle` 3532 · `bayfaceClose` 3536 · `bayfaceContent` 3544 · `bayfaceAssetPickerModal` 3548 · `bayfaceAssetPickerTitle` 3568 · `bayfaceAssetPickerSubtitle` 3569 · `bayfaceAssetPickerClose` 3574
 
-`bayfaceAssetPickerList` 3608 · `bayfaceAssetPickerRange` 3611 · `bayfaceAssetPickerPrev` 3614 · `bayfaceAssetPickerPage` 3621 · `bayfaceAssetPickerNext` 3623 · `renameRowModal` 3634 · `renameRowTitle` 3649 · `renameCancelTop` 3653
+`bayfaceAssetPickerSearch` 3588 · `bayfaceAssetPickerCount` 3594 · `bayfaceAssetPickerList` 3611 · `bayfaceAssetPickerRange` 3614 · `bayfaceAssetPickerPrev` 3617 · `bayfaceAssetPickerPage` 3624 · `bayfaceAssetPickerNext` 3626 · `renameRowModal` 3637
 
-`renameRowId` 3661 · `renamePrefix` 3665 · `renameStart` 3671 · `renamePad` 3680 · `renamePreview` 3692 · `renameRowError` 3693 · `renameCancel` 3695 · `renameApply` 3696
+`renameRowTitle` 3652 · `renameCancelTop` 3656 · `renameRowId` 3664 · `renamePrefix` 3668 · `renameStart` 3674 · `renamePad` 3683 · `renamePreview` 3695 · `renameRowError` 3696
 
-`uiConfirmModal` 3702 · `uiConfirmIcon` 3710 · `uiConfirmTitle` 3720 · `uiConfirmSubtitle` 3721 · `uiConfirmBody` 3724 · `uiConfirmPromptWrap` 3725 · `uiConfirmPromptLabel` 3729 · `uiConfirmPromptInput` 3732
+`renameCancel` 3698 · `renameApply` 3699 · `uiConfirmModal` 3705 · `uiConfirmIcon` 3713 · `uiConfirmTitle` 3723 · `uiConfirmSubtitle` 3724 · `uiConfirmBody` 3727 · `uiConfirmPromptWrap` 3728
 
-`uiConfirmPromptError` 3733 · `uiConfirmCancel` 3736 · `uiConfirmOk` 3739 · `roomEditorModal` 3745 · `roomEditorTitle` 3760 · `roomEditorClose` 3764 · `roomEditorForm` 3772 · `roomEditorId` 3773
+`uiConfirmPromptLabel` 3732 · `uiConfirmPromptInput` 3735 · `uiConfirmPromptError` 3736 · `uiConfirmCancel` 3739 · `uiConfirmOk` 3742 · `roomEditorModal` 3748 · `roomEditorTitle` 3763 · `roomEditorClose` 3767
 
-`roomEditorName` 3774 · `roomEditorCooling` 3779 · `roomEditorThermalReadout` 3785 · `roomEditorCancel` 3792 · `helpModal` 3802 · `helpTitle` 3818 · `helpClose` 3822 · `pdfReportOptionsModal` 4030
+`roomEditorForm` 3775 · `roomEditorId` 3776 · `roomEditorName` 3777 · `roomEditorCooling` 3782 · `roomEditorThermalReadout` 3788 · `roomEditorCancel` 3795 · `helpModal` 3805 · `helpTitle` 3821
 
-`pdfReportOptionsTitle` 4048 · `pdfReportOptionsClose` 4052 · `pdfReportOptionsForm` 4060 · `pdfOptPlant` 4063 · `pdfOptSummary` 4068 · `pdfOptStatus` 4073 · `pdfOptLifecycle` 4078 · `pdfOptCables` 4083
+`helpClose` 3825 · `pdfReportOptionsModal` 4033 · `pdfReportOptionsTitle` 4051 · `pdfReportOptionsClose` 4055 · `pdfReportOptionsForm` 4063 · `pdfOptPlant` 4066 · `pdfOptSummary` 4071 · `pdfOptStatus` 4076
 
-`pdfRacksSelectAll` 4095 · `pdfRacksSelectNone` 4101 · `pdfRacksList` 4107 · `pdfReportOptionsCancel` 4110 · `cableTypeReviewModal` 4118 · `cableTypeReviewTitle` 4136 · `cableTypeReviewClose` 4143 · `cableTypeReviewList` 4155
+`pdfOptLifecycle` 4081 · `pdfOptCables` 4086 · `pdfRacksSelectAll` 4098 · `pdfRacksSelectNone` 4104 · `pdfRacksList` 4110 · `pdfReportOptionsCancel` 4113 · `cableTypeReviewModal` 4121 · `cableTypeReviewTitle` 4139
 
-`cableTypeReviewCancel` 4157 · `cableTypeReviewConfirm` 4160 · `taskBar` 4170 · `taskBarLabel` 4177
+`cableTypeReviewClose` 4146 · `cableTypeReviewList` 4158 · `cableTypeReviewCancel` 4160 · `cableTypeReviewConfirm` 4163 · `taskBar` 4173 · `taskBarLabel` 4180
 
 ## 9. Testes e verificação
 

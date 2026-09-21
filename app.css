@@ -1951,6 +1951,121 @@ body.guest-mode #btnSave {
   flex-direction: column;
   border-top: 1px solid var(--border);
 }
+/* Página de projetos: lista à esquerda, prévia do projeto escolhido à direita. Na grade os
+   cartões ocupam a largura toda e a prévia sai de cena. */
+.projects-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 18px;
+  align-items: start;
+}
+.projects-split.is-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+.projects-split.is-grid .projects-preview {
+  display: none;
+}
+.projects-preview {
+  position: sticky;
+  top: 18px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 14px;
+}
+/* Sem projeto escolhido (lista vazia) a prévia some em vez de deixar a moldura solta. */
+.projects-preview:empty { display: none; }
+.prev-head { margin-bottom: 10px; }
+.prev-name { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+.prev-meta { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+.prev-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.prev-chip {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 4px 11px;
+  font: 600 11.5px var(--font-body);
+  cursor: pointer;
+}
+.prev-chip:hover { color: var(--text); }
+.prev-chip.on {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--blue) 92%, white), var(--blue));
+}
+.prev-sketch {
+  height: 150px;
+  border-radius: var(--r-md);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background-color: color-mix(in srgb, var(--panel) 70%, #000 4%);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 22px 22px, 22px 22px;
+  overflow: hidden;
+}
+.room-sketch { width: 100%; height: 100%; display: block; }
+.room-sketch rect {
+  fill: color-mix(in srgb, var(--blue) 42%, var(--panel));
+  stroke: color-mix(in srgb, var(--blue) 70%, transparent);
+  stroke-width: 1;
+}
+.room-sketch-empty { fill: var(--muted); font-size: 12px; }
+.prev-rooms { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; }
+.prev-room {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11.5px;
+  text-align: left;
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.prev-room b { color: var(--text); }
+.prev-room:hover { background: color-mix(in srgb, var(--blue) 8%, transparent); }
+.prev-room.on {
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  color: var(--text);
+}
+.prev-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
+}
+.prev-totals b { color: var(--text); font-family: "IBM Plex Mono", monospace; }
+.prev-actions { display: flex; gap: 8px; margin-top: 12px; }
+.prev-actions .btn[data-project-open] { flex: 1; justify-content: center; }
+.project-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  padding: 12px 4px;
+  cursor: pointer;
+}
+.project-row:hover { background: color-mix(in srgb, var(--blue) 6%, transparent); }
+.project-row.on { background: color-mix(in srgb, var(--blue) 12%, transparent); box-shadow: inset 3px 0 0 var(--blue); }
+.project-row .project-title-block { flex: 1; min-width: 0; }
+.project-row-chip {
+  flex: none;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  color: var(--blue-ink);
+  background: color-mix(in srgb, var(--blue) 16%, transparent);
+}
 .project-card {
   border: 0;
   border-bottom: 1px solid var(--border);
