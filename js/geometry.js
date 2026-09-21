@@ -431,9 +431,19 @@ export function roomSketchPieces(roomData, projectData){
       if(cx<x0-margemX||cx>x1+margemX||cy<y0-margemY||cy>y1+margemY){fora.push(p);return;}
       trays.push(p);
     });
-    // Sala cujo layout mudou depois de a calha ser criada tem a calha longe das fileiras. Aí
-    // vale mostrar tudo (o desenho encolhe) em vez de mostrar sala sem calha nenhuma.
-    return {racks,trays:trays.length?trays:fora};
+    if(trays.length)return {racks,trays};
+    // Sala cujo layout mudou depois de a calha ser criada: as coordenadas da calha são do
+    // desenho antigo (na prática, o contorno que envolvia os racks de então). Em vez de esticar
+    // o quadro e encolher os racks, a caixa das calhas é mapeada na caixa dos racks — o
+    // contorno volta a envolver os racks, que é o que se espera ver.
+    if(!fora.length)return {racks,trays:[]};
+    const txs=fora.flatMap(p=>[p.x1,p.x2]), tys=fora.flatMap(p=>[p.y1,p.y2]);
+    const tx0=Math.min(...txs),tx1=Math.max(...txs),ty0=Math.min(...tys),ty1=Math.max(...tys);
+    const escala=(v,a,b,c,d)=>(b-a)<1e-6?(c+d)/2:c+(v-a)*(d-c)/(b-a);
+    return {racks,trays:fora.map(p=>({
+      x1:escala(p.x1,tx0,tx1,x0,x1), y1:escala(p.y1,ty0,ty1,y0,y1),
+      x2:escala(p.x2,tx0,tx1,x0,x1), y2:escala(p.y2,ty0,ty1,y0,y1),
+    }))};
   }finally{
     state.rows=guarda.rows; state.racks=guarda.racks; state.trays=guarda.trays;
     state.rackWidth=guarda.w; state.rackGap=guarda.g; state.rackDepth=guarda.dep; state.rackUnits=guarda.units;

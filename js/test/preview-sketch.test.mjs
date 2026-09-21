@@ -72,15 +72,22 @@ test('a prévia desenha a calha que nasce acima da primeira fileira', () => {
   assert.equal(state.racks, room.racks);
 });
 
-test('sala com layout antigo mostra a calha mesmo longe das fileiras', () => {
+test('sala com layout antigo tem a calha remapeada para a caixa dos racks', () => {
   resetState(state);
   const room = {
     rows: [{ id: 'r1', name: '', rackCount: 2, gap: 0, depth: 1.2 }],
     racks: [0, 1].map(i => ({ id: 'k' + i, rowId: 'r1', index: i, name: String(i + 1), units: 48, width: 0.6, depth: 1.2 })),
-    // calha criada quando a sala tinha outro tamanho: coordenada muito fora do quadro atual
-    trays: [{ id: 't1', x1: 9990, y1: 9990, x2: 10200, y2: 9990 }],
+    // contorno (hull) criado quando a sala tinha outro tamanho: coordenada longe do quadro atual
+    trays: [
+      { id: 't1', x1: 9990, y1: 9990, x2: 10800, y2: 9990 },
+      { id: 't2', x1: 10800, y1: 9990, x2: 10800, y2: 10650 },
+    ],
   };
   const pecas = roomSketchPieces(room, { rackWidth: 0.6, rackDepth: 1.2 });
   assert.equal(pecas.racks.length, 2);
-  assert.equal(pecas.trays.length, 1, 'sem calha no quadro, o desenho mostra as que existem');
+  assert.equal(pecas.trays.length, 2, 'as calhas entram no desenho');
+  const rx = Math.min(...pecas.racks.map(q => q.x)), rw = Math.max(...pecas.racks.map(q => q.x + q.w));
+  for (const t of pecas.trays) {
+    for (const v of [t.x1, t.x2]) assert.ok(v >= rx - 1 && v <= rw + 1, `calha fora da caixa dos racks: ${v}`);
+  }
 });
