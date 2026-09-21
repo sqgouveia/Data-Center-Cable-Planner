@@ -3,14 +3,14 @@
 Gerado por `node scripts/system-map.mjs`. **Rode o script depois de mexer no código** para o
 mapa continuar valendo (ele lê as linhas de verdade, não é escrito à mão).
 
-Última geração: 2026-09-21 14:57 · app.js com 4441 linhas · 16 módulos em js/ · app.css 11106 · macos.css 3595
+Última geração: 2026-09-21 15:14 · app.js com 4444 linhas · 16 módulos em js/ · app.css 11106 · macos.css 3595
 
 ## 1. O que é o quê
 
 | arquivo | papel |
 |---|---|
 | index.html | casca: barra de topo, duas laterais flutuantes, canvas, barra inferior e todos os modais |
-| app.js | orquestra tudo: estado, render, interação do canvas e das laterais (`4441` linhas) |
+| app.js | orquestra tudo: estado, render, interação do canvas e das laterais (`4444` linhas) |
 | js/state.js | objeto `state` compartilhado (fonte da verdade em memória) |
 | js/geometry.js | posições físicas de fileira/rack/calha + rótulo do rack (`rackDisplayName`, `findRackByLabel`) |
 | js/routing.js | grafo de rota e cálculo de metragem de cabo |
@@ -112,31 +112,31 @@ graph LR
 
 ### Render / pintura
 
-`updateRoomUI` (68) · `updateStructureControls` (128) · `updateHistoryButtons` (243) · `updateRenamePreview` (1006) · `updateHeatControl` (1068) · `renderRoomSummary` (1266) · `render` (1303) · `updateAlertsCenterBadge` (1715) · `updateAssetUFieldsState` (1871) · `refreshAssetRackOptions` (1899) · `renderAssetPortsEditor` (1938) · `updateAssetLifecycleBadge` (2054) · `updateAssetNotesCount` (2067) · `renderAssetsTableHead` (2293) · `renderAssetsKpis` (2347) · `renderAssetsFilterBar` (2364) · `renderAssetsPagination` (2373) · `renderAssetsTableSort` (2415) · `updateAssetsBulkBar` (2422) · `renderAssetsList` (2503) · `renderBayfaceAssetPicker` (2590) · `fitBayfaceHeight` (2746) · `renderBayface` (2817) · `renderProperties` (2933) · `renderPropertiesBody` (2944) · `refreshCableValidation` (3148) · `updateCableAssetNameField` (3160) · `renderCableProperties` (3186) · `updateCableResult` (3339) · `renderManualRouteUI` (3363) · `refreshVisuals` (3373) · `updateCanvasEmptyHint` (3412) · `renderAll` (3417) · `updateProjectSummary` (3825) · `renderQuickSearchResults` (3884) · `renderTopSearchResults` (3898) · `centerOnPoint` (3933) · `updateMinimap` (4014)
+`updateRoomUI` (68) · `updateStructureControls` (128) · `updateHistoryButtons` (243) · `updateRenamePreview` (1009) · `updateHeatControl` (1071) · `renderRoomSummary` (1269) · `render` (1306) · `updateAlertsCenterBadge` (1718) · `updateAssetUFieldsState` (1874) · `refreshAssetRackOptions` (1902) · `renderAssetPortsEditor` (1941) · `updateAssetLifecycleBadge` (2057) · `updateAssetNotesCount` (2070) · `renderAssetsTableHead` (2296) · `renderAssetsKpis` (2350) · `renderAssetsFilterBar` (2367) · `renderAssetsPagination` (2376) · `renderAssetsTableSort` (2418) · `updateAssetsBulkBar` (2425) · `renderAssetsList` (2506) · `renderBayfaceAssetPicker` (2593) · `fitBayfaceHeight` (2749) · `renderBayface` (2820) · `renderProperties` (2936) · `renderPropertiesBody` (2947) · `refreshCableValidation` (3151) · `updateCableAssetNameField` (3163) · `renderCableProperties` (3189) · `updateCableResult` (3342) · `renderManualRouteUI` (3366) · `refreshVisuals` (3376) · `updateCanvasEmptyHint` (3415) · `renderAll` (3420) · `updateProjectSummary` (3828) · `renderQuickSearchResults` (3887) · `renderTopSearchResults` (3901) · `centerOnPoint` (3936) · `updateMinimap` (4017)
 
 ### Ligações de UI (setup/bind)
 
-`bindRowPanelActions` (623) · `bindRowReorder` (737) · `bindSectionCollapse` (868) · `setupFocusMode` (939) · `setupSummaryRefit` (1095) · `setupEnvAdvanced` (1103) · `setupPlantExport` (1126) · `setupHeatControl` (1134) · `setupRackTooltip` (1173) · `bindAssetColumnResize` (2240) · `bindPropPanel` (2880) · `setupPropCards` (2929) · `bindCablePanelSections` (3314) · `bindManualRouteControls` (3357) · `setupPropSectionResize` (3486) · `setupPan` (3625) · `bindTopSearch` (3913) · `setupMinimap` (4056) · `setupSidebarToggle` (4109) · `setupStructureLockControl` (4129) · `bind` (4141)
+`bindRowPanelActions` (626) · `bindRowReorder` (740) · `bindSectionCollapse` (871) · `setupFocusMode` (942) · `setupSummaryRefit` (1098) · `setupEnvAdvanced` (1106) · `setupPlantExport` (1129) · `setupHeatControl` (1137) · `setupRackTooltip` (1176) · `bindAssetColumnResize` (2243) · `bindPropPanel` (2883) · `setupPropCards` (2932) · `bindCablePanelSections` (3317) · `bindManualRouteControls` (3360) · `setupPropSectionResize` (3489) · `setupPan` (3628) · `bindTopSearch` (3916) · `setupMinimap` (4059) · `setupSidebarToggle` (4112) · `setupStructureLockControl` (4132) · `bind` (4144)
 
 ### Criação e edição de dados
 
-`applyRoomData` (40) · `applyTheme` (170) · `addRow` (571) · `removeRackReferences` (578) · `resizeRow` (585) · `deleteRow` (605) · `addRowFromPanel` (659) · `applyRenameRow` (1018) · `createIndependentTray` (1048) · `deleteAsset` (2158) · `applyAssetColumnWidths` (2236) · `assignBayfaceAsset` (2645) · `deleteSelectedTrays` (3459) · `deleteSelectedRacks` (3473)
+`applyRoomData` (40) · `applyTheme` (170) · `addRow` (572) · `removeRackReferences` (581) · `resizeRow` (588) · `deleteRow` (608) · `addRowFromPanel` (662) · `applyRenameRow` (1021) · `createIndependentTray` (1051) · `deleteAsset` (2161) · `applyAssetColumnWidths` (2239) · `assignBayfaceAsset` (2648) · `deleteSelectedTrays` (3462) · `deleteSelectedRacks` (3476)
 
 ### Busca
 
-`rowMatchesSearch` (633) · `searchableItems` (3834) · `searchListHtml` (3879) · `renderQuickSearchResults` (3884) · `closeTopSearch` (3893) · `renderTopSearchResults` (3898) · `clearTopSearch` (3912) · `bindTopSearch` (3913) · `activateSearchResult` (3941) · `openQuickSearch` (3984) · `closeQuickSearch` (3985)
+`rowMatchesSearch` (636) · `searchableItems` (3837) · `searchListHtml` (3882) · `renderQuickSearchResults` (3887) · `closeTopSearch` (3896) · `renderTopSearchResults` (3901) · `clearTopSearch` (3915) · `bindTopSearch` (3916) · `activateSearchResult` (3944) · `openQuickSearch` (3987) · `closeQuickSearch` (3988)
 
 ### Cálculos (geometria/rota)
 
-`rowAddButtonHtml` (616) · `rowMatchesSearch` (633) · `computeStats` (1060) · `rackTooltipHtml` (1155)
+`rowAddButtonHtml` (619) · `rowMatchesSearch` (636) · `computeStats` (1063) · `rackTooltipHtml` (1158)
 
 ### Cascas e modais
 
-`addRowFromPanel` (659) · `buildRowsPanel` (667) · `openRenameRowModal` (952) · `closeRenameRowModal` (969) · `openRenameRowsModal` (971) · `closeAlertsCenterPanel` (1774) · `openAlertsCenterPanel` (1775) · `openAssetModal` (2013) · `closeAssetModal` (2053) · `openAssetsModal` (2559) · `closeAssetsModal` (2560) · `bindPropPanel` (2880) · `openHelpModal` (3978) · `closeHelpModal` (3979)
+`addRowFromPanel` (662) · `buildRowsPanel` (670) · `openRenameRowModal` (955) · `closeRenameRowModal` (972) · `openRenameRowsModal` (974) · `closeAlertsCenterPanel` (1777) · `openAlertsCenterPanel` (1778) · `openAssetModal` (2016) · `closeAssetModal` (2056) · `openAssetsModal` (2562) · `closeAssetsModal` (2563) · `bindPropPanel` (2883) · `openHelpModal` (3981) · `closeHelpModal` (3982)
 
 ### Outras
 
-`roomDataFromState` (39) · `syncActiveRoom` (41) · `migrateGlobalAssets` (42) · `ensureRooms` (52) · `switchRoom` (56) · `fitTopbarSelect` (57) · `switchLocation` (81) · `normalizeCableCatalogs` (94) · `cableTypeNames` (106) · `defaultCableType` (107) · `cableTypeColor` (108) · `isStructureLocked` (112) · `setStructureLock` (113) · `structureBlocked` (137) · `projectSnapshot` (141) · `historyContextKey` (188) · `initHistory` (191) · `persistHistoryContext` (210) · `recordHistory` (214) · `restoreSnapshot` (248) · `undo` (312) · `redo` (326) · `toast` (341) · `flashElement` (346) · `focusPanelItem` (356) · `flashSelection` (361) · `save` (370) · `load` (371) · `normalizeIndices` (399) · `normalizeState` (408) · `structureRebuildImpact` (477) · `structureRebuildMessage` (497) · `rebuildStructureFromSettings` (511) · `sectionHeadHeight` (783) · `animateSectionCollapse` (799) · `setRenameModalHint` (985) · `buildRenameNames` (986) · `renameTargets` (998) · `renameConflict` (1002) · `migrateLegacyTrays` (1031) · `assetLifecycleLevel` (1059) · `positionHeatPill` (1079) · `exportPlant` (1111) · `pctText` (1153) · `kgText` (1154) · `summaryMeter` (1217) · `roomSummaryData` (1223) · `roomSummaryHtml` (1243) · `assetRoom` (1679) · `findRackGlobal` (1683) · `assetRack` (1689) · `assetRackLabel` (1692) · `assetRackRoom` (1696) · `assetWarrantyLevel` (1702) · `assetEndOfLifeLevel` (1703) · `assetsNeedingAttention` (1708) · `allProjectRacks` (1736) · `capacityIssues` (1742) · `positionIssues` (1765) · `openAssetsModalWithAttentionFilter` (1830)
+`roomDataFromState` (39) · `syncActiveRoom` (41) · `migrateGlobalAssets` (42) · `ensureRooms` (52) · `switchRoom` (56) · `fitTopbarSelect` (57) · `switchLocation` (81) · `normalizeCableCatalogs` (94) · `cableTypeNames` (106) · `defaultCableType` (107) · `cableTypeColor` (108) · `isStructureLocked` (112) · `setStructureLock` (113) · `structureBlocked` (137) · `projectSnapshot` (141) · `historyContextKey` (188) · `initHistory` (191) · `persistHistoryContext` (210) · `recordHistory` (214) · `restoreSnapshot` (248) · `undo` (312) · `redo` (326) · `toast` (341) · `flashElement` (346) · `focusPanelItem` (356) · `flashSelection` (361) · `save` (370) · `load` (371) · `normalizeIndices` (399) · `normalizeState` (408) · `structureRebuildImpact` (477) · `structureRebuildMessage` (498) · `rebuildStructureFromSettings` (512) · `sectionHeadHeight` (786) · `animateSectionCollapse` (802) · `setRenameModalHint` (988) · `buildRenameNames` (989) · `renameTargets` (1001) · `renameConflict` (1005) · `migrateLegacyTrays` (1034) · `assetLifecycleLevel` (1062) · `positionHeatPill` (1082) · `exportPlant` (1114) · `pctText` (1156) · `kgText` (1157) · `summaryMeter` (1220) · `roomSummaryData` (1226) · `roomSummaryHtml` (1246) · `assetRoom` (1682) · `findRackGlobal` (1686) · `assetRack` (1692) · `assetRackLabel` (1695) · `assetRackRoom` (1699) · `assetWarrantyLevel` (1705) · `assetEndOfLifeLevel` (1706) · `assetsNeedingAttention` (1711) · `allProjectRacks` (1739) · `capacityIssues` (1745) · `positionIssues` (1768) · `openAssetsModalWithAttentionFilter` (1833)
 
 ## 4. Onde mexer quando…
 
