@@ -2632,7 +2632,7 @@ function bayfaceMarkup(rackId){
     </div>
     <div class="bayface-stage">
       <button type="button" class="bayface-nav prev" id="bayfaceNavPrev" aria-label="Rack anterior" title="Rack anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4l-8 8 8 8"/></svg></button>
-      <div class="bayface-rack" data-units="${units}" style="--bayface-row-h:${rowH}px;--bayface-grid-h:${gridH}px">
+      <div class="bayface-rack" data-units="${units}" data-face="${bayfaceFace}" style="--bayface-row-h:${rowH}px;--bayface-grid-h:${gridH}px">
         <div class="bayface-topbar"><input type="text" class="bayface-rack-name-input" id="bayfaceRackNameInput" value="${esc(r.name)}" list="bayfaceRackNamesList" autocomplete="off" spellcheck="false" aria-label="Nome do rack"><datalist id="bayfaceRackNamesList">${orderedRackList().map(x=>`<option value="${esc(x.name)}"></option>`).join('')}</datalist><button type="button" class="bayface-rack-state" id="bayfaceFaceToggle" title="Alternar entre frente e traseira do rack">${bayfaceFace==='front'?'FRONT':'REAR'}</button></div>
         <div class="bayface-frame">
           <div class="bayface-rail rail-left"></div><div class="bayface-rail rail-right"></div>
@@ -2680,7 +2680,9 @@ function openBayface(rackId){
   const r=assetRack(rackId);if(!r)return;
   const m=$('bayfaceModal');if(!m)return;
   m.style.zIndex='1100';
-  $('bayfaceTitle').textContent=`Rack ${rackDisplayName(r)}`;
+  // O título diz a face: trocar frente/traseira num rack sem equipamento não mudava nada na
+  // tela, então o botão parecia não funcionar.
+  $('bayfaceTitle').textContent=`Rack ${rackDisplayName(r)} · ${bayfaceFace==='rear'?'Traseira':'Frente'}`;
   $('bayfaceContent').innerHTML=bayfaceMarkup(rackId);
   m.dataset.rackId=rackId;
   m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');
@@ -3976,13 +3978,16 @@ configureInventoryImport({ ensureRooms, recordAssetAudit, normalizeCableCatalogs
 configureBulkAssets({ toast, save, assetRack, normalizeAssetCatalogs, normalizeLocations, assetLocationDcName, assetSubstatusValues, normalizeAssets, autoFillAssetFromModel, renderAssetsList, renderBayface, renderAll });
 function setupSidebarToggle(){
   if(window.__dccpSidebarBound)return;
-  const appShell=document.querySelector('.app'), sidebarToggle=$('sidebarToggle'), sidebarToggleIcon=$('sidebarToggleIcon');
+  const appShell=document.querySelector('.app'), sidebarToggle=$('sidebarToggle');
   if(!appShell||!sidebarToggle)return;
   window.__dccpSidebarBound=true;
   const sidebarKey='dccp_sidebar_collapsed';
   const setSidebarCollapsed=(collapsed,persist=true)=>{
     appShell.classList.toggle('sidebar-collapsed',!!collapsed);
-    if(sidebarToggleIcon)sidebarToggleIcon.textContent=collapsed?'›':'‹';
+    // O botão virou um controle do topo com ícone de duas colunas: o estado aparece na cor
+    // (aceso quando a lateral está recolhida) e no aria-pressed, não mais num glifo de seta.
+    sidebarToggle.classList.toggle('is-collapsed',!!collapsed);
+    sidebarToggle.setAttribute('aria-pressed',collapsed?'true':'false');
     sidebarToggle.title=collapsed?'Expandir barra lateral':'Recolher barra lateral';
     sidebarToggle.setAttribute('aria-label',sidebarToggle.title);
     if(persist)localStorage.setItem(sidebarKey,collapsed?'1':'0');

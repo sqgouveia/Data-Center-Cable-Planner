@@ -509,7 +509,8 @@ input[type="radio"] {
   gap: 8px;
   flex: 1 1 320px;
   min-width: 170px;
-  max-width: 434px;
+  /* A busca cresce com o espaço que os ícones mais juntos liberam. */
+  max-width: 620px;
   height: 34px;
   margin: 0 6px;
   padding: 0 10px;
@@ -1293,6 +1294,9 @@ label {
   gap: 4px;
   padding: 0 8px;
   z-index: 101;
+  /* Acompanha a lateral quando ela recolhe/expande: sem isto a barra pula 295px de uma vez,
+     enquanto a lateral desliza em 200ms. */
+  transition: left 220ms ease;
 }
 .heat-row {
   justify-content: center;
@@ -3373,12 +3377,12 @@ label {
   margin-right: 0;
 }
 .topbar .actions {
-  gap: 12px;
+  gap: 8px;
 }
 .topbar .actions .btn,
 .topbar .actions > .btn {
   height: 36px;
-  padding: 0 9px;
+  padding: 0 8px;
   gap: 7px;
   border: 0;
   background: none;
@@ -3402,7 +3406,7 @@ label {
   color: var(--text);
 }
 .topbar .actions > #btnSave:not(#\9),
-.topbar .actions > .topbar-location-btn:not(#\9),
+.topbar .actions .topbar-location-btn:not(#\9),
 .topbar .actions > #btnHelp:not(#\9) {
   color: var(--text);
 }
@@ -3417,6 +3421,60 @@ label {
   color: var(--blue);
   border: 0;
   background: none;
+}
+/* O grupo de local/sala não tem moldura própria: a caixa do app.css envolvia as duas pílulas
+   e o pino numa terceira borda. Cada controle tem a sua. */
+.topbar .room-control:not(#\9) {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+}
+/* O pino de Localizações fica com a caixa dele (antes ganhava só um filete à esquerda, que
+   parecia um separador solto). */
+.topbar .actions .topbar-location-btn:not(#\9) {
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-sm);
+  background: var(--panel2);
+  box-shadow: inset 0 1px 0 var(--edge);
+}
+/* Recolher a lateral saiu da borda (onde flutuava preso a nada) e virou o primeiro controle
+   da barra de topo: ícone de duas colunas, sempre visível, aceso quando a lateral está
+   recolhida. O app.css ainda posiciona o botão de forma absoluta — daí os resets. */
+.topbar .actions .sidebar-toggle:not(#\9) {
+  order: -3;
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  box-shadow: none;
+  transform: none !important;
+  color: var(--text);
+  font-size: 0;
+  z-index: auto !important;
+}
+.topbar .actions .sidebar-toggle:not(#\9):hover {
+  background: color-mix(in srgb, var(--panel3) 55%, transparent);
+}
+.topbar .actions .sidebar-toggle.is-collapsed:not(#\9) {
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+/* Vista traseira no Bayface: o desenho espelha, como acontece ao olhar o rack por trás — os
+   equipamentos trocam de lado e os trilhos de fixação acompanham. Antes só a lista de assets
+   mudava, então num rack vazio o botão parecia não fazer nada. */
+.bayface-rack[data-face="rear"] .bayface-assets,
+.bayface-rack[data-face="rear"] .bayface-mount-rails {
+  transform: scaleX(-1);
+}
+.bayface-rack[data-face="rear"] .bayface-assets > * {
+  /* Desespelha o conteúdo do chip: o texto continua legível, só a posição troca de lado. */
+  transform: scaleX(-1);
 }
 .topbar .actions > #btnAddTray:not(#\9):hover:not(:disabled) {
   background: color-mix(in srgb, var(--blue) 14%, transparent);
@@ -3474,6 +3532,18 @@ label {
 }
 .topbar .switch-toggle input:checked + .switch-slider:before {
   transform: translateX(18px);
+}
+/* Só o interruptor: o rótulo "Autosave" repetia o que o próprio controle já diz (o texto
+   continua no title e no aria-label da caixa). */
+.topbar .autosave-control #autosaveLabel {
+  display: none;
+}
+.topbar .autosave-control {
+  /* Sem a caixa em volta: fica só o interruptor. */
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  box-shadow: none;
 }
 /* Pílulas de local/sala: mais altas e com rótulo maior. */
 .topbar .room-pick .dc-select-btn {
