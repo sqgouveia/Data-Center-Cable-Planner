@@ -20,8 +20,8 @@ export function configureCatalogs(deps){
 }
 
 export const DEFAULT_ASSET_TYPES=['Servidor','Switch','Storage','PDU','Patch Panel','Firewall','Roteador','Outro'];
-export const DEFAULT_ASSET_STATUSES=['Arquivado','Instalado','Reservado','Desligado','Estoque'];
-export const DEFAULT_ASSET_SUBSTATUSES=['Em estoque','Ligado','Desligado','Disposed','Perdido','Retired','Retornado ao Vendor'];
+export const DEFAULT_ASSET_STATUSES=['Arquivado','No Rack','Em Estoque'];
+export const DEFAULT_ASSET_SUBSTATUSES=['Perdido','Retired','Retornado ao Vendor','Disposed','Ligado','Desligado','Reservado','Em estoque'];
 export function normalizeAssetCatalogs(){
   const c=state.assetCatalogs&&typeof state.assetCatalogs==='object'?state.assetCatalogs:{};
   const cleanStrings=v=>Array.isArray(v)?[...new Set(v.map(x=>String(x||'').trim()).filter(Boolean))]:[];

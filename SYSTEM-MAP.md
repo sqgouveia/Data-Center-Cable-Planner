@@ -3,7 +3,7 @@
 Gerado por `node scripts/system-map.mjs`. **Rode o script depois de mexer no código** para o
 mapa continuar valendo (ele lê as linhas de verdade, não é escrito à mão).
 
-Última geração: 2026-09-21 19:24 · app.js com 4513 linhas · 16 módulos em js/ · app.css 11463 · macos.css 3597
+Última geração: 2026-09-21 19:59 · app.js com 4513 linhas · 16 módulos em js/ · app.css 11463 · macos.css 3597
 
 ## 1. O que é o quê
 
@@ -304,7 +304,7 @@ Regras com `:not(#\9)` (truque de especificidade para vencer o app.css): linhas
 
 ## 9. Testes e verificação
 
-- `node --test "js/test/*.test.mjs"` — 9 arquivos de teste,
+- `node --test "js/test/*.test.mjs"` — 10 arquivos de teste,
   cobrindo geometria, rota, ocupação, utilitários, versões e exportação da planta.
 - `node scripts/bump-version.mjs css` — sobe a versão dos módulos e do CSS em index.html (cache do navegador).
 - `cmd /c "node --input-type=module --check < app.js"` — checagem de sintaxe do app.js.
