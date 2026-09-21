@@ -3485,9 +3485,10 @@ function setupPropSectionResize(){
     // encolhe e rola por dentro para poder descer mais do que a própria altura pede.
     const cabFloor=Math.min(nCab,Math.max(44,cabHead));
     const maxTop=Math.max(minTop,usable-cabFloor);
-    // Sem arrasto definido, Cabos desce conservando a altura natural — assim uma seleção com
-    // muitos campos empurra o cartão para baixo em vez de espremer a lista.
-    const autoTop=Math.max(minTop,Math.min(usable-nCab,nProp+baseGap));
+    // Sem arrasto definido, Cabos fica logo abaixo de Propriedades e cresce para baixo: o que
+    // não couber rola dentro da lista. Antes ele subia para caber inteiro, o que encolhia
+    // Propriedades a cada cabo adicionado.
+    const autoTop=nProp+baseGap;
     const want=pinnedTop!=null?pinnedTop:(pinnedRatio!=null?pinnedRatio*usable:autoTop);
     const top=Math.max(minTop,Math.min(maxTop,want));
     const propH=Math.max(propFloor,Math.min(nProp,top-baseGap));
