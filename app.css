@@ -5595,7 +5595,6 @@ button.bayface-rack-state:hover {
 .catalog-section-utility .iconbtn {
   width: 26px;
   height: 26px;
-  padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   background: var(--panel2);
