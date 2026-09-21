@@ -910,8 +910,10 @@ select:disabled {
   border-radius: 50%;
   background: color-mix(in srgb, var(--muted) 65%, transparent);
 }
-.asset-ports-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-.asset-ports-toggle { white-space: nowrap; }
+/* A barra de ferramentas ocupa o que sobra da linha e alinha pela borda do cartão: quando os
+   controles caem para a segunda linha, eles começam no mesmo x da tabela, não soltos no meio. */
+.asset-ports-tools { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; justify-content: flex-end; }
+.asset-ports-toggle { white-space: nowrap; height: 34px; box-sizing: border-box; }
 .asset-ports-toggle svg { transition: transform 0.15s ease; }
 .asset-edit-section.ports-collapsed .asset-ports-toggle svg { transform: rotate(-90deg); }
 .asset-ports-hint,
@@ -933,7 +935,8 @@ select:disabled {
   align-items: center;
   gap: 8px;
   height: 34px;
-  min-width: 240px;
+  flex: 1 1 220px;
+  max-width: 420px;
   padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
@@ -960,6 +963,9 @@ select:disabled {
 }
 /* Mesma altura e mesmo padding do campo de busca, senão o select desalinha. */
 .asset-ports-tools select#assetPortsFilter {
+  flex: none;
+  width: auto;
+  max-width: 200px;
   height: 34px;
   padding: 0 8px;
   border: 1px solid var(--border);
