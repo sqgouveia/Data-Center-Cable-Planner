@@ -1537,6 +1537,9 @@ function render(){
   // Clique em uma área vazia do canvas limpa a seleção atual. O grid não
   // captura ponteiro, portanto clicar sobre o fundo do SVG também conta como vazio.
   svg.addEventListener('click',e=>{
+    // O clique chega depois do pointerup do arrasto com Shift: sem esta marca, ele limpava a
+    // seleção que o quadrado acabou de fazer.
+    if(window.__canvasMarquee){window.__canvasMarquee=false;return;}
     if(e.target===svg){
       if(state.selected||state.multiSelected.length||state.trayMultiSelected.length){state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];renderAll();}
     }
@@ -3654,6 +3657,7 @@ function setupPan(){
     const onCanvasBackground=(e.target===wrap || e.target===stageEl || e.target===layout || !!e.target.closest?.('#layout'));
     if(e.shiftKey && onCanvasBackground){
       const isTraySelection=e.ctrlKey||e.metaKey;
+      window.__canvasMarquee=true;
       const start=svgLocalPoint(e.clientX,e.clientY);
       const box={x1:start.x,y1:start.y,x2:start.x,y2:start.y,clientX1:e.clientX,clientY1:e.clientY,clientX2:e.clientX,clientY2:e.clientY};
       if(isTraySelection){
@@ -3739,6 +3743,8 @@ function setupPan(){
   // parte vazia ao lado dele deixava o painel preso no "N racks selecionados".
   wrap.addEventListener('click',e=>{
     const alvo=e.target;
+    // Fim do arrasto com Shift: o clique que fecha o gesto não pode limpar o que ele selecionou.
+    if(window.__canvasMarquee){window.__canvasMarquee=false;return;}
     if(alvo!==wrap&&alvo!==stage)return;
     if(state.selected||state.multiSelected.length||state.trayMultiSelected.length){
       state.selected=null; state.multiSelected=[]; state.trayMultiSelected=[];
