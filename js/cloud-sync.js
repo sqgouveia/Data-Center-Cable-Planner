@@ -3,6 +3,8 @@ import { state, THEME_STORAGE } from './state.js';
 import { uiConfirm, uiPrompt } from './dialogs.js';
 import { syncSelectButton, bindStyledSelect } from './styled-select.js';
 import { runtime } from './runtime.js';
+// A prévia desenha a planta de um projeto que não está aberto: usa as mesmas contas do editor.
+import { geometry, rackRect } from './geometry.js';
 
 // Estado mutável compartilhado com app.js. Vive num objeto porque um `let` de módulo
 // não pode ser reatribuído por quem importa.
@@ -800,20 +802,86 @@ function syncDashboardControls(){
 }
 // Lista (com prévia) ou grade: quem decide é o toggle do cabeçalho. A grade usa os cartões de
 // sempre; a lista mostra uma linha por projeto e a prévia do que está escolhido.
-let previewProjectId=null, previewRoomIndex=0;
+let previewProjectId=null, previewRoomIndex=0, previewLocationIndex=0;
 function paintDashboardProjects(){ paintDashboardRows(); }
 // Salas do projeto, com os números de cada uma. Projeto antigo (sem `rooms`) vira uma sala só.
 function projectRoomList(project){
   const d=project?.data||{};
+  // Cada data center guarda os ids das suas salas; sala sem dono aparece como "Sem data center".
+  const porSala=new Map();
+  (Array.isArray(d.locations)?d.locations:[]).forEach(l=>{
+    (Array.isArray(l.rooms)?l.rooms:[]).forEach(id=>porSala.set(String(id),l.name||'Data center'));
+  });
   const rooms=Array.isArray(d.rooms)&&d.rooms.length?d.rooms:[{name:'Sala 1',data:d}];
   return rooms.map(r=>{
     const x=r.data||{};
     return {name:r.name||'Sala',rows:(x.rows||[]).length,racks:(x.racks||[]).length,
-      cables:(x.cables||[]).length,trays:(x.trays||[]).length,assets:(x.assets||[]).length,data:x};
+      cables:(x.cables||[]).length,trays:(x.trays||[]).length,assets:(x.assets||[]).length,
+      local:porSala.get(String(r.id))||'Sem data center',data:x};
   });
 }
-// Desenho esquemático da planta da sala: uma barra por rack, agrupada por fileira.
-function projectRoomSketch(room){
+// Data centers do projeto com as salas de cada um, na ordem em que aparecem.
+function projectLocationList(project,rooms){
+  const ordem=[];
+  (Array.isArray(project?.data?.locations)?project.data.locations:[]).forEach(l=>{
+    const nome=l.name||'Data center';
+    if(!ordem.includes(nome))ordem.push(nome);
+  });
+  rooms.forEach(r=>{if(!ordem.includes(r.local))ordem.push(r.local);});
+  return ordem.map(nome=>({nome,rooms:rooms.filter(r=>r.local===nome)}));
+}
+// Desenho da sala. Primeiro tenta a planta de verdade (as mesmas contas do editor: geometry() e
+// rackRect(), com o estado da sala emprestado por um instante); se algo faltar, cai no
+// esquemático de barras por fileira.
+function projectRoomSketch(project,room){
+  try{
+    const d=project?.data||{}, x=room?.data||{};
+    if(Array.isArray(x.racks)&&x.racks.length){
+      const guarda={rows:state.rows,racks:state.racks,trays:state.trays,
+        w:state.rackWidth,g:state.rackGap,dep:state.rackDepth,units:state.rackUnits};
+      let saida='';
+      try{
+        state.rows=Array.isArray(x.rows)?x.rows:[];
+        state.racks=x.racks;
+        state.trays=Array.isArray(x.trays)?x.trays:[];
+        state.rackWidth=Number(d.rackWidth)||guarda.w;
+        state.rackGap=Number(d.rackGap)||guarda.g;
+        state.rackDepth=Number(d.rackDepth)||guarda.dep;
+        const g=geometry();
+        const pecas=[];
+        state.trays.forEach(t=>{
+          const x1=Number(t.x1),y1=Number(t.y1),x2=Number(t.x2),y2=Number(t.y2);
+          if([x1,y1,x2,y2].every(Number.isFinite))pecas.push({tipo:'calha',x1,y1,x2,y2});
+        });
+        state.racks.forEach(r=>{
+          const q=rackRect(r,g);
+          pecas.push({tipo:'rack',x1:q.x,y1:q.y,x2:q.x+q.w,y2:q.y+q.h});
+        });
+        if(pecas.length){
+          const xs=pecas.flatMap(p=>[p.x1,p.x2]), ys=pecas.flatMap(p=>[p.y1,p.y2]);
+          const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+          const w=300,h=150,pad=14;
+          const esc=Math.min((w-pad*2)/Math.max(1,x1-x0),(h-pad*2)/Math.max(1,y1-y0));
+          const ox=(w-(x1-x0)*esc)/2-x0*esc, oy=(h-(y1-y0)*esc)/2-y0*esc;
+          pecas.forEach(p=>{
+            const X=v=>(v*esc+ox).toFixed(1), Y=v=>(v*esc+oy).toFixed(1);
+            if(p.tipo==='calha'){
+              saida+=`<line class="sketch-tray" x1="${X(p.x1)}" y1="${Y(p.y1)}" x2="${X(p.x2)}" y2="${Y(p.y2)}"/>`;
+            }else{
+              saida+=`<rect x="${X(p.x1)}" y="${Y(p.y1)}" width="${Math.max(2,(p.x2-p.x1)*esc).toFixed(1)}" height="${Math.max(3,(p.y2-p.y1)*esc).toFixed(1)}" rx="1.5"/>`;
+            }
+          });
+        }
+      }finally{
+        state.rows=guarda.rows; state.racks=guarda.racks; state.trays=guarda.trays;
+        state.rackWidth=guarda.w; state.rackGap=guarda.g; state.rackDepth=guarda.dep; state.rackUnits=guarda.units;
+      }
+      if(saida)return `<svg class="room-sketch" viewBox="0 0 300 150" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${saida}</svg>`;
+    }
+  }catch(_){/* cai no esquemático */}
+  return projectRoomSketchSchematic(room);
+}
+function projectRoomSketchSchematic(room){
   const rows=Array.isArray(room?.data?.rows)?room.data.rows:[];
   const w=300,h=150,pad=12;
   // Faixa e barra com teto: com poucas fileiras a barra ficava comprida demais.
@@ -852,15 +920,21 @@ function paintProjectsPreview(project){
   if(!project){box.innerHTML='';return;}
   const rooms=projectRoomList(project);
   const st=projectStats(project);
-  const i=Math.max(0,Math.min(previewRoomIndex,rooms.length-1));
-  const ativa=rooms[i];
+  // Data center escolhido: as salas listadas são as dele.
+  const locais=projectLocationList(project,rooms);
+  const li=Math.max(0,Math.min(previewLocationIndex,locais.length-1));
+  const local=locais[li];
+  const salasDoLocal=local&&local.rooms.length?local.rooms:rooms;
+  const i=Math.max(0,Math.min(previewRoomIndex,salasDoLocal.length-1));
+  const ativa=salasDoLocal[i];
   box.innerHTML=`
     <div class="prev-head">
       <div class="prev-name">${esc(project.name||'Projeto sem nome')}</div>
       <div class="prev-meta">${project.updated_at?`Atualizado em ${esc(formatProjectDate(project.updated_at))}`:'Sem data de atualização'}</div>
     </div>
-    <div class="prev-sketch">${projectRoomSketch(ativa)}</div>
-    <div class="prev-rooms">${rooms.map((r,k)=>`<button type="button" class="prev-room ${k===i?'on':''}" data-prev-room="${k}"><b>${esc(r.name)}</b><span><b>${r.racks}</b> racks · <b>${r.cables}</b> cabos · <b>${r.trays}</b> calha${r.trays===1?'':'s'} · <b>${r.assets}</b> assets</span></button>`).join('')}</div>
+    ${locais.length>1?`<div class="prev-chips">${locais.map((l,k)=>`<button type="button" class="prev-chip ${k===li?'on':''}" data-prev-local="${k}">${esc(l.nome)}</button>`).join('')}</div>`:''}
+    <div class="prev-sketch">${projectRoomSketch(project,ativa)}</div>
+    <div class="prev-rooms">${salasDoLocal.map((r,k)=>`<button type="button" class="prev-room ${k===i?'on':''}" data-prev-room="${k}"><b>${esc(r.name)}</b><span><b>${r.racks}</b> racks · <b>${r.cables}</b> cabos · <b>${r.trays}</b> calha${r.trays===1?'':'s'} · <b>${r.assets}</b> assets</span></button>`).join('')}</div>
     <div class="prev-totals">
       <span><b>${st.rooms}</b> sala${st.rooms===1?'':'s'}</span><span><b>${st.rows}</b> fileiras</span>
       <span><b>${st.racks}</b> racks</span><span><b>${st.cables}</b> cabos</span><span><b>${st.trays}</b> calhas</span>
@@ -871,6 +945,9 @@ function paintProjectsPreview(project){
     </div>`;
   box.querySelectorAll('[data-prev-room]').forEach(b=>b.addEventListener('click',()=>{
     previewRoomIndex=Number(b.dataset.prevRoom)||0; paintProjectsPreview(project);
+  }));
+  box.querySelectorAll('[data-prev-local]').forEach(b=>b.addEventListener('click',()=>{
+    previewLocationIndex=Number(b.dataset.prevLocal)||0; previewRoomIndex=0; paintProjectsPreview(project);
   }));
   bindProjectActions(box);
 }

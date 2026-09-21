@@ -3,7 +3,7 @@
 Gerado por `node scripts/system-map.mjs`. **Rode o script depois de mexer no código** para o
 mapa continuar valendo (ele lê as linhas de verdade, não é escrito à mão).
 
-Última geração: 2026-09-21 17:33 · app.js com 4473 linhas · 16 módulos em js/ · app.css 11280 · macos.css 3597
+Última geração: 2026-09-21 17:38 · app.js com 4473 linhas · 16 módulos em js/ · app.css 11299 · macos.css 3597
 
 ## 1. O que é o quê
 
@@ -67,6 +67,7 @@ graph LR
   cloud_sync_js --> dialogs_js["dialogs.js"]
   cloud_sync_js --> styled_select_js["styled-select.js"]
   cloud_sync_js --> runtime_js["runtime.js"]
+  cloud_sync_js --> geometry_js["geometry.js"]
   dialogs_js --> utils_js["utils.js"]
   geometry_js --> state_js["state.js"]
   geometry_js --> utils_js["utils.js"]
@@ -94,7 +95,7 @@ graph LR
 | `js/bulk-assets.js` | 189 | configureBulkAssets:13, addBulkRow:162, openBulkAssetsModal:168, closeBulkAssetsModal:169, saveBulkAssets:170, openAssetsImportModal:178, bindImportUI:182 | utils.js, state.js, occupancy.js, inventory-import.js, cloud-sync.js, geometry.js |
 | `js/cables.js` | 510 | cables:10, configureCables:16, addCable:21, downloadCableTemplate:114, importCablesXLSX:156, closeCableTypeReviewModal:211, processCableImportRows:215, cableSummaryRows:288, … | utils.js, state.js, dialogs.js, geometry.js, routing.js, occupancy.js |
 | `js/catalogs.js` | 455 | catalogs:9, configureCatalogs:16, DEFAULT_ASSET_TYPES:22, DEFAULT_ASSET_STATUSES:23, DEFAULT_ASSET_SUBSTATUSES:24, normalizeAssetCatalogs:25, bayfaceTypeColor:63, renderCableTypesCatalog:65, … | utils.js, state.js, dialogs.js, inventory-import.js, cables.js |
-| `js/cloud-sync.js` | 1175 | cloud:9, configureCloudSync:17, setCloudStatus:70, updatePlannerProjectName:89, assetLogDiff:132, recordAssetAudit:175, openAssetHistory:486, closeAssetHistory:523, … | utils.js, state.js, dialogs.js, styled-select.js, runtime.js |
+| `js/cloud-sync.js` | 1252 | cloud:11, configureCloudSync:19, setCloudStatus:72, updatePlannerProjectName:91, assetLogDiff:134, recordAssetAudit:177, openAssetHistory:488, closeAssetHistory:525, … | utils.js, state.js, dialogs.js, styled-select.js, runtime.js, geometry.js |
 | `js/dialogs.js` | 80 | uiConfirm:19, uiPrompt:44 | utils.js |
 | `js/geometry.js` | 391 | VIEW_PAD:8, rowForRack:11, rackDisplayName:15, findRackByLabel:24, rowIndex:44, racksInRow:45, rackAt:46, makeRack:52, … | state.js, utils.js |
 | `js/inventory-import.js` | 790 | importSession:9, configureInventoryImport:19, assetStatusValues:46, makeAssetsTemplate:47, validateAssetImportRows:214, renderEditableAssetImportPreview:357, updateImportPreviewSummary:421, closeImportPreview:450, … | utils.js, state.js, occupancy.js, geometry.js |
@@ -301,7 +302,7 @@ Regras com `:not(#\9)` (truque de especificidade para vencer o app.css): linhas
 
 ## 9. Testes e verificação
 
-- `node --test "js/test/*.test.mjs"` — 8 arquivos de teste,
+- `node --test "js/test/*.test.mjs"` — 9 arquivos de teste,
   cobrindo geometria, rota, ocupação, utilitários, versões e exportação da planta.
 - `node scripts/bump-version.mjs css` — sobe a versão dos módulos e do CSS em index.html (cache do navegador).
 - `cmd /c "node --input-type=module --check < app.js"` — checagem de sintaxe do app.js.
