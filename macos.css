@@ -1522,7 +1522,9 @@ label {
   width: min(680px, calc(100vw - 28px));
   max-height: min(92vh, 1140px);
   overflow-y: auto;
-  padding: 16px;
+  /* Sem padding embaixo: quem fecha o cartão é o rodapé fixo das ações, senão sobra uma faixa
+     por onde o conteúdo passa por baixo dos botões. */
+  padding: 16px 16px 0;
 }
 .catalog-editor-card .modal-head {
   margin-bottom: 12px;
@@ -1941,7 +1943,11 @@ label {
   gap: 8px;
   position: sticky;
   bottom: 0;
-  padding-top: 10px;
+  /* Sangra até as bordas do cartão: o rodapé fixo ficava 16px (o padding do cartão) acima do
+     fim da área de rolagem e o conteúdo passava por essa faixa, aparecendo por baixo dos
+     botões. */
+  margin: 10px -16px 0;
+  padding: 10px 16px 16px;
   background: var(--panel);
   border-top: 1px solid var(--border);
 }
