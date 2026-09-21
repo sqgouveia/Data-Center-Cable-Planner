@@ -902,6 +902,21 @@ function bindSectionCollapse(){
         childList:true, subtree:true, attributes:true, attributeFilter:['class'],
       });
       window.addEventListener('resize',guard);
+      // O cabeçalho é a altura do cartão recolhido, e ele muda de tamanho: ganha a segunda
+      // linha quando há seleção e mede 0 enquanto o app está escondido (é aí que o estado
+      // recolhido é restaurado). Acompanhar o tamanho mantém --collapsed-h certo nos dois
+      // casos — sem isto o recolhido corta a pílula e chega a virar uma tira de 2px.
+      const cabecalho=sec.querySelector(':scope > .section-head-sticky, :scope > .prop-head, :scope > .rows-head, :scope > .cables-head');
+      if(cabecalho&&window.ResizeObserver){
+        new ResizeObserver(()=>{
+          const h=cabecalho.getBoundingClientRect().height;
+          if(h<16)return;
+          sec.style.setProperty('--collapsed-h',Math.round(h+2)+'px');
+          if(sec.dataset.animating==='1'||!sec.classList.contains('collapsed'))return;
+          // O layout reposiciona Cabos (a folga do puxador absorve o que o cartão devolve).
+          requestAnimationFrame(()=>window.__dccpRightSplit?.());
+        }).observe(cabecalho);
+      }
     }
   });
 }
@@ -3428,7 +3443,6 @@ function setupPropSectionResize(){
   if(!propSection||!right||!cables)return;
   handle.dataset.splitBound='1';
 
-  const MIN_PROPS=54;   // mínimo de Propriedades: sobra só o cabeçalho
   const KEY='dccp-split-cabos';
   let pinnedTop=null;   // topo do cartão de Cabos durante o arrasto, em px
   let pinnedRatio=null; // o mesmo topo como fração da coluna: sobrevive ao recarregar
@@ -3459,7 +3473,13 @@ function setupPropSectionResize(){
     const baseGap=cables.offsetTop-propSection.offsetTop-nProp;
     // O fundo útil é a borda de dentro do respiro da coluna: Cabos desce até encostar nela.
     const usable=avail;
-    const propFloor=Math.min(MIN_PROPS,nProp);
+    // Mínimo de Propriedades: o próprio cabeçalho (com a pílula da seleção, quando há uma).
+    // Era um 54px fixo, que cortava a segunda linha do cabeçalho ao arrastar Cabos para cima.
+    // Recolhido, vale o --collapsed-h (mantido igual ao cabeçalho medido), que não sofre com uma
+    // medida feita no meio do recálculo do texto.
+    const recolhidoVar=propSection.classList.contains('collapsed')
+      ?(parseFloat(getComputedStyle(propSection).getPropertyValue('--collapsed-h'))||0):0;
+    const propFloor=Math.min(Math.max(sectionHeadHeight(propSection),recolhidoVar),nProp);
     const minTop=propFloor+baseGap;
     // Até onde Cabos desce: encostado no fim da coluna sobrando só o cabeçalho dele. O cartão
     // encolhe e rola por dentro para poder descer mais do que a própria altura pede.
@@ -3475,7 +3495,9 @@ function setupPropSectionResize(){
     // do cartão de Cabos, como a alça dele, em vez de ficar presa embaixo de Propriedades.
     handle.style.marginTop=Math.max(0,top-baseGap-propH)+'px';
     cables.style.height=Math.max(0,Math.min(nCab,usable-top))+'px';
-    propSection.style.height=propH+'px';
+    // Recolhido, quem manda na altura é o --collapsed-h do CSS: uma altura inline aqui venceria
+    // esse teto e cortava o cabeçalho (duas linhas quando há seleção).
+    propSection.style.height=propSection.classList.contains('collapsed')?'':propH+'px';
     bounds={min:minTop,max:maxTop,usable};
     window.__dccpSplit={nProp,nCab,baseGap,usable,minTop,maxTop,top,propH};
     window.__dccpRaw={
@@ -3518,8 +3540,6 @@ function setupPropSectionResize(){
   });
   handle.addEventListener('pointerdown',e=>{
     if(e.button!==0)return;
-    // Recolhido não redimensiona: a altura inline do arrasto venceria o recolhimento.
-    if(propSection.classList.contains('collapsed'))return;
     dragging=true;
     dragY=e.clientY;
     dragTop=Math.round(cables.getBoundingClientRect().top-propSection.getBoundingClientRect().top);
