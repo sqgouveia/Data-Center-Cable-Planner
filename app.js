@@ -2894,6 +2894,17 @@ function setupPropCards(root){
 }
 function renderProperties(){
   const p=$('properties');
+  // A seção rola, e o painel é reconstruído inteiro a cada troca de seleção. O painel do cabo
+  // monta em pedaços e força layout no meio (ao medir campos), e aí o navegador já corta a
+  // rolagem para o que couber no pedaço — com o painel no fim, ela voltava ~300px. Guardar e
+  // devolver no fim do render mantém a posição.
+  const sec=p?p.closest('section'):null;
+  const rolagem=sec?sec.scrollTop:0;
+  try{ renderPropertiesBody(); }
+  finally{ if(sec)sec.scrollTop=rolagem; }
+}
+function renderPropertiesBody(){
+  const p=$('properties');
   // Troca de alvo (rack → cabo, nada → rack) merece um fade curto pra marcar
   // que o painel mudou de assunto. Só na troca: o painel é reconstruído a cada
   // alteração, e animar sempre faria a tela piscar enquanto se digita.
@@ -3463,9 +3474,9 @@ function setupPropSectionResize(){
     // medida agora seria a altura recortada. O layout volta no fim da animação.
     if(propSection.dataset.animating==='1'||cables.dataset.animating==='1')return;
     // Medir sempre sem as travas do próprio layout.
-    // Zerar essas alturas encolhe o card na hora e o navegador joga a rolagem para o topo: quem
-    // estava com o painel rolado (editando o mesmo campo em vários racks ou cabos) perdia a
-    // posição a cada troca de seleção. A rolagem volta junto com as alturas.
+    // Zerar essas alturas encolhe o card na hora e o navegador joga a rolagem para o topo. Quem
+    // guarda a posição é quem reescreve o painel (renderProperties/renderCables); este é o
+    // último ajuste antes de devolver, e por isso devolve também.
     const rolagemProps=propSection.scrollTop;
     const listaCabos=cables.querySelector('#cablesList');
     const rolagemCabos=listaCabos?listaCabos.scrollTop:0;
