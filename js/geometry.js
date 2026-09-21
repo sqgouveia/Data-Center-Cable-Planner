@@ -413,6 +413,7 @@ export function roomSketchPieces(roomData, projectData){
     // então a margem é generosa; coordenada de outra escala fica de fora.
     const margemX=Math.max(120,(x1-x0)*0.5), margemY=Math.max(120,(y1-y0)*0.5);
     const trays=[];
+    const fora=[];
     state.trays.forEach(t=>{
       let p=null;
       const ia=state.rows.findIndex(r=>r.id===t.fromRowId), ib=state.rows.findIndex(r=>r.id===t.toRowId);
@@ -427,10 +428,12 @@ export function roomSketchPieces(roomData, projectData){
       }
       if(!p)return;
       const cx=(p.x1+p.x2)/2, cy=(p.y1+p.y2)/2;
-      if(cx<x0-margemX||cx>x1+margemX||cy<y0-margemY||cy>y1+margemY)return;
+      if(cx<x0-margemX||cx>x1+margemX||cy<y0-margemY||cy>y1+margemY){fora.push(p);return;}
       trays.push(p);
     });
-    return {racks,trays};
+    // Sala cujo layout mudou depois de a calha ser criada tem a calha longe das fileiras. Aí
+    // vale mostrar tudo (o desenho encolhe) em vez de mostrar sala sem calha nenhuma.
+    return {racks,trays:trays.length?trays:fora};
   }finally{
     state.rows=guarda.rows; state.racks=guarda.racks; state.trays=guarda.trays;
     state.rackWidth=guarda.w; state.rackGap=guarda.g; state.rackDepth=guarda.dep; state.rackUnits=guarda.units;

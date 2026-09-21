@@ -71,3 +71,16 @@ test('a prévia desenha a calha que nasce acima da primeira fileira', () => {
   // Estado de quem estava aberto segue intacto (a função empresta e devolve).
   assert.equal(state.racks, room.racks);
 });
+
+test('sala com layout antigo mostra a calha mesmo longe das fileiras', () => {
+  resetState(state);
+  const room = {
+    rows: [{ id: 'r1', name: '', rackCount: 2, gap: 0, depth: 1.2 }],
+    racks: [0, 1].map(i => ({ id: 'k' + i, rowId: 'r1', index: i, name: String(i + 1), units: 48, width: 0.6, depth: 1.2 })),
+    // calha criada quando a sala tinha outro tamanho: coordenada muito fora do quadro atual
+    trays: [{ id: 't1', x1: 9990, y1: 9990, x2: 10200, y2: 9990 }],
+  };
+  const pecas = roomSketchPieces(room, { rackWidth: 0.6, rackDepth: 1.2 });
+  assert.equal(pecas.racks.length, 2);
+  assert.equal(pecas.trays.length, 1, 'sem calha no quadro, o desenho mostra as que existem');
+});

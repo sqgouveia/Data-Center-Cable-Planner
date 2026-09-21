@@ -849,8 +849,9 @@ function projectRoomSketch(project,room){
       const ox=(w-(bx1-bx0)*esc)/2-bx0*esc, oy=(h-(by1-by0)*esc)/2-by0*esc;
       const X=v=>(v*esc+ox).toFixed(1), Y=v=>(v*esc+oy).toFixed(1);
       let saida='';
-      pecas.trays.forEach(t=>{saida+=`<line class="sketch-tray" x1="${X(t.x1)}" y1="${Y(t.y1)}" x2="${X(t.x2)}" y2="${Y(t.y2)}"/>`;});
       pecas.racks.forEach(q=>{saida+=`<rect x="${X(q.x)}" y="${Y(q.y)}" width="${Math.max(2,q.w*esc).toFixed(1)}" height="${Math.max(3,q.h*esc).toFixed(1)}" rx="1.5"/>`;});
+      // Calha por último: é camada por cima do rack, como na planta do editor.
+      pecas.trays.forEach(t=>{saida+=`<line class="sketch-tray" x1="${X(t.x1)}" y1="${Y(t.y1)}" x2="${X(t.x2)}" y2="${Y(t.y2)}"/>`;});
       return `<svg class="room-sketch" viewBox="0 0 300 150" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${saida}</svg>`;
     }
   }catch(_){/* cai no esquemático */}
