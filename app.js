@@ -1938,6 +1938,12 @@ function findPortConnection(portId){
 }
 // Busca e filtro da lista de portas do editor de asset (só de tela, não vão para o asset).
 let assetPortsQuery='', assetPortsFilter='all';
+// Recolher a lista de portas: mesma ideia das seções do painel, guardada na própria seção.
+function setAssetPortsCollapsed(collapsed){
+  const section=$('assetStepPortas'); if(!section)return;
+  section.classList.toggle('ports-collapsed',collapsed);
+  $('assetPortsToggle')?.setAttribute('aria-expanded',collapsed?'false':'true');
+}
 const PORT_ICON='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 17v4M17 17v4M9 10v4M15 10v4"/></svg>';
 function renderAssetPortsEditor(){
   const list=$('assetPortsList'); if(!list)return;
@@ -1982,7 +1988,6 @@ function renderAssetPortsEditor(){
       <span class="asset-port-status ${conn?'is-used':'is-free'}"><i></i>${conn?'Em uso':'Disponível'}</span>
       <label class="asset-port-poe" title="Porta PoE"><input type="checkbox" data-port-poe="${esc(p.id)}" ${p.poe?'checked':''}><span>PoE</span></label>
       <span class="asset-port-actions">
-        <button type="button" class="iconbtn asset-port-edit" data-port-edit="${esc(p.id)}" title="Editar o nome desta porta">${uiIcon('pencil')}</button>
         <button type="button" class="iconbtn danger-icon" data-port-remove="${esc(p.id)}" title="Remover porta">${uiIcon('trash')}</button>
       </span>
     </div>`;
@@ -1990,7 +1995,6 @@ function renderAssetPortsEditor(){
   list.querySelectorAll('[data-port-id]').forEach(inp=>inp.oninput=()=>{const p=assetEditPorts.find(x=>x.id===inp.dataset.portId);if(p)p.label=inp.value;});
   list.querySelectorAll('[data-port-poe]').forEach(cb=>cb.onchange=()=>{const p=assetEditPorts.find(x=>x.id===cb.dataset.portPoe);if(p)p.poe=cb.checked;});
   list.querySelectorAll('[data-port-remove]').forEach(b=>b.onclick=()=>{assetEditPorts=assetEditPorts.filter(p=>p.id!==b.dataset.portRemove);renderAssetPortsEditor();});
-  list.querySelectorAll('[data-port-edit]').forEach(b=>b.onclick=()=>{const inp=list.querySelector(`[data-port-id="${CSS.escape(b.dataset.portEdit)}"]`);if(inp){inp.focus();inp.select();}});
 }
 async function exportAssetPortsXLSX(){
   try{
@@ -4336,6 +4340,7 @@ function bind(){
   $('assetPortsAdd')?.addEventListener('click',()=>{assetEditPorts.push({id:uid('port'),label:`Porta ${assetEditPorts.length+1}`,poe:false});renderAssetPortsEditor();const inputs=document.querySelectorAll('#assetPortsList .asset-port-name');const last=inputs[inputs.length-1];if(last){last.focus();last.select();}});
   $('assetPortsSearch')?.addEventListener('input',e=>{assetPortsQuery=e.target.value||'';renderAssetPortsEditor();});
   $('assetPortsFilter')?.addEventListener('change',e=>{assetPortsFilter=e.target.value||'all';renderAssetPortsEditor();});
+  $('assetPortsToggle')?.addEventListener('click',()=>{const section=$('assetStepPortas');setAssetPortsCollapsed(!section?.classList.contains('ports-collapsed'));});
   $('assetWarrantyExpiration')?.addEventListener('input',updateAssetLifecycleBadge);
   $('assetEndOfLife')?.addEventListener('input',updateAssetLifecycleBadge);
   $('assetNotes')?.addEventListener('input',updateAssetNotesCount);

@@ -13,27 +13,27 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=325" />
-    <link rel="stylesheet" href="macos.css?v=190" />
+    <link rel="stylesheet" href="app.css?v=326" />
+    <link rel="stylesheet" href="macos.css?v=191" />
     <script type="importmap">
       {
         "imports": {
-          "./js/bulk-assets.js": "./js/bulk-assets.js?v=339",
-          "./js/cables.js": "./js/cables.js?v=339",
-          "./js/catalogs.js": "./js/catalogs.js?v=339",
-          "./js/cloud-sync.js": "./js/cloud-sync.js?v=339",
-          "./js/dialogs.js": "./js/dialogs.js?v=339",
-          "./js/geometry.js": "./js/geometry.js?v=339",
-          "./js/inventory-import.js": "./js/inventory-import.js?v=339",
-          "./js/occupancy.js": "./js/occupancy.js?v=339",
-          "./js/pdf-report.js": "./js/pdf-report.js?v=339",
-          "./js/plant-export.js": "./js/plant-export.js?v=339",
-          "./js/rack-metrics.js": "./js/rack-metrics.js?v=339",
-          "./js/routing.js": "./js/routing.js?v=339",
-          "./js/runtime.js": "./js/runtime.js?v=339",
-          "./js/state.js": "./js/state.js?v=339",
-          "./js/styled-select.js": "./js/styled-select.js?v=339",
-          "./js/utils.js": "./js/utils.js?v=339"
+          "./js/bulk-assets.js": "./js/bulk-assets.js?v=340",
+          "./js/cables.js": "./js/cables.js?v=340",
+          "./js/catalogs.js": "./js/catalogs.js?v=340",
+          "./js/cloud-sync.js": "./js/cloud-sync.js?v=340",
+          "./js/dialogs.js": "./js/dialogs.js?v=340",
+          "./js/geometry.js": "./js/geometry.js?v=340",
+          "./js/inventory-import.js": "./js/inventory-import.js?v=340",
+          "./js/occupancy.js": "./js/occupancy.js?v=340",
+          "./js/pdf-report.js": "./js/pdf-report.js?v=340",
+          "./js/plant-export.js": "./js/plant-export.js?v=340",
+          "./js/rack-metrics.js": "./js/rack-metrics.js?v=340",
+          "./js/routing.js": "./js/routing.js?v=340",
+          "./js/runtime.js": "./js/runtime.js?v=340",
+          "./js/state.js": "./js/state.js?v=340",
+          "./js/styled-select.js": "./js/styled-select.js?v=340",
+          "./js/utils.js": "./js/utils.js?v=340"
         }
       }
     </script>
@@ -3416,6 +3416,18 @@
                       <option value="used">Mostrar: Em uso</option>
                       <option value="free">Mostrar: Disponíveis</option>
                     </select>
+                    <button
+                      type="button"
+                      id="assetPortsToggle"
+                      class="btn ghost small asset-ports-toggle"
+                      title="Mostrar/ocultar portas"
+                      aria-expanded="true"
+                    >
+                      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
+                      Mostrar/ocultar
+                    </button>
                   </div>
                 </div>
                 <div class="asset-ports-table">
@@ -3436,12 +3448,6 @@
                   >
                 </div>
                 <div class="asset-ports-foot">
-                  <span class="asset-ports-tip"
-                    ><svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9V15h7v-1.1A6 6 0 0 0 12 3Z" /></svg
-                    >Dica: clique em uma porta para editar os detalhes da conexão.</span
-                  >
                   <span class="asset-ports-totals"
                     >Total: <b id="assetPortsTotalFoot">0</b> <i>|</i>
                     <em>Em uso: <b id="assetPortsUsedFoot">0</b></em> <i>|</i>
@@ -4180,6 +4186,6 @@
       <span class="task-bar-fill" aria-hidden="true"></span>
       <span class="task-bar-label" id="taskBarLabel">Processando…</span>
     </div>
-    <script type="module" src="app.js?v=339"></script>
+    <script type="module" src="app.js?v=340"></script>
   </body>
 </html>
