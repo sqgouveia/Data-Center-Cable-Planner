@@ -3910,7 +3910,8 @@ function centerOnPoint(pt){
 function activateSearchResult(type,id){
   const g=geometry(); state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];
   if(type==='rack'){const r=state.racks.find(x=>x.id===id);if(!r)return;state.selected={type:'rack',id};state.multiSelected=[id];centerOnPoint(rackCenter(r,g));}
-  else if(type==='tray'){const t=state.trays.find(x=>x.id===id);if(!t)return;state.selected={type:'tray',id};state.trayMultiSelected=[id];centerOnPoint({x:(t.x1+t.x2)/2,y:(t.y1+t.y2)/2});}
+  // Calha e cabo não mexem no desenho: só acendem (o item está onde o usuário deixou).
+  else if(type==='tray'){const t=state.trays.find(x=>x.id===id);if(!t)return;state.selected={type:'tray',id};state.trayMultiSelected=[id];}
   else if(type==='row'){
     // Fileira: leva o canvas até ela e pisca o cartão no painel, que é onde ela se edita.
     const idx=state.rows.findIndex(r=>r.id===id); if(idx<0)return;
@@ -3929,12 +3930,17 @@ function activateSearchResult(type,id){
     openAssetsModal();
     const s=$('assetsSearch'); if(s){s.value=a.name||'';s.dispatchEvent(new Event('input',{bubbles:true}));}
   }
-  else {const c=state.cables.find(x=>x.id===id);if(!c)return;state.selected={type:'cable',id};const pts=computeRoute(c,g);if(pts.length)centerOnPoint({x:pts.reduce((a,p)=>a+p.x,0)/pts.length,y:pts.reduce((a,p)=>a+p.y,0)/pts.length});}
+  else {const c=state.cables.find(x=>x.id===id);if(!c)return;state.selected={type:'cable',id};}
   closeQuickSearch();closeTopSearch();renderAll(false);
   // Depois do render: a lista é reescrita inteira, então o cartão marca aí e não antes.
   requestAnimationFrame(()=>{
-    if(type==='row')focusPanelItem(`[data-row-card="${id}"]`);
+    if(type==='row'){
+      focusPanelItem(`[data-row-card="${id}"]`);
+      // A fileira escolhida acende inteira no desenho, rack por rack.
+      racksInRow(id).forEach(r=>flashElement(document.querySelector(`[data-rack="${r.id}"] .rack-body`)));
+    }
     else if(type==='cable')focusPanelItem(`.cable-item[data-cable="${id}"]`);
+    else if(type==='tray')flashElement(document.querySelector(`line[data-tray="${id}"].tray-line`));
     window.__applyCanvasPan?.();
   });
 }
