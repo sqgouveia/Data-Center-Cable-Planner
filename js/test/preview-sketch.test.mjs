@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { resetState, buildTwoRackScenario } from './helpers.mjs';
 import { state } from '../state.js';
-import { geometry, rackRect, trayPointForRowIndex } from '../geometry.js';
+import { geometry, rackRect, trayPointForRowIndex, roomSketchPieces } from '../geometry.js';
 
 test('geometry() e rackRect() desenham uma sala emprestada (prévia de projeto)', () => {
   resetState(state);
@@ -49,4 +49,25 @@ test('calha antiga (sem coordenadas) ganha pontos pela fileira na prévia', () =
   const b = trayPointForRowIndex(rows[1], 1, g, null);
   for (const v of [a.x, a.y, b.x, b.y]) assert.ok(Number.isFinite(v));
   assert.ok(b.y > a.y, 'a calha sai da fileira 1 para a 2 (para baixo)');
+});
+
+test('a prévia desenha a calha que nasce acima da primeira fileira', () => {
+  resetState(state);
+  // Sala como o app grava: racks das fileiras + calha em coordenadas absolutas, 80 unidades
+  // acima do primeiro rack (medido no app real).
+  const room = {
+    rows: [{ id: 'r1', name: '', rackCount: 2, gap: 0, depth: 1.2 }],
+    racks: [0, 1].map(i => ({ id: 'k' + i, rowId: 'r1', index: i, name: String(i + 1), units: 48, width: 0.6, depth: 1.2 })),
+  };
+  state.rows = room.rows; state.racks = room.racks; state.trays = [];
+  const g = geometry();
+  const primeiro = rackRect(state.racks[0], g);
+  const calha = { x1: primeiro.x, y1: primeiro.y - 80, x2: primeiro.x + 375, y2: primeiro.y - 80 };
+
+  const pecas = roomSketchPieces({ ...room, trays: [calha] }, { rackWidth: 0.6, rackDepth: 1.2 });
+  assert.equal(pecas.racks.length, 2, 'os dois racks entram no desenho');
+  assert.equal(pecas.trays.length, 1, 'a calha acima da fileira não pode ser descartada');
+  assert.equal(pecas.trays[0].y1, calha.y1);
+  // Estado de quem estava aberto segue intacto (a função empresta e devolve).
+  assert.equal(state.racks, room.racks);
 });

@@ -4,7 +4,7 @@ import { uiConfirm, uiPrompt } from './dialogs.js';
 import { syncSelectButton, bindStyledSelect } from './styled-select.js';
 import { runtime } from './runtime.js';
 // A prévia desenha a planta de um projeto que não está aberto: usa as mesmas contas do editor.
-import { geometry, rackRect, trayPointForRowIndex } from './geometry.js';
+import { roomSketchPieces } from './geometry.js';
 
 // Estado mutável compartilhado com app.js. Vive num objeto porque um `let` de módulo
 // não pode ser reatribuído por quem importa.
@@ -835,77 +835,23 @@ function projectLocationList(project,rooms){
   rooms.forEach(r=>{if(!ordem.includes(r.local))ordem.push(r.local);});
   return ordem.map(nome=>({nome,rooms:rooms.filter(r=>r.local===nome)}));
 }
-// Desenho da sala. Primeiro tenta a planta de verdade (as mesmas contas do editor: geometry() e
-// rackRect(), com o estado da sala emprestado por um instante); se algo faltar, cai no
-// esquemático de barras por fileira.
+// Desenho da sala: as peças vêm da geometria do editor (roomSketchPieces); enquadramento e SVG
+// são daqui. Sem peças, cai no esquemático de barras.
 function projectRoomSketch(project,room){
   try{
-    const d=project?.data||{}, x=room?.data||{};
-    if(Array.isArray(x.racks)&&x.racks.length){
-      const guarda={rows:state.rows,racks:state.racks,trays:state.trays,
-        w:state.rackWidth,g:state.rackGap,dep:state.rackDepth,units:state.rackUnits};
+    const pecas=roomSketchPieces(room?.data,project?.data);
+    const pts=[...pecas.racks.map(q=>[q.x,q.y,q.x+q.w,q.y+q.h]),...pecas.trays.map(t=>[t.x1,t.y1,t.x2,t.y2])];
+    if(pts.length){
+      const xs=pts.flatMap(p=>[p[0],p[2]]), ys=pts.flatMap(p=>[p[1],p[3]]);
+      const bx0=Math.min(...xs),bx1=Math.max(...xs),by0=Math.min(...ys),by1=Math.max(...ys);
+      const w=300,h=150,pad=14;
+      const esc=Math.min((w-pad*2)/Math.max(1,bx1-bx0),(h-pad*2)/Math.max(1,by1-by0));
+      const ox=(w-(bx1-bx0)*esc)/2-bx0*esc, oy=(h-(by1-by0)*esc)/2-by0*esc;
+      const X=v=>(v*esc+ox).toFixed(1), Y=v=>(v*esc+oy).toFixed(1);
       let saida='';
-      try{
-        state.rows=Array.isArray(x.rows)?x.rows:[];
-        state.racks=x.racks;
-        state.trays=Array.isArray(x.trays)?x.trays:[];
-        state.rackWidth=Number(d.rackWidth)||guarda.w;
-        state.rackGap=Number(d.rackGap)||guarda.g;
-        state.rackDepth=Number(d.rackDepth)||guarda.dep;
-        const g=geometry();
-        const pecas=[];
-        // Calha ligada a duas fileiras é recalculada pela geometria (fica no mesmo espaço dos
-        // racks); sem vínculo, valem as coordenadas gravadas.
-        state.trays.forEach(t=>{
-          let p=null;
-          const ia=state.rows.findIndex(r=>r.id===t.fromRowId), ib=state.rows.findIndex(r=>r.id===t.toRowId);
-          if(ia>=0&&ib>=0){
-            const sa=trayPointForRowIndex(state.rows[ia],ia,g,t.sideFrom||null);
-            const sb=trayPointForRowIndex(state.rows[ib],ib,g,t.sideTo||null);
-            if([sa.x,sa.y,sb.x,sb.y].every(Number.isFinite))p={x1:sa.x,y1:sa.y,x2:sb.x,y2:sb.y};
-          }
-          if(!p){
-            const x1=Number(t.x1),y1=Number(t.y1),x2=Number(t.x2),y2=Number(t.y2);
-            if([x1,y1,x2,y2].every(Number.isFinite))p={x1,y1,x2,y2};
-          }
-          if(p)pecas.push({tipo:'calha',...p});
-        });
-        state.racks.forEach(r=>{
-          const q=rackRect(r,g);
-          pecas.push({tipo:'rack',x1:q.x,y1:q.y,x2:q.x+q.w,y2:q.y+q.h});
-        });
-        // O enquadramento é dos racks; calha que caiu fora (coordenada de outra escala) não
-        // estica o desenho nem some com ele.
-        const racks=pecas.filter(p=>p.tipo==='rack');
-        const base=racks.length?racks:pecas;
-        const bxs=base.flatMap(q=>[q.x1,q.x2]), bys=base.flatMap(q=>[q.y1,q.y2]);
-        const bx0=Math.min(...bxs),bx1=Math.max(...bxs),by0=Math.min(...bys),by1=Math.max(...bys);
-        const mx=(bx1-bx0)*0.25, my=(by1-by0)*0.25;
-        const dentro=p=>{
-          const cx=(p.x1+p.x2)/2, cy=(p.y1+p.y2)/2;
-          return cx>=bx0-mx&&cx<=bx1+mx&&cy>=by0-my&&cy<=by1+my;
-        };
-        const usadas=pecas.filter(p=>p.tipo==='rack'||dentro(p));
-        if(usadas.length){
-          const xs=usadas.flatMap(p=>[p.x1,p.x2]), ys=usadas.flatMap(p=>[p.y1,p.y2]);
-          const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
-          const w=300,h=150,pad=14;
-          const esc=Math.min((w-pad*2)/Math.max(1,x1-x0),(h-pad*2)/Math.max(1,y1-y0));
-          const ox=(w-(x1-x0)*esc)/2-x0*esc, oy=(h-(y1-y0)*esc)/2-y0*esc;
-          usadas.forEach(p=>{
-            const X=v=>(v*esc+ox).toFixed(1), Y=v=>(v*esc+oy).toFixed(1);
-            if(p.tipo==='calha'){
-              saida+=`<line class="sketch-tray" x1="${X(p.x1)}" y1="${Y(p.y1)}" x2="${X(p.x2)}" y2="${Y(p.y2)}"/>`;
-            }else{
-              saida+=`<rect x="${X(p.x1)}" y="${Y(p.y1)}" width="${Math.max(2,(p.x2-p.x1)*esc).toFixed(1)}" height="${Math.max(3,(p.y2-p.y1)*esc).toFixed(1)}" rx="1.5"/>`;
-            }
-          });
-        }
-      }finally{
-        state.rows=guarda.rows; state.racks=guarda.racks; state.trays=guarda.trays;
-        state.rackWidth=guarda.w; state.rackGap=guarda.g; state.rackDepth=guarda.dep; state.rackUnits=guarda.units;
-      }
-      if(saida)return `<svg class="room-sketch" viewBox="0 0 300 150" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${saida}</svg>`;
+      pecas.trays.forEach(t=>{saida+=`<line class="sketch-tray" x1="${X(t.x1)}" y1="${Y(t.y1)}" x2="${X(t.x2)}" y2="${Y(t.y2)}"/>`;});
+      pecas.racks.forEach(q=>{saida+=`<rect x="${X(q.x)}" y="${Y(q.y)}" width="${Math.max(2,q.w*esc).toFixed(1)}" height="${Math.max(3,q.h*esc).toFixed(1)}" rx="1.5"/>`;});
+      return `<svg class="room-sketch" viewBox="0 0 300 150" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${saida}</svg>`;
     }
   }catch(_){/* cai no esquemático */}
   return projectRoomSketchSchematic(room);

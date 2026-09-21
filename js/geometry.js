@@ -388,3 +388,51 @@ export function connectCrossingsForTray(trayId){
     state.trayLinks.push({aTray:a.id,aT:hit.tA,bTray:b.id,bT:hit.tB,autoCrossing:true});
   });
 }
+
+// Peças do desenho de uma sala que NÃO está aberta (prévia na tela de projetos): empresta o
+// estado por um instante, roda geometry()/rackRect() sobre os dados crus do projeto e devolve
+// racks e calhas no mesmo espaço de coordenadas. Calha ligada a duas fileiras é recalculada;
+// calha solta usa a coordenada gravada, desde que caia perto do quadro dos racks.
+export function roomSketchPieces(roomData, projectData){
+  const x=roomData||{}, d=projectData||{};
+  if(!Array.isArray(x.racks)||!x.racks.length)return {racks:[],trays:[]};
+  const guarda={rows:state.rows,racks:state.racks,trays:state.trays,
+    w:state.rackWidth,g:state.rackGap,dep:state.rackDepth,units:state.rackUnits};
+  try{
+    state.rows=Array.isArray(x.rows)?x.rows:[];
+    state.racks=x.racks;
+    state.trays=Array.isArray(x.trays)?x.trays:[];
+    state.rackWidth=Number(d.rackWidth)||guarda.w;
+    state.rackGap=Number(d.rackGap)||guarda.g;
+    state.rackDepth=Number(d.rackDepth)||guarda.dep;
+    const g=geometry();
+    const racks=state.racks.map(r=>{const q=rackRect(r,g);return {x:q.x,y:q.y,w:q.w,h:q.h};});
+    const xs=racks.flatMap(q=>[q.x,q.x+q.w]), ys=racks.flatMap(q=>[q.y,q.y+q.h]);
+    const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+    // A calha nasce acima ou entre as fileiras (medido: ~80 unidades acima do primeiro rack),
+    // então a margem é generosa; coordenada de outra escala fica de fora.
+    const margemX=Math.max(120,(x1-x0)*0.5), margemY=Math.max(120,(y1-y0)*0.5);
+    const trays=[];
+    state.trays.forEach(t=>{
+      let p=null;
+      const ia=state.rows.findIndex(r=>r.id===t.fromRowId), ib=state.rows.findIndex(r=>r.id===t.toRowId);
+      if(ia>=0&&ib>=0){
+        const sa=trayPointForRowIndex(state.rows[ia],ia,g,t.sideFrom||null);
+        const sb=trayPointForRowIndex(state.rows[ib],ib,g,t.sideTo||null);
+        if([sa.x,sa.y,sb.x,sb.y].every(Number.isFinite))p={x1:sa.x,y1:sa.y,x2:sb.x,y2:sb.y};
+      }
+      if(!p){
+        const ax=Number(t.x1),ay=Number(t.y1),bx=Number(t.x2),by=Number(t.y2);
+        if([ax,ay,bx,by].every(Number.isFinite))p={x1:ax,y1:ay,x2:bx,y2:by};
+      }
+      if(!p)return;
+      const cx=(p.x1+p.x2)/2, cy=(p.y1+p.y2)/2;
+      if(cx<x0-margemX||cx>x1+margemX||cy<y0-margemY||cy>y1+margemY)return;
+      trays.push(p);
+    });
+    return {racks,trays};
+  }finally{
+    state.rows=guarda.rows; state.racks=guarda.racks; state.trays=guarda.trays;
+    state.rackWidth=guarda.w; state.rackGap=guarda.g; state.rackDepth=guarda.dep; state.rackUnits=guarda.units;
+  }
+}
