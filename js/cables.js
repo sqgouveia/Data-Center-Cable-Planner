@@ -104,14 +104,6 @@ function cableRouteLabel(c,res){
   addRack(dest);
   return route.filter(Boolean).join(' > ');
 }
-function applyTypeValidation(ws, range='B2:B1000'){
-  if(!ws)return;
-  const formula=`"${cableTypeNames().join(',')}"`;
-  for(let row=2;row<=1000;row++){
-    const cell=ws.getCell(`B${row}`);
-    cell.dataValidation={type:'list',allowBlank:false,formulae:[formula]};
-  }
-}
 export async function downloadCableTemplate(){
   try{
     if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
@@ -120,12 +112,16 @@ export async function downloadCableTemplate(){
     const headers=['Nome','Tipo','Rack Origem','U Origem','Face Origem','Nome Asset Origem','Porta Origem','Rack Destino','U Destino','Face Destino','Nome Asset Destino','Porta Destino'];
     ws.addRow(headers);
     ws.addRow(['FIB-001',defaultCableType(),'Row-1-01',40,'Frente','SWITCH01','G0/0/1','Row-2-01',40,'Frente','ROUTER01','G0/0/2']);
+    // Exemplo de breakout: tipo MTP/breakout e uma linha por perna, porta 1A, 1B… no mesmo equipamento.
+    const boType=(state.cableCatalogs.breakoutTypes||[])[0]?.name||'MTP OM4';
+    ws.addRow(['BO-001',boType,'Row-1-01',48,'Frente','SWITCH01','1A','Row-2-01',30,'Frente','SERVER01','eth1']);
+    ws.addRow(['BO-001',boType,'Row-1-01',48,'Frente','SWITCH01','1B','Row-2-02',30,'Frente','SERVER02','eth1']);
     ws.freezePanes={xSplit:0,ySplit:1};
-    ws.autoFilter={from:'A1',to:'L2'};
+    ws.autoFilter={from:'A1',to:'L4'};
     ws.getRow(1).font={bold:true};
     ws.columns=[{width:20},{width:24},{width:20},{width:12},{width:14},{width:20},{width:16},{width:20},{width:12},{width:14},{width:20},{width:16}];
+    const boNote=ws.getCell('N2'); boNote.value='Breakout (MTP): use um Tipo com "MTP" ou "breakout" no nome (ou um tipo de breakout cadastrado) e uma linha por perna, com a Porta Origem terminando na letra da perna: 1A, 1B, 1C, 1D. Linhas do mesmo rack, U e face com a mesma porta (1A, 1B… = porta 1) viram um breakout só.'; boNote.alignment={wrapText:true,vertical:'top'};
     const note=ws.getCell('N1'); note.value='Porta Origem e Porta Destino são opcionais. Se o modelo do asset já tiver portas cadastradas, o nome precisa ser idêntico a uma delas. Se o modelo não tiver portas cadastradas, o texto informado é aceito livremente, sem validação. Nome Asset Origem/Destino é opcional: se já existir um asset cadastrado naquele rack/U/face, o sistema usa o nome dele automaticamente; se não existir, o texto informado é aceito livremente, sem criar nenhum asset novo. Face Origem/Destino: Frente ou Traseira (deixado em branco vira Frente).'; note.font={italic:true,color:{argb:'FF8B96AC'}};
-    applyTypeValidation(ws);
 
     // Lista suspensa de racks (origem e destino) e de face, igual à de Tipo —
     // usa uma aba de referência oculta em vez de lista inline, pra não esbarrar
@@ -136,10 +132,17 @@ export async function downloadCableTemplate(){
     const allRacks=[...new Set(state.racks.map(r=>rackDisplayName(r)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
     refWs.getColumn(1).values=['Racks',...allRacks];
     refWs.getColumn(2).values=['Face','Frente','Traseira'];
+    // Tipos de cabo e de breakout na mesma lista: numa aba em vez de lista inline, sem o limite
+    // de 255 caracteres do Excel e sem quebrar em nome com vírgula.
+    normalizeCableCatalogs();
+    const allTypes=[...cableTypeNames(),...(state.cableCatalogs.breakoutTypes||[]).map(t=>t.name)];
+    refWs.getColumn(3).values=['Tipos',...allTypes];
+    const typeRange=`'NÃO EDITAR - Referência'!$C$2:$C$${Math.max(2,allTypes.length+1)}`;
     refWs.state='hidden';
     const rackRange=`'NÃO EDITAR - Referência'!$A$2:$A$${Math.max(2,allRacks.length+1)}`;
     const faceRange=`'NÃO EDITAR - Referência'!$B$2:$B$3`;
     for(let row=2;row<=1000;row++){
+      ws.getCell(`B${row}`).dataValidation={type:'list',allowBlank:false,formulae:[typeRange]};
       ws.getCell(`C${row}`).dataValidation={type:'list',allowBlank:true,formulae:[rackRange]};
       ws.getCell(`E${row}`).dataValidation={type:'list',allowBlank:true,formulae:[faceRange]};
       ws.getCell(`H${row}`).dataValidation={type:'list',allowBlank:true,formulae:[rackRange]};
