@@ -4,6 +4,7 @@
 // logic of the product - cable length must reflect physical reality.
 import { state } from './state.js';
 import { num } from './utils.js';
+import { breakoutLegCable, pickBreakoutLength } from './breakout-model.js';
 import {
   geometry, syncAttachedTrayEndpoints, trayEndpointConnected, connectCrossingsForTray,
   rowForRack, rackRect, nearestPointOnSegment, rowCenterY, segmentIntersection, trayPointAt,
@@ -395,4 +396,36 @@ export function calcCable(c){
   const base=reachable?v1+tray+v2+connection:0;
   const slack=base*(num(c.slack,state.defaultSlack)/100),total=base+slack;
   return{v1,v2,tray,connection,base,slack,total,reachable,path:rr.path};
+}
+// Tronco comum das pernas de um breakout, em metros de calha. trays[i] = calha da origem até o
+// destino i; pairTray(i,j) = calha entre os destinos i e j. Numa rede em árvore o ponto onde as
+// rotas de i e j se separam fica a (Ti + Tj − Dij)/2 da origem; o menor entre os pares (e entre
+// as próprias rotas) é o trecho comum a todas. Par sem distância conhecida não conta.
+export function breakoutSplit(trays,pairTray){
+  let trunk=Math.min(...trays);
+  for(let i=0;i<trays.length;i++)for(let j=i+1;j<trays.length;j++){const d=pairTray(i,j);if(Number.isFinite(d))trunk=Math.min(trunk,(trays[i]+trays[j]-d)/2);}
+  return Math.max(0,trunk);
+}
+// Breakout: rota de cada perna pelo motor de sempre (folga 0), tronco até a divisão e a maior
+// perna depois dela, cada um com 0,30 m de conexão e a folga % do breakout. Se alguma perna
+// termina no próprio rack da origem, a divisão é na porta. O produto vem de type.lengths.
+export function calcBreakout(b,type){
+  const legs=(b.legs||[]).filter(l=>l.destRack);
+  const res=legs.map(l=>({lane:l.lane,...calcCable({...breakoutLegCable(b,l),slack:0})}));
+  const out=res.map(r=>({lane:r.lane,total:r.total,reachable:r.reachable}));
+  if(!res.length||!res.every(r=>r.reachable))return{reachable:false,trunkNeeded:0,legNeeded:0,pick:null,reason:null,legs:out};
+  const k=1+num(b.slack,state.defaultSlack)/100;
+  const atOrigin=legs.map(l=>l.destRack===b.origin.rack);
+  let trunkNeeded,legNeeded;
+  if(atOrigin.some(Boolean)){
+    trunkNeeded=0.30;
+    legNeeded=Math.max(...res.map((r,i)=>atOrigin[i]?r.v1+0.30:r.v1+r.tray+r.v2+0.30));
+  }else{
+    const trunkTray=breakoutSplit(res.map(r=>r.tray),(i,j)=>legs[i].destRack===legs[j].destRack?0:(routeBetweenRacks(legs[i].destRack,legs[j].destRack,{})?.length??Infinity));
+    trunkNeeded=Math.max(...res.map(r=>r.v1))+trunkTray+0.30;
+    legNeeded=Math.max(...res.map(r=>r.tray-trunkTray+r.v2+0.30));
+  }
+  trunkNeeded*=k; legNeeded*=k;
+  const {pick,reason}=pickBreakoutLength(trunkNeeded,legNeeded,type?.lengths);
+  return{reachable:true,trunkNeeded,legNeeded,pick,reason,legs:out};
 }
