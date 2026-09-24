@@ -99,3 +99,10 @@ test('tipo do breakout: usa o existente ou cria um 1xN', () => {
   assert.equal(r.name, 'MTP OM3 — breakout 1×6');
   assert.deepEqual(r.created, { name: 'MTP OM3 — breakout 1×6', color: '#2dd4bf', legs: 6, lengths: [] });
 });
+
+test('reimportar o export não repete a letra da perna no nome', () => {
+  const rows = [cable('BO1 A', 'MTP OM4', '1A', 'r1', 'x'), cable('BO1 B', 'MTP OM4', '1B', 'r1', 'y')];
+  assert.equal(groupBreakoutCables(rows, labelOf, isBo).breakouts[0].name, 'BO1');
+  // Nome sem a letra no fim fica como está.
+  assert.equal(groupBreakoutCables([cable('BO1-A', 'MTP OM4', '1A', 'r1', 'x')], labelOf, isBo).breakouts[0].name, 'BO1-A');
+});

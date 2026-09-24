@@ -35,7 +35,7 @@ import { cables, configureCables, addCable, cableCommercial, downloadCableTempla
 import { capturePlant, composePlantSvg, svgToPngBlob, downloadBlob, safeFileName } from './js/plant-export.js';
 import { HEAT_MODES, levelForRatio, computeRackMetrics, heatLevel, summarizeRackMetrics } from './js/rack-metrics.js';
 import { catalogs, configureCatalogs, DEFAULT_ASSET_TYPES, DEFAULT_ASSET_STATUSES, DEFAULT_ASSET_SUBSTATUSES, normalizeAssetCatalogs, bayfaceTypeColor, renderCableTypesCatalog, renderBreakoutTypesCatalog, renderAssetCatalogs, roomThermalLoad, openRoomEditor, closeRoomEditor, saveRoomEditor, addAssetLocation, openAssetCatalogModal, openLocationsModal, closeAssetCatalogModal, renderAssetCatalogManufacturerSelect, renderAssetCatalogTypeSelect, renderCatalogPortDefsEditor, openCatalogEditor, closeCatalogEditor, saveCatalogEditor, renderAssetCatalogSelects } from './js/catalogs.js';
-configurePdfReport({ syncActiveRoom, toast, assetWarrantyLevel, assetEndOfLifeLevel, assetsNeedingAttention, allProjectRacks, capacityIssues, bayfaceTypeColor, cableSummaryRows });
+configurePdfReport({ syncActiveRoom, toast, assetWarrantyLevel, assetEndOfLifeLevel, assetsNeedingAttention, allProjectRacks, capacityIssues, bayfaceTypeColor, cableSummaryRows, breakoutSummaryRows });
 
 const ROOM_KEYS=['rackUnits','rackWidth','rackGap','rackDepth','defaultRowGap','lastUToTray','defaultSlack','rows','racks','cables','breakouts','trays','trayLinks','trayRackLinks','structureLocked','snapToEdges'];
 function roomDataFromState(){const data={};ROOM_KEYS.forEach(k=>{data[k]=cloneData(state[k]);});return data;}
@@ -3452,7 +3452,7 @@ function renderManualRouteUI(c){
 }
 function refreshVisuals(){normalizeState();render();renderCables();updateAlertsCenterBadge();save();}
 
-configureCables({ syncActiveRoom, normalizeCableCatalogs, cableTypeNames, defaultCableType, cableTypeColor, toast, cableUnitValidation, renderAll, flashSelection });
+configureCables({ syncActiveRoom, normalizeCableCatalogs, cableTypeNames, defaultCableType, cableTypeColor, toast, cableUnitValidation, renderAll, flashSelection, breakoutLegCables, breakoutSummaryRows, breakoutCalc });
 configureBreakouts({ toast, save, renderAll, breakoutTypeOf, breakoutLegCables, cablePortConflict, flashSelection, setPropHead, setPropTitleSticky });
 async function exportAssetsXLSX(){
   beginTask('Exportando assets…');

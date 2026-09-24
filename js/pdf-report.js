@@ -7,10 +7,10 @@ import { capturePlant, bareSvg, svgToPngBlob, blobToDataUrl, niceScale, parseCss
 // Funções que continuam em app.js (tocam DOM/estado do app); injetadas por
 // configurePdfReport() para evitar import circular com app.js.
 let syncActiveRoom, toast, assetWarrantyLevel, assetEndOfLifeLevel, assetsNeedingAttention,
-  allProjectRacks, capacityIssues, bayfaceTypeColor, cableSummaryRows;
+  allProjectRacks, capacityIssues, bayfaceTypeColor, cableSummaryRows, breakoutSummaryRows;
 export function configurePdfReport(deps){
   ({ syncActiveRoom, toast, assetWarrantyLevel, assetEndOfLifeLevel, assetsNeedingAttention,
-    allProjectRacks, capacityIssues, bayfaceTypeColor, cableSummaryRows } = deps);
+    allProjectRacks, capacityIssues, bayfaceTypeColor, cableSummaryRows, breakoutSummaryRows } = deps);
 }
 
 async function ensureJsPDF(){
@@ -299,6 +299,16 @@ export async function generatePDFReport(options={}){
           startY: y+4,
           head: [['Tipo','Comprimento (m)','Quantidade']],
           body: cableRows.map(r=>[r.type, String(r.length), String(r.qty)]),
+          theme:'striped', styles:{fontSize:9}, headStyles:{fillColor:[31,41,55]},
+        });
+      }
+      // Breakouts: 1 item por breakout, por tipo + cabo + perna.
+      const boRows = breakoutSummaryRows().rows;
+      if(boRows.length){
+        doc.autoTable({
+          startY: (doc.lastAutoTable?.finalY ?? y) + 6,
+          head: [['Breakout','Cabo (m)','Perna (m)','Quantidade']],
+          body: boRows.map(r=>[r.type, String(r.m), String(r.leg), String(r.qty)]),
           theme:'striped', styles:{fontSize:9}, headStyles:{fillColor:[31,41,55]},
         });
       }

@@ -55,7 +55,8 @@ export function groupBreakoutCables(cables,portLabel,isBreakoutType){
     const f=side==='origin'?c:flipCable(c);
     const {base,lane}=breakoutLane(portLabel(c,side));
     const key=[f.originRack,f.originU,f.originFace,catalogNormalize(base)].join('|');
-    if(!groups.has(key))groups.set(key,{name:f.name,type:f.type,slack:f.slack,origin:{rack:f.originRack,u:f.originU,face:f.originFace,assetName:f.originAssetName||''},base,legs:[]});
+    // O export grava cada perna como "<nome> <letra>": tira a letra para não crescer a cada ida e volta.
+    if(!groups.has(key))groups.set(key,{name:String(f.name??'').replace(new RegExp(`\\s+${lane}$`,'i'),''),type:f.type,slack:f.slack,origin:{rack:f.originRack,u:f.originU,face:f.originFace,assetName:f.originAssetName||''},base,legs:[]});
     const g=groups.get(key);
     if(g.legs.some(l=>l.lane===lane)){rest.push(c);continue;}
     g.legs.push({lane,originPortId:f.originPortId||null,originPortLabel:f.originPortLabel||'',destRack:f.destRack,destU:f.destU,destFace:f.destFace,destPortId:f.destPortId||null,destPortLabel:f.destPortLabel||'',destAssetName:f.destAssetName||''});

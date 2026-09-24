@@ -13,10 +13,10 @@ export const cables = { pendingCableImportRows: null, cablesSearchQuery: '', cab
 // Funções e constantes que continuam em app.js; injetadas por configureCables()
 // para evitar import circular com app.js.
 let syncActiveRoom, normalizeCableCatalogs, cableTypeNames, defaultCableType, cableTypeColor, toast,
-  cableUnitValidation, renderAll, flashSelection;
+  cableUnitValidation, renderAll, flashSelection, breakoutLegCables, breakoutSummaryRows, breakoutCalc;
 export function configureCables(deps){
   ({ syncActiveRoom, normalizeCableCatalogs, cableTypeNames, defaultCableType, cableTypeColor,
-    toast, cableUnitValidation, renderAll, flashSelection } = deps);
+    toast, cableUnitValidation, renderAll, flashSelection, breakoutLegCables, breakoutSummaryRows, breakoutCalc } = deps);
 }
 
 export function addCable(){if(state.racks.length<2){toast('Crie pelo menos 2 racks');return;}const c={id:uid('cable'),name:`Cabo-${String(state.cables.length+1).padStart(3,'0')}`,originRack:state.racks[0].id,originU:state.racks[0].units,originFace:'front',destRack:state.racks[1].id,destU:state.racks[1].units,destFace:'front',slack:state.defaultSlack,type:defaultCableType(),via:[]};state.cables.push(c);state.multiSelected=[];state.selected={type:'cable',id:c.id};renderAll();toast('Cabo adicionado');flashSelection?.();}
@@ -377,8 +377,9 @@ export async function exportCablesXLSX(){
     if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
     const headers=['Nome','Tipo','Rack Origem','U Origem','Face Origem','Nome Asset Origem','Porta Origem','Rack Destino','U Destino','Face Destino','Nome Asset Destino','Porta Destino','Vertical Origem (m)','Trecho Calhas (m)','Vertical Destino (m)','Conexões (m)','Base (m)','Folga (m)','Total (m)','Metragem Comercial (m)','Preço (R$)','Rota','Etiqueta'];
     const labelCol=headers.indexOf('Etiqueta')+1;
-    const rows=state.cables.map(c=>{
-      const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack),res=calcCable(c);
+    const rows=[...state.cables,...breakoutLegCables()].map(c=>{
+      // Perna de breakout: o comprimento é do breakout inteiro (aba Breakouts), não da linha.
+      const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack),res=c.breakoutId?{v1:'',tray:'',v2:'',connection:'',base:'',slack:'',total:'',reachable:false,path:[]}:calcCable(c);
       const originFace=c.originFace==='rear'?'rear':'front', destFace=c.destFace==='rear'?'rear':'front';
       const oPort=cablePortAt(c.originRack,c.originU,c.originPortId,originFace), dPort=cablePortAt(c.destRack,c.destU,c.destPortId,destFace);
       const label=`${cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName,originFace)}\n${cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName,destFace)}`;
@@ -390,10 +391,20 @@ export async function exportCablesXLSX(){
     ws.freezePanes={xSplit:0,ySplit:1}; ws.autoFilter={from:'A1',to:`${excelColumnLetter(headers.length)}${Math.max(1,rows.length+1)}`}; ws.getRow(1).font={bold:true};
     ws.columns=headers.map((h,i)=>i+1===labelCol?{width:44}:{width:Math.min(60,Math.max(12,Math.max(h.length,...rows.map(r=>String(r[i]??'').length))+2))});
     for(let i=2;i<=rows.length+1;i++){
-      ws.getCell(`B${i}`).dataValidation={type:'list',allowBlank:false,formulae:[`"${cableTypeNames().join(',')}"`]};
+      ws.getCell(`B${i}`).dataValidation={type:'list',allowBlank:false,formulae:[`"${[...cableTypeNames(),...(state.cableCatalogs.breakoutTypes||[]).map(t=>t.name)].join(',')}"`]};
       const cell=ws.getCell(i,labelCol); cell.alignment={wrapText:true,vertical:'top'};
       ws.getRow(i).height=30;
     }
+    const brl={numFmt:'"R$" #,##0.00'};
+    const boWs=wb.addWorksheet('Breakouts');
+    boWs.addRow(['Nome','Tipo','Rack Origem','U Origem','Asset Origem','Porta MTP','Tronco necessário (m)','Perna necessária (m)','Cabo (m)','Perna (m)','Preço (R$)','Pernas usadas','Destinos']);
+    boWs.getRow(1).font={bold:true};
+    state.breakouts.forEach(b=>{const r=breakoutCalc(b), used=b.legs.filter(l=>l.destRack);
+      boWs.addRow([b.name,b.type,rackDisplayName(state.racks.find(x=>x.id===b.origin.rack)||{}),b.origin.u,b.origin.assetName||'',b.base||'',
+        r.reachable?Math.round(r.trunkNeeded*100)/100:'',r.reachable?Math.round(r.legNeeded*100)/100:'',r.pick?.m??'',r.pick?.leg??'',r.pick?.price??'',
+        used.length,used.map(l=>`${l.lane}: ${rackDisplayName(state.racks.find(x=>x.id===l.destRack)||{})} U${l.destU}`).join('; ')]);});
+    boWs.columns=[26,26,14,9,18,10,14,14,10,10,12,10,60].map(width=>({width}));
+    boWs.getColumn(11).numFmt=brl.numFmt;
     const summary=wb.addWorksheet('Resumo');
     summary.addRow(['RESUMO DE CABOS']); summary.getRow(1).font={bold:true,size:14};
     summary.addRow([]); summary.addRow(['Tipo','Metragem (m)','Quantidade','Preço unit. (R$)','Subtotal (R$)']);
@@ -404,7 +415,19 @@ export async function exportCablesXLSX(){
     const totalMeters=summaryRows.reduce((s,r)=>s+r.length*r.qty,0);
     const totalValue=summaryRows.reduce((s,r)=>s+(r.price??0)*r.qty,0);
     const noPrice=summaryRows.reduce((s,r)=>s+(r.price==null?r.qty:0),0);
-    summary.addRow([]); summary.addRow(['TOTAL','',totalQty,'',totalValue]);
+    // Breakouts: 1 item por breakout, agrupado por tipo + cabo + perna.
+    const bo=breakoutSummaryRows();
+    if(bo.rows.length){
+      summary.addRow([]); summary.addRow(['Breakout','Cabo (m) / Perna (m)','Quantidade','Preço unit. (R$)','Subtotal (R$)']).font={bold:true};
+      bo.rows.forEach(r=>summary.addRow([r.type,`${r.m} / ${r.leg}`,r.qty,r.price??'',r.price!=null?r.price*r.qty:'']));
+    }
+    const boQty=bo.rows.reduce((s,r)=>s+r.qty,0);
+    const boValue=bo.rows.reduce((s,r)=>s+(r.price??0)*r.qty,0);
+    const boNoPrice=bo.rows.reduce((s,r)=>s+(r.price==null?r.qty:0),0);
+    summary.addRow([]); summary.addRow(['TOTAL','',totalQty+boQty,'',totalValue+boValue]);
+    if(boQty)summary.addRow(['Breakouts',boQty,'']);
+    if(boNoPrice)summary.addRow(['Breakouts sem preço (fora do total)',boNoPrice,'']);
+    if(bo.noPick)summary.addRow(['Breakouts sem tamanho que sirva',bo.noPick,'']);
     summary.addRow(['Metragem total (m)',totalMeters,'']);
     if(noPrice)summary.addRow(['Cabos sem preço (fora do total)',noPrice,'']);
     const over=summaryRows.reduce((s,r)=>s+(r.over?r.qty:0),0);
@@ -412,7 +435,6 @@ export async function exportCablesXLSX(){
     const invalid=state.cables.filter(c=>!cableUnitValidation(c).valid).length;
     const unreachable=state.cables.filter(c=>cableUnitValidation(c).valid&&!calcCable(c).reachable).length;
     summary.addRow([]); summary.addRow(['Cabos inválidos',invalid]); summary.addRow(['Cabos sem rota',unreachable]);
-    const brl={numFmt:'"R$" #,##0.00'};
     summary.columns=[{width:34},{width:18},{width:16},{width:18,style:brl},{width:18,style:brl}];
     ws.getColumn(headers.indexOf('Preço (R$)')+1).numFmt=brl.numFmt;
     const buf=await wb.xlsx.writeBuffer();
