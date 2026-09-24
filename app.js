@@ -3460,7 +3460,7 @@ function renderManualRouteUI(c){
 function refreshVisuals(){normalizeState();render();renderCables();updateAlertsCenterBadge();save();}
 
 configureCables({ syncActiveRoom, normalizeCableCatalogs, cableTypeNames, defaultCableType, cableTypeColor, toast, cableUnitValidation, renderAll, flashSelection, breakoutLegCables, breakoutSummaryRows, breakoutCalc });
-configureBreakouts({ toast, save, renderAll, breakoutTypeOf, breakoutLegCables, cablePortConflict, flashSelection, setPropHead, setPropTitleSticky });
+configureBreakouts({ toast, save, renderAll, breakoutTypeOf, breakoutLegCables, cablePortConflict, flashSelection, setPropHead, setPropTitleSticky, propIcon, bindCablePanelSections, CABLE_METRIC_ICONS });
 async function exportAssetsXLSX(){
   beginTask('Exportando assets…');
   try{

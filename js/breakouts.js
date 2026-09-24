@@ -8,9 +8,9 @@ import { calcBreakout } from './routing.js';
 import { breakoutLane } from './breakout-model.js';
 import { assetAtRackU } from './occupancy.js';
 export const breakouts = { tab: 'cables', query: '' };
-let toast, save, renderAll, breakoutTypeOf, breakoutLegCables, cablePortConflict, flashSelection, setPropHead, setPropTitleSticky;
+let toast, save, renderAll, breakoutTypeOf, breakoutLegCables, cablePortConflict, flashSelection, setPropHead, setPropTitleSticky, propIcon, bindCablePanelSections, CABLE_METRIC_ICONS;
 export function configureBreakouts(deps){
-  ({ toast, save, renderAll, breakoutTypeOf, breakoutLegCables, cablePortConflict, flashSelection, setPropHead, setPropTitleSticky } = deps);
+  ({ toast, save, renderAll, breakoutTypeOf, breakoutLegCables, cablePortConflict, flashSelection, setPropHead, setPropTitleSticky, propIcon, bindCablePanelSections, CABLE_METRIC_ICONS } = deps);
 }
 const rackName=id=>{const r=state.racks.find(x=>x.id===id);return r?rackDisplayName(r):'—';};
 // Rótulo da porta de destino: do asset (porta escolhida por id) ou o texto livre importado.
@@ -102,35 +102,74 @@ export function renderBreakoutProperties(p,b){
   const hasDest=b.legs.some(l=>l.destRack);
   const rackOpts=sel=>state.racks.map(x=>`<option value="${x.id}" ${x.id===sel?'selected':''}>${esc(rackDisplayName(x))}</option>`).join('');
   const destAssetOf=l=>l.destRack?assetAtRackU(state.assets,l.destRack,l.destU,l.destFace):null;
+  // Mesma linguagem visual do painel do cabo: cartão, rótulo com ícone, caixa por campo e
+  // sub-cartões recolhíveis (Origem, Pernas, Extras).
+  const caret='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+  const fieldLabel=(icon,label,req)=>`<span class="prop-field-label">${propIcon(icon)}<span class="prop-field-text">${label}${req?' <i class="req">*</i>':''}</span></span>`;
+  const subHead=(icon,label)=>`<header class="prop-sub-head">${fieldLabel(icon,label)}<button type="button" class="panel-step-toggle" aria-expanded="true" aria-label="Recolher ${label}">${caret}</button></header>`;
+  const faceOpts=f=>`<option value="front" ${f!=='rear'?'selected':''}>Frente</option><option value="rear" ${f==='rear'?'selected':''}>Traseira</option>`;
+  const metric=(icon,label,value,cls='')=>`<div class="cable-metric ${cls}"><span class="cable-metric-icon"><svg viewBox="0 0 24 24" aria-hidden="true">${CABLE_METRIC_ICONS[icon]}</svg></span><span class="cable-metric-label">${label}</span><b>${value}</b></div>`;
   const legRow=(l,i)=>{const lc=breakoutLegCables([b]).find(c=>c.id===`${b.id}:${l.lane}`)||{breakoutId:b.id,originRack:b.origin.rack};
     const conflict=l.destPortId?cablePortConflict(lc,'dest',l.destPortId):null;
     const originConflict=l.originPortId?cablePortConflict(lc,'origin',l.originPortId):null;
     const da=destAssetOf(l), portText=(l.destPortId&&da?.ports?.find(pt=>pt.id===l.destPortId)?.label)||l.destPortLabel||'';
-    return `<div class="breakout-leg" data-leg="${i}"><b title="Porta de origem ${esc(b.base?b.base+l.lane:l.lane)}">${esc(l.lane)}</b><select data-leg-rack><option value="">— livre —</option>${rackOpts(l.destRack)}</select><input type="number" min="1" data-leg-u value="${l.destU??''}" placeholder="U"><select data-leg-face><option value="front">Frente</option><option value="rear" ${l.destFace==='rear'?'selected':''}>Traseira</option></select><input data-leg-port list="boPorts${i}" value="${esc(portText)}" placeholder="Porta destino" autocomplete="off"><input data-leg-asset value="${esc(da?.name||l.destAssetName||'')}" placeholder="Equipamento de destino" ${da?'disabled':''}><datalist id="boPorts${i}">${(da?.ports||[]).map(pt=>`<option value="${esc(pt.label)}"></option>`).join('')}</datalist>${originConflict?`<div class="field-error">Porta ${esc(b.base+l.lane)} da origem já usada por "${esc(originConflict.name)}".</div>`:''}${conflict?`<div class="field-error">Porta já usada por "${esc(conflict.name)}".</div>`:''}</div>`;};
+    return `<div class="breakout-leg" data-leg="${i}">
+      <div class="breakout-leg-head"><b>Perna ${esc(l.lane)}</b><span>${esc(b.base?`porta ${b.base}${l.lane}`:'')}</span></div>
+      <div class="prop-grid-3">
+        <label class="prop-field">${fieldLabel('rack','Rack')}<span class="prop-field-box"><select data-leg-rack><option value="">— livre —</option>${rackOpts(l.destRack)}</select></span></label>
+        <label class="prop-field prop-field-u">${fieldLabel('u','U')}<span class="prop-field-box has-spin"><input type="number" min="1" data-leg-u value="${l.destU??''}"></span></label>
+        <label class="prop-field">${fieldLabel('face','Face')}<span class="prop-field-box"><select data-leg-face>${faceOpts(l.destFace)}</select></span></label>
+      </div>
+      <div class="grid2">
+        <label class="prop-field">${fieldLabel('asset','Asset')}<span class="prop-field-box"><input data-leg-asset value="${esc(da?.name||l.destAssetName||'')}" placeholder="Equipamento" ${da?'disabled':''}></span></label>
+        <label class="prop-field">${fieldLabel('port','Porta')}<span class="prop-field-box"><input data-leg-port list="boPorts${i}" value="${esc(portText)}" placeholder="Ex.: eth1" autocomplete="off"></span><datalist id="boPorts${i}">${(da?.ports||[]).map(pt=>`<option value="${esc(pt.label)}"></option>`).join('')}</datalist></label>
+      </div>
+      ${originConflict?`<div class="field-error">Porta ${esc(b.base+l.lane)} da origem já usada pelo cabo "${esc(originConflict.name)}".</div>`:''}${conflict?`<div class="field-error">Porta já usada pelo cabo "${esc(conflict.name)}".</div>`:''}
+    </div>`;};
   const pick=r.pick;
   const bases=[...laneGroups(asset).keys()];
-  p.innerHTML=`<div class="prop-group breakout-props">
-    <label class="prop-field">Nome<input id="boName" value="${esc(b.name)}"></label>
-    <label class="prop-field">Tipo<select id="boType">${types.map(t=>`<option ${t.name===b.type?'selected':''}>${esc(t.name)}</option>`).join('')}</select></label>
-    <div class="prop-subtitle">Origem (ponta MTP)</div>
-    <label class="prop-field">Rack<select id="boRack">${rackOpts(b.origin.rack)}</select></label>
-    <label class="prop-field">U<input id="boU" type="number" min="1" value="${b.origin.u}"></label>
-    <label class="prop-field">Face<select id="boFace"><option value="front">Frente</option><option value="rear" ${b.origin.face==='rear'?'selected':''}>Traseira</option></select></label>
-    <label class="prop-field">Equipamento<input id="boAsset" value="${esc(asset?.name||b.origin.assetName||'')}" placeholder="Nome do equipamento" ${asset?'disabled':''}></label>
-    <label class="prop-field">Porta MTP<input id="boBase" list="boBases" value="${esc(b.base||'')}" placeholder="Ex.: 1" autocomplete="off"><datalist id="boBases">${bases.map(k=>`<option value="${esc(k)}"></option>`).join('')}</datalist></label>
-    <div class="prop-subtitle">Pernas (destinos)</div>
-    ${b.legs.map(legRow).join('')}
-    <label class="prop-field">Folga (%)<input id="boSlack" type="number" min="0" step="1" value="${b.slack??state.defaultSlack}"></label>
-    <div class="breakout-result">
-      ${!hasDest?'<div class="empty">Informe o destino de pelo menos uma perna.</div>':!r.reachable?'<div class="unreachable">Alguma perna não tem rota pelas calhas.</div>':`
-      <div class="cable-metric"><span class="cable-metric-label">Tronco necessário</span><b>${fmtM(r.trunkNeeded)}</b></div>
-      <div class="cable-metric"><span class="cable-metric-label">Perna necessária</span><b>${fmtM(r.legNeeded)}</b></div>
-      ${pick?`<div class="cable-metric is-rounded"><span class="cable-metric-label">Cabo escolhido</span><b>${pick.m} m · pernas ${pick.leg} m · tronco ${Math.round((pick.m-pick.leg)*100)/100} m</b></div>`:''}
-      ${pick?.price!=null?`<div class="cable-metric is-price"><span class="cable-metric-label">Preço</span><b>${formatBRL(pick.price)}</b></div>`:''}
-      ${r.reason?`<div class="validation-error">${uiIcon('warn')} ${esc(reasonText(r,b.type))}</div>`:''}`}
+  p.innerHTML=`<div class="prop-card cable-panel breakout-props">
+  <div class="grid2">
+    <label class="prop-field">${fieldLabel('name','Nome',true)}<span class="prop-field-box"><input id="boName" value="${esc(b.name)}"></span></label>
+    <label class="prop-field">${fieldLabel('type','Tipo',true)}<span class="prop-field-box"><select id="boType">${types.map(t=>`<option ${t.name===b.type?'selected':''}>${esc(t.name)}</option>`).join('')}</select></span></label>
+  </div>
+  <div class="prop-card-sub" data-panel-step="origem">
+    ${subHead('arrowUp','Origem (ponta MTP)')}
+    <div class="prop-sub-body">
+      <div class="prop-grid-3">
+        <label class="prop-field">${fieldLabel('rack','Rack',true)}<span class="prop-field-box"><select id="boRack">${rackOpts(b.origin.rack)}</select></span></label>
+        <label class="prop-field prop-field-u">${fieldLabel('u','U',true)}<span class="prop-field-box has-spin"><input id="boU" type="number" min="1" value="${b.origin.u}"></span></label>
+        <label class="prop-field">${fieldLabel('face','Face',true)}<span class="prop-field-box"><select id="boFace">${faceOpts(b.origin.face)}</select></span></label>
+      </div>
+      <div class="grid2">
+        <label class="prop-field">${fieldLabel('asset','Asset')}<span class="prop-field-box"><input id="boAsset" value="${esc(asset?.name||b.origin.assetName||'')}" placeholder="Nome do equipamento" ${asset?'disabled':''}></span><small class="field-help-inline">${asset?'(automático)':'(opcional)'}</small></label>
+        <label class="prop-field">${fieldLabel('port','Porta MTP')}<span class="prop-field-box"><input id="boBase" list="boBases" value="${esc(b.base||'')}" placeholder="Ex.: 1" autocomplete="off"></span><datalist id="boBases">${bases.map(k=>`<option value="${esc(k)}"></option>`).join('')}</datalist></label>
+      </div>
     </div>
-    <button type="button" id="delBreakout" class="btn danger small">${uiIcon('trash')} Excluir breakout</button>
+  </div>
+  <div class="prop-card-sub" data-panel-step="pernas">
+    ${subHead('arrowDown',`Pernas (${b.legs.length})`)}
+    <div class="prop-sub-body">${b.legs.map(legRow).join('')}</div>
+  </div>
+  <div class="prop-card-sub" data-panel-step="extras">
+    ${subHead('sliders','Extras')}
+    <div class="prop-sub-body">
+      <label class="prop-field">${fieldLabel('percent','Folga (%)')}<span class="prop-field-box has-spin"><input id="boSlack" type="number" min="0" step="1" value="${b.slack??state.defaultSlack}"></span></label>
+      <div class="prop-readout">${propIcon('info','prop-readout-icon')}<span>A folga entra no tronco e na perna.</span></div>
+    </div>
+  </div>
+  <div class="cable-metrics">
+    ${!hasDest?'<div class="unreachable">Informe o destino de pelo menos uma perna.</div>':!r.reachable?'<div class="unreachable">Alguma perna não tem rota pelas calhas.</div>':
+      metric('tray','Tronco necessário',fmtM(r.trunkNeeded))
+      +metric('downArrow','Perna necessária',fmtM(r.legNeeded))
+      +(pick?metric('upArrow','Cabo escolhido',`${pick.m} m · pernas ${pick.leg} m`,'is-rounded'):'')
+      +(pick?.price!=null?metric('ruler','Preço',formatBRL(pick.price),'is-price'):'')
+      +(r.reason?`<div class="validation-error">${uiIcon('warn')} ${esc(reasonText(r,b.type))}</div>`:'')}
+  </div>
+  <button class="btn danger full" id="delBreakout" type="button">${propIcon('trash')}Excluir breakout</button>
+  <div class="prop-footnote">${propIcon('info')}Alterações salvas automaticamente.</div>
   </div>`;
+  bindCablePanelSections(p);
   const upd=fn=>()=>{fn();syncLegs(b);save();renderAll(false);};
   $('boName').onchange=upd(()=>{b.name=$('boName').value.trim()||b.name;});
   $('boType').onchange=upd(()=>{b.type=$('boType').value;});
