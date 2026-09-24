@@ -1,4 +1,4 @@
-import { uid, esc, num, $, catalogNormalize, catalogSimilar, parsePortTemplate, excelColumnLetter, beginTask, endTask, uiIcon } from './utils.js';
+import { uid, esc, num, $, catalogNormalize, catalogSimilar, parsePortTemplate, excelColumnLetter, beginTask, endTask, uiIcon, commercialLength } from './utils.js';
 import { state } from './state.js';
 import { uiConfirm } from './dialogs.js';
 import { rowForRack, geometry, rackRect, trayPointAt, rackDisplayName, findRackByLabel } from './geometry.js';
@@ -285,6 +285,13 @@ export function processCableImportRows(selectedNewTypes=[]){
   if(portsUnmatched)parts.push(`${portsUnmatched} porta(s) não encontrada(s) e deixada(s) em branco.`);
   toast(parts.join(' '));
 }
+// Metragem comercial do cabo pela tabela do seu tipo (ver commercialLength). fromTable diz se o
+// tipo tem tabela; maxM é a maior metragem dela, para o aviso de cabo longo demais.
+export function cableCommercial(c,res){
+  normalizeCableCatalogs();
+  const lengths=state.cableCatalogs.types.find(t=>t.name===(c.type||defaultCableType()))?.lengths||[];
+  return {...commercialLength(res.total,lengths),fromTable:lengths.length>0,maxM:lengths.at(-1)?.m??null};
+}
 export function cableSummaryRows(){
   const groups=new Map();
   let invalid=0,unreachable=0;
@@ -293,13 +300,14 @@ export function cableSummaryRows(){
     if(!v.valid){invalid++;continue;}
     const res=calcCable(c);
     if(!res.reachable){unreachable++;continue;}
-    const length=Math.ceil(res.total);
+    const com=cableCommercial(c,res);
     const type=c.type||defaultCableType();
-    const key=type+'|'+length;
-    groups.set(key,(groups.get(key)||0)+1);
+    const key=type+'|'+com.m;
+    const g=groups.get(key)||{type,length:com.m,qty:0,price:com.price,over:com.over};
+    g.qty++; groups.set(key,g);
   }
   const order=new Map(cableTypeNames().map((t,i)=>[t,i]));
-  return [...groups.entries()].map(([key,qty])=>{const [type,length]=key.split('|');return {type,length:Number(length),qty};})
+  return [...groups.values()]
     .sort((a,b)=>(order.get(a.type)-order.get(b.type))||a.length-b.length);
 }
 function cablePortAt(rackId,u,portId,face='front'){
@@ -348,14 +356,14 @@ export async function exportCablesXLSX(){
   beginTask('Exportando cabos…');
   try{
     if(!window.ExcelJS)throw new Error('Biblioteca ExcelJS não carregada.');
-    const headers=['Nome','Tipo','Rack Origem','U Origem','Face Origem','Nome Asset Origem','Porta Origem','Rack Destino','U Destino','Face Destino','Nome Asset Destino','Porta Destino','Vertical Origem (m)','Trecho Calhas (m)','Vertical Destino (m)','Conexões (m)','Base (m)','Folga (m)','Total (m)','Total Arredondado (m)','Rota','Etiqueta'];
+    const headers=['Nome','Tipo','Rack Origem','U Origem','Face Origem','Nome Asset Origem','Porta Origem','Rack Destino','U Destino','Face Destino','Nome Asset Destino','Porta Destino','Vertical Origem (m)','Trecho Calhas (m)','Vertical Destino (m)','Conexões (m)','Base (m)','Folga (m)','Total (m)','Metragem Comercial (m)','Preço (R$)','Rota','Etiqueta'];
     const labelCol=headers.indexOf('Etiqueta')+1;
     const rows=state.cables.map(c=>{
       const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack),res=calcCable(c);
       const originFace=c.originFace==='rear'?'rear':'front', destFace=c.destFace==='rear'?'rear':'front';
       const oPort=cablePortAt(c.originRack,c.originU,c.originPortId,originFace), dPort=cablePortAt(c.destRack,c.destU,c.destPortId,destFace);
       const label=`${cableEndpointLabel(c.originRack,c.originU,c.originPortId,c.originPortLabel,c.originAssetName,originFace)}\n${cableEndpointLabel(c.destRack,c.destU,c.destPortId,c.destPortLabel,c.destAssetName,destFace)}`;
-      return [c.name,c.type||defaultCableType(),o?rackDisplayName(o):'',c.originU,originFace==='rear'?'Traseira':'Frente',c.originAssetName||'',oPort?.label||c.originPortLabel||'',d?rackDisplayName(d):'',c.destU,destFace==='rear'?'Traseira':'Frente',c.destAssetName||'',dPort?.label||c.destPortLabel||'',res.v1,res.tray,res.v2,res.connection,res.base,res.slack,res.total,res.reachable?Math.ceil(res.total):'',cableRouteLabel(c,res),label];
+      return [c.name,c.type||defaultCableType(),o?rackDisplayName(o):'',c.originU,originFace==='rear'?'Traseira':'Frente',c.originAssetName||'',oPort?.label||c.originPortLabel||'',d?rackDisplayName(d):'',c.destU,destFace==='rear'?'Traseira':'Frente',c.destAssetName||'',dPort?.label||c.destPortLabel||'',res.v1,res.tray,res.v2,res.connection,res.base,res.slack,res.total,...(res.reachable?(com=>[com.m,com.price??''])(cableCommercial(c,res)):['','']),cableRouteLabel(c,res),label];
     });
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('Cabos');
@@ -369,18 +377,25 @@ export async function exportCablesXLSX(){
     }
     const summary=wb.addWorksheet('Resumo');
     summary.addRow(['RESUMO DE CABOS']); summary.getRow(1).font={bold:true,size:14};
-    summary.addRow([]); summary.addRow(['Tipo','Metragem (m)','Quantidade']);
+    summary.addRow([]); summary.addRow(['Tipo','Metragem (m)','Quantidade','Preço unit. (R$)','Subtotal (R$)']);
     summary.getRow(3).font={bold:true};
     const summaryRows=cableSummaryRows();
-    summaryRows.forEach(r=>summary.addRow([r.type,r.length,r.qty]));
+    summaryRows.forEach(r=>summary.addRow([r.type+(r.over?' (acima da maior metragem)':''),r.length,r.qty,r.price??'',r.price!=null?r.price*r.qty:'']));
     const totalQty=summaryRows.reduce((s,r)=>s+r.qty,0);
     const totalMeters=summaryRows.reduce((s,r)=>s+r.length*r.qty,0);
-    summary.addRow([]); summary.addRow(['TOTAL','',totalQty]);
-    summary.addRow(['Metragem total arredondada (m)',totalMeters,'']);
+    const totalValue=summaryRows.reduce((s,r)=>s+(r.price??0)*r.qty,0);
+    const noPrice=summaryRows.reduce((s,r)=>s+(r.price==null?r.qty:0),0);
+    summary.addRow([]); summary.addRow(['TOTAL','',totalQty,'',totalValue]);
+    summary.addRow(['Metragem total (m)',totalMeters,'']);
+    if(noPrice)summary.addRow(['Cabos sem preço (fora do total)',noPrice,'']);
+    const over=summaryRows.reduce((s,r)=>s+(r.over?r.qty:0),0);
+    if(over)summary.addRow(['Cabos acima da maior metragem',over,'']);
     const invalid=state.cables.filter(c=>!cableUnitValidation(c).valid).length;
     const unreachable=state.cables.filter(c=>cableUnitValidation(c).valid&&!calcCable(c).reachable).length;
     summary.addRow([]); summary.addRow(['Cabos inválidos',invalid]); summary.addRow(['Cabos sem rota',unreachable]);
-    summary.columns=[{width:26},{width:18},{width:16}];
+    const brl={numFmt:'"R$" #,##0.00'};
+    summary.columns=[{width:34},{width:18},{width:16},{width:18,style:brl},{width:18,style:brl}];
+    ws.getColumn(headers.indexOf('Preço (R$)')+1).numFmt=brl.numFmt;
     const buf=await wb.xlsx.writeBuffer();
     const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(state.projectName||'data-center')}-cabos.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
@@ -439,7 +454,8 @@ export function renderCables(){
       const checked=cables.cableMultiSelected.includes(c.id);
       const isSelected=state.selected?.type==='cable'&&state.selected.id===c.id;
       const color=cableTypeColor(c.type);
-      const length=info.reachable?`${Math.ceil(info.total)} m`:'—';
+      const com=info.reachable?cableCommercial(c,info):null;
+      const length=com?`${com.m} m${com.over?' ⚠':''}`:'—';
       const endBox=(kind,e)=>{const text=[e.rack||'—',e.u?`U${e.u}`:'—',e.asset||'—',e.port||'—'].join(' - ');return `<div class="cable-end ${kind}" title="${esc(text)}"><i></i><span class="cable-end-text">${esc(text)}</span></div>`;};
       return `<div class="cable-item ${isSelected?'selected':''} ${invalid?'invalid':''} ${checked?'is-checked':''}" style="--cable-color:${esc(color)};${isSelected?'':`border-left-color:${esc(color)}`}" data-cable="${c.id}">
         <label class="cable-item-check" onclick="event.stopPropagation()"><input type="checkbox" data-cable-check="${c.id}" ${checked?'checked':''}></label>

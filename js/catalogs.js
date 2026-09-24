@@ -1,4 +1,4 @@
-import { uid, cloneData, esc, num, $, catalogNormalize, catalogSimilarity, catalogKeyLabel, buildPortRange, totalPortDefsCount, uiIcon } from './utils.js';
+import { uid, cloneData, esc, num, $, catalogNormalize, catalogSimilarity, catalogKeyLabel, buildPortRange, totalPortDefsCount, uiIcon, normalizeCableLengths } from './utils.js';
 import { state } from './state.js';
 import { uiConfirm, uiPrompt } from './dialogs.js';
 import { importSession, assetStatusValues, validateAssetImportRows, renderEditableAssetImportPreview, updateImportPreviewSummary, validateCatalogImportRows, renderCatalogSinglePreviewRows } from './inventory-import.js';
@@ -62,16 +62,52 @@ const BAYFACE_TYPE_DEFAULTS={'is-switch':'#4cc9f0','is-storage':'#9b8cff','is-po
 function defaultBayfaceTypeColor(type){return BAYFACE_TYPE_DEFAULTS[bayfaceAssetTypeClass(type)]||'#6fd38c';}
 export function bayfaceTypeColor(type){normalizeAssetCatalogs();return state.assetCatalogs.typeColors?.[type]||defaultBayfaceTypeColor(type);}
 function setBayfaceTypeColor(type,color){normalizeAssetCatalogs();state.assetCatalogs.typeColors[type]=color;save();if($('bayfaceModal')?.classList.contains('open')){const rid=$('bayfaceModal').dataset.rackId;if(rid)openBayface(rid);}}
+// Tipos de cabo com a tabela de metragens aberta (por nome, sobrevive ao re-render).
+const openCableLengths=new Set();
+const RULER_ICON='<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 8.5h17v7h-17zM8 8.5v3M12 8.5v4M16 8.5v3"/></svg>';
+function cableLengthRow(l={}){
+  return `<div class="catalog-length-row"><input type="number" min="0" max="999.99" step="0.01" data-len-m value="${l.m??''}" placeholder="0" aria-label="Metragem (m)"><input type="number" min="0" max="9999.99" step="0.01" data-len-price value="${l.price??''}" placeholder="0,00" aria-label="Preço (R$), opcional"><button type="button" class="iconbtn danger-icon" data-len-remove title="Remover metragem">${uiIcon('close')}</button></div>`;
+}
+function cableLengthsPanel(t,i){
+  return `<div class="catalog-lengths" data-cable-type-lengths-panel="${i}"><small>Metragens do fornecedor, preço opcional. O cabo usa a menor que cobre o comprimento calculado; sem metragens, arredonda para cima.</small><div class="catalog-length-row catalog-length-head" aria-hidden="true"><span>Metros</span><span>Preço (R$)</span><i></i></div>${(t.lengths||[]).map(cableLengthRow).join('')}<button type="button" class="btn small" data-len-add>${uiIcon('plus')} Adicionar metragem</button></div>`;
+}
 export function renderCableTypesCatalog(){
   normalizeCableCatalogs();
   const el=$('catalogCableTypes'); if(!el)return;
   const types=state.cableCatalogs.types;
   const q=String($('catalogCableTypeSearch')?.value||'').toLowerCase().trim();
   const filtered=types.map((t,i)=>({t,i})).filter(({t})=>!q||t.name.toLowerCase().includes(q));
-  el.innerHTML=filtered.map(({t,i})=>`<div class="catalog-row"><span title="${esc(t.name)}">${esc(t.name)}</span><div><input type="color" class="catalog-color-swatch" data-cable-type-color="${i}" value="${esc(t.color)}" title="Cor deste tipo"><button type="button" class="iconbtn" data-cable-type-edit="${i}" title="Editar">${uiIcon('pencil')}</button><button type="button" class="iconbtn danger-icon" data-cable-type-delete="${i}" title="Excluir">${uiIcon('close')}</button></div></div>`).join('')||'<div class="empty">Nenhum tipo cadastrado.</div>';
+  el.innerHTML=filtered.map(({t,i})=>`<div class="catalog-row"><span title="${esc(t.name)}">${esc(t.name)}</span><div><button type="button" class="iconbtn catalog-lengths-toggle${openCableLengths.has(t.name)?' active':''}" data-cable-type-lengths="${i}" title="Metragens e preços" aria-expanded="${openCableLengths.has(t.name)}">${RULER_ICON}${t.lengths?.length?`<b>${t.lengths.length}</b>`:''}</button><input type="color" class="catalog-color-swatch" data-cable-type-color="${i}" value="${esc(t.color)}" title="Cor deste tipo"><button type="button" class="iconbtn" data-cable-type-edit="${i}" title="Editar">${uiIcon('pencil')}</button><button type="button" class="iconbtn danger-icon" data-cable-type-delete="${i}" title="Excluir">${uiIcon('close')}</button></div></div>${openCableLengths.has(t.name)?cableLengthsPanel(t,i):''}`).join('')||'<div class="empty">Nenhum tipo cadastrado.</div>';
   el.querySelectorAll('[data-cable-type-color]').forEach(inp=>{
     inp.oninput=()=>{types[Number(inp.dataset.cableTypeColor)].color=inp.value;};
     inp.onchange=()=>{save();renderCables();render();};
+  });
+  el.querySelectorAll('[data-cable-type-lengths]').forEach(btn=>btn.onclick=()=>{
+    const name=types[Number(btn.dataset.cableTypeLengths)].name;
+    openCableLengths.has(name)?openCableLengths.delete(name):openCableLengths.add(name);
+    renderCableTypesCatalog();
+  });
+  el.querySelectorAll('[data-cable-type-lengths-panel]').forEach(panel=>{
+    // Lê o painel inteiro a cada mudança: linha com metragem vazia fica na tela mas não é salva.
+    const commit=()=>{
+      state.cableCatalogs.types[Number(panel.dataset.cableTypeLengthsPanel)].lengths=normalizeCableLengths([...panel.querySelectorAll('.catalog-length-row:not(.catalog-length-head)')]
+        .map(r=>({m:r.querySelector('[data-len-m]').value,price:r.querySelector('[data-len-price]').value})));
+      save();renderAll(false);
+    };
+    panel.addEventListener('change',commit);
+    // Limite enquanto digita: metragem até 999,99 e preço até 9999,99 (parte inteira 3/4
+    // dígitos, 2 casas decimais); o excesso é cortado.
+    panel.addEventListener('input',e=>{
+      const lim=e.target.matches('[data-len-m]')?3:e.target.matches('[data-len-price]')?4:0;
+      const v=e.target.value; if(!lim||!v)return;
+      const [int,dec]=v.split('.');
+      const cut=int.slice(0,lim)+(dec!=null?'.'+dec.slice(0,2):'');
+      if(cut!==v)e.target.value=cut.replace(/\.$/,'');
+    });
+    panel.addEventListener('click',e=>{
+      if(e.target.closest('[data-len-add]')){e.target.closest('[data-len-add]').insertAdjacentHTML('beforebegin',cableLengthRow());panel.querySelector('.catalog-length-row:last-of-type [data-len-m]')?.focus();}
+      else if(e.target.closest('[data-len-remove]')){e.target.closest('.catalog-length-row').remove();commit();}
+    });
   });
   el.querySelectorAll('[data-cable-type-edit]').forEach(btn=>btn.onclick=async()=>{
     const idx=Number(btn.dataset.cableTypeEdit); const oldName=types[idx].name;
@@ -81,6 +117,7 @@ export function renderCableTypesCatalog(){
     if(!trimmed){toast('Nome não pode ficar vazio.');return;}
     if(types.some((t,j)=>j!==idx&&catalogNormalize(t.name)===catalogNormalize(trimmed))){toast('Já existe um tipo de cabo com esse nome.');return;}
     types[idx].name=trimmed;
+    if(openCableLengths.delete(oldName))openCableLengths.add(trimmed);
     state.cables.forEach(c=>{if(c.type===oldName)c.type=trimmed;});
     save();renderAll();renderCableTypesCatalog();
   });

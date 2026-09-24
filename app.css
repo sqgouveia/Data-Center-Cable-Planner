@@ -6059,6 +6059,82 @@ button.bayface-rack-state:hover {
   height: 28px;
   padding: 0;
 }
+.catalog-lengths-toggle {
+  position: relative;
+}
+.catalog-lengths-toggle.active {
+  color: var(--blue);
+}
+.catalog-lengths-toggle b {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 9px;
+  line-height: 14px;
+}
+.catalog-lengths {
+  display: grid;
+  gap: 6px;
+  margin: -2px 0 4px 4px;
+  padding: 6px 4px;
+  border-left: 2px solid color-mix(in srgb, var(--blue) 40%, var(--border));
+  font-size: var(--fs-micro);
+}
+.catalog-lengths small {
+  color: var(--muted);
+}
+/* Uma linha só: metragem e preço dividem a largura ao meio; o cabeçalho diz a unidade,
+   então os campos não precisam de rótulo ao lado (não cabia na coluna estreita). */
+.catalog-length-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 4px;
+  background: var(--panel2);
+}
+.catalog-length-head {
+  padding-block: 0;
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+.catalog-length-head span {
+  padding-left: 7px;
+  white-space: nowrap;
+}
+.catalog-length-head:not(:has(+ .catalog-length-row)) {
+  display: none;
+}
+/* Sem setas de número: elas comiam o valor. */
+.catalog-length-row input {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding-inline: 6px;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.catalog-length-row input::-webkit-inner-spin-button,
+.catalog-length-row input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.catalog-length-row .iconbtn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+}
+.catalog-lengths .btn {
+  justify-self: start;
+}
 @media (max-width: 1350px) {
   .assets-card {
     width: calc(100vw - 24px);

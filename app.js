@@ -2,7 +2,7 @@ import {
   uid, cloneData, esc, num, $, dateUrgencyLevel, formatAssetDate, catalogNormalize,
   catalogSimilarity, catalogSimilar, catalogKeyLabel, parsePortTemplate, buildPortRange,
   expandPortDefs, totalPortDefsCount, excelColumnLetter, parseImportDate, parseImportNumber,
-  beginTask, endTask, uiIcon
+  beginTask, endTask, uiIcon, normalizeCableLengths, formatBRL
 } from './js/utils.js';
 import { state, THEME_STORAGE } from './js/state.js';
 import { uiConfirm, uiPrompt } from './js/dialogs.js';
@@ -29,7 +29,7 @@ import { runtime } from './js/runtime.js';
 import { importSession, configureInventoryImport, assetStatusValues, makeAssetsTemplate, validateAssetImportRows, renderEditableAssetImportPreview, updateImportPreviewSummary, closeImportPreview, catalogSingleTemplate, openCatalogSingleImport, validateCatalogImportRows, renderCatalogSinglePreviewRows, importCatalogSingleWorkbook, importAssetsWorkbook } from './js/inventory-import.js';
 import { cloud, configureCloudSync, setCloudStatus, updatePlannerProjectName, assetLogDiff, recordAssetAudit, openAssetHistory, closeAssetHistory, exportCurrentAssetHistory, scheduleCloudSave, updateAutosaveUI, setAutosaveEnabled, saveProjectToCloud, importProject, showDashboard, createNewCloudProject, startAuth } from './js/cloud-sync.js';
 import { configureBulkAssets, addBulkRow, openBulkAssetsModal, closeBulkAssetsModal, saveBulkAssets, openAssetsImportModal, bindImportUI } from './js/bulk-assets.js';
-import { cables, configureCables, addCable, downloadCableTemplate, importCablesXLSX, closeCableTypeReviewModal, processCableImportRows, cableSummaryRows, cableEndpointLabel, compactPortLabels, cablesByRoom, exportCablesXLSX, cableSearchHaystack, renderCables, deleteCablesBulk } from './js/cables.js';
+import { cables, configureCables, addCable, cableCommercial, downloadCableTemplate, importCablesXLSX, closeCableTypeReviewModal, processCableImportRows, cableSummaryRows, cableEndpointLabel, compactPortLabels, cablesByRoom, exportCablesXLSX, cableSearchHaystack, renderCables, deleteCablesBulk } from './js/cables.js';
 import { capturePlant, composePlantSvg, svgToPngBlob, downloadBlob, safeFileName } from './js/plant-export.js';
 import { HEAT_MODES, levelForRatio, computeRackMetrics, heatLevel, summarizeRackMetrics } from './js/rack-metrics.js';
 import { catalogs, configureCatalogs, DEFAULT_ASSET_TYPES, DEFAULT_ASSET_STATUSES, DEFAULT_ASSET_SUBSTATUSES, normalizeAssetCatalogs, bayfaceTypeColor, renderCableTypesCatalog, renderAssetCatalogs, roomThermalLoad, openRoomEditor, closeRoomEditor, saveRoomEditor, addAssetLocation, openAssetCatalogModal, openLocationsModal, closeAssetCatalogModal, renderAssetCatalogManufacturerSelect, renderAssetCatalogTypeSelect, renderCatalogPortDefsEditor, openCatalogEditor, closeCatalogEditor, saveCatalogEditor, renderAssetCatalogSelects } from './js/catalogs.js';
@@ -99,7 +99,9 @@ function normalizeCableCatalogs(){
   types.forEach(t=>{
     const name=String(t?.name||'').trim(); if(!name)return;
     const key=catalogNormalize(name); if(seen.has(key))return; seen.add(key);
-    clean.push({name,color:/^#[0-9a-fA-F]{6}$/.test(t?.color||'')?t.color:'#4f8cff'});
+    // Corrige o próprio objeto (não cria outro): o catálogo aberto guarda referência aos tipos.
+    Object.assign(t,{name,color:/^#[0-9a-fA-F]{6}$/.test(t.color||'')?t.color:'#4f8cff',lengths:normalizeCableLengths(t.lengths)});
+    clean.push(t);
   });
   state.cableCatalogs.types=clean.length?clean:DEFAULT_CABLE_TYPES.map(t=>({...t}));
 }
@@ -3382,7 +3384,7 @@ function updateCableResult(c){
   const validation=cableUnitValidation(c);
   if(!validation.valid){el.innerHTML='<div class="validation-error">'+uiIcon('warn')+' '+validation.errors.map(esc).join('<br>')+'</div>';return;}
   const res=calcCable(c);
-  const rounded=res.reachable?Math.ceil(res.total):0;
+  const com=cableCommercial(c,res);
   const row=(parcela,icon,label,value)=>`<div class="cable-metric" data-parcela="${parcela}"><span class="cable-metric-icon"><svg viewBox="0 0 24 24" aria-hidden="true">${CABLE_METRIC_ICONS[icon]}</svg></span><span class="cable-metric-label">${label}</span><b>${value.toFixed(2)} m</b></div>`;
   el.innerHTML=row('origem','upArrow','Vertical origem',res.v1)
     +row('calhas','tray','Trecho pelas calhas',res.tray)
@@ -3391,7 +3393,9 @@ function updateCableResult(c){
     +row('base','ruler','Base',res.base)
     +row('folga','percent',`Folga ${c.slack??state.defaultSlack}%`,res.slack)
     +`<div class="cable-metric is-total"><span class="cable-metric-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6h11l-5.5 6 5.5 6h-11"/></svg></span><span class="cable-metric-label">Total</span><b>${res.total.toFixed(2)} m</b></div>`
-    +`<div class="cable-metric is-rounded"><span class="cable-metric-icon"><svg viewBox="0 0 24 24" aria-hidden="true">${CABLE_METRIC_ICONS.upArrow}</svg></span><span class="cable-metric-label">Total arredondado para cima</span><b>${res.reachable?rounded:'—'} m</b></div>`
+    +`<div class="cable-metric is-rounded"><span class="cable-metric-icon"><svg viewBox="0 0 24 24" aria-hidden="true">${CABLE_METRIC_ICONS.upArrow}</svg></span><span class="cable-metric-label">${com.fromTable?'Metragem comercial':'Total arredondado para cima'}</span><b>${res.reachable?com.m:'—'} m</b></div>`
+    +(res.reachable&&com.price!=null?`<div class="cable-metric is-price"><span class="cable-metric-icon"><svg viewBox="0 0 24 24" aria-hidden="true">${CABLE_METRIC_ICONS.ruler}</svg></span><span class="cable-metric-label">Preço</span><b>${formatBRL(com.price)}</b></div>`:'')
+    +(res.reachable&&com.over?`<div class="validation-error">${uiIcon('warn')} Passa da maior metragem cadastrada para ${esc(c.type||defaultCableType())} (${com.maxM} m). Use emenda ou cabo sob medida.</div>`:'')
     +(res.reachable?'':'<div class="unreachable">Não existe rota pelas calhas cadastradas.</div>');
 }
 

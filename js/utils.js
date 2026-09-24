@@ -136,3 +136,23 @@ export function parseImportDate(value){
   return '';
 }
 export function parseImportNumber(v,fallback=0){const n=Number(String(v).replace(',','.'));return Number.isFinite(n)?n:fallback;}
+
+// Metragens comerciais de um tipo de cabo (tabela do fornecedor): [{m, price?}] em ordem
+// crescente, uma por metragem, só m>0. Preço é opcional e fica fora do objeto quando vazio.
+export function normalizeCableLengths(list){
+  const byM=new Map();
+  (Array.isArray(list)?list:[]).forEach(x=>{
+    const m=Math.round(parseImportNumber(x?.m,0)*100)/100; if(!(m>0))return;
+    const p=x?.price===''||x?.price==null?NaN:parseImportNumber(x.price,NaN);
+    byM.set(m,Number.isFinite(p)&&p>=0?{m,price:p}:{m});
+  });
+  return [...byM.values()].sort((a,b)=>a.m-b.m);
+}
+// Menor metragem cadastrada que cobre o total. Sem tabela, arredonda para cima (o cálculo de
+// sempre); total acima da maior metragem também arredonda, mas volta com over=true.
+export function commercialLength(total,lengths){
+  const pick=(lengths||[]).find(x=>x.m>=total-1e-9);
+  if(pick)return{m:pick.m,price:pick.price??null,over:false};
+  return{m:Math.ceil(total),price:null,over:!!lengths?.length};
+}
+export function formatBRL(v){return Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
