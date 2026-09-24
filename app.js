@@ -5,6 +5,7 @@ import {
   beginTask, endTask, uiIcon, normalizeCableLengths, formatBRL
 } from './js/utils.js';
 import { normalizeBreakoutLengths, breakoutLegCable } from './js/breakout-model.js';
+import { breakouts, configureBreakouts, setCablesTab, renderBreakoutsList, renderBreakoutProperties, addBreakout, breakoutSummaryRows, breakoutCalc } from './js/breakouts.js';
 import { state, THEME_STORAGE } from './js/state.js';
 import { uiConfirm, uiPrompt } from './js/dialogs.js';
 import { closeStyledSelectPanels, syncSelectButton, openStyledSelectPanel, bindStyledSelect } from './js/styled-select.js';
@@ -303,7 +304,8 @@ function restoreSnapshot(snapshot, preserveSelection=null){
   const validSelected = selectionState.selected && (
     (selectionState.selected.type==='rack' && rackIds.has(selectionState.selected.id)) ||
     (selectionState.selected.type==='tray' && trayIds.has(selectionState.selected.id)) ||
-    (selectionState.selected.type==='cable' && cableIds.has(selectionState.selected.id))
+    (selectionState.selected.type==='cable' && cableIds.has(selectionState.selected.id)) ||
+    (selectionState.selected.type==='breakout' && (state.breakouts||[]).some(b=>b.id===selectionState.selected.id))
   ) ? cloneData(selectionState.selected) : null;
   state.selected=validSelected;
   state.multiSelected=(selectionState.multiSelected||[]).filter(id=>rackIds.has(id));
@@ -600,6 +602,8 @@ function removeRackReferences(ids){
   // links remain at their physical slot; edge links adapt by side during normalizeState().
   state.cables=state.cables.filter(c=>!set.has(c.originRack)&&!set.has(c.destRack));
   state.cables.forEach(c=>c.via=(c.via||[]).filter(id=>!set.has(id)));
+  state.breakouts=state.breakouts.filter(b=>!set.has(b.origin.rack));
+  state.breakouts.forEach(b=>b.legs.forEach(l=>{if(set.has(l.destRack)){l.destRack=null;l.destPortId=null;}}));
 }
 function resizeRow(rowId,count){
   if(structureBlocked())return;
@@ -1451,6 +1455,14 @@ function render(){
     const sg=window.__traySnapGuide;
     svg.insertAdjacentHTML('beforeend',`<circle class="tray-snap-guide" cx="${sg.x}" cy="${sg.y}" r="9"/>`);
   }
+  if(state.selected?.type==='breakout'){
+    const b=state.breakouts.find(x=>x.id===state.selected.id);
+    const color=breakoutTypeOf(b?.type)?.color||'var(--route)';
+    breakoutLegCables(b?[b]:[]).forEach(c=>{
+      const pts=computeRoute(c,g);
+      if(pts.length>1)svg.insertAdjacentHTML('beforeend',`<polyline class="route-line" style="--cable-color:${color}" points="${pts.map(p=>p.x+','+p.y).join(' ')}"/>`);
+    });
+  }
   if(state.selected?.type==='cable'){
     const c=state.cables.find(x=>x.id===state.selected.id);
     if(c){
@@ -1862,7 +1874,7 @@ function openAssetsModalWithAttentionFilter(){
 function cablePortConflict(cable,side,portId){
   if(!portId)return null;
   const field=side==='origin'?'originPortId':'destPortId';
-  return state.cables.find(c=>c.id!==cable.id && c[field]===portId && ((side==='origin'?c.originRack:c.destRack)===(side==='origin'?cable.originRack:cable.destRack)))||null;
+  return [...state.cables,...breakoutLegCables()].find(c=>c.id!==cable.id && !(cable.breakoutId && c.breakoutId===cable.breakoutId) && c[field]===portId && ((side==='origin'?c.originRack:c.destRack)===(side==='origin'?cable.originRack:cable.destRack)))||null;
 }
 configureCatalogs({ applyRoomData, updateRoomUI, normalizeCableCatalogs, cableTypeNames, defaultCableType, toast, save, render, normalizeLocations, assetSubstatusValues, renderAssetsList, bayfaceAssetTypeClass, openBayface, renderAll });
 configureCloudSync({ applyRoomData, syncActiveRoom, migrateGlobalAssets, ensureRooms, updateRoomUI, setStructureLock, updateStructureControls, applyTheme, initHistory, toast, normalizeState, assetRack, DEFAULT_ASSET_TYPES, DEFAULT_ASSET_STATUSES, DEFAULT_ASSET_SUBSTATUSES, renderAll, openHelpModal, closeHelpModal, switchHelpSection, bind, canvasVisible });
@@ -1944,10 +1956,14 @@ function autoFillAssetFromModel(asset){
   if(!asset.weightKg && m.weightKg)asset.weightKg=m.weightKg;
   return asset;
 }
+// Pernas de breakout como cabos virtuais: é assim que porta ocupada, conflito e desenho de
+// rota enxergam o breakout, sem código próprio.
+function breakoutLegCables(list=state.breakouts){return (list||[]).flatMap(b=>(b.legs||[]).filter(l=>l.destRack).map(l=>breakoutLegCable(b,l)));}
 function allProjectCables(){
   const activeId=state.activeRoomId;
-  const others=(state.rooms||[]).filter(r=>r.id!==activeId).flatMap(r=>r.data?.cables||[]);
-  return [...(state.cables||[]), ...others];
+  const rooms=(state.rooms||[]).filter(r=>r.id!==activeId);
+  const others=rooms.flatMap(r=>[...(r.data?.cables||[]),...breakoutLegCables(r.data?.breakouts)]);
+  return [...(state.cables||[]), ...breakoutLegCables(), ...others];
 }
 function findPortConnection(portId){
   return allProjectCables().find(c=>c.originPortId===portId||c.destPortId===portId)||null;
@@ -3187,6 +3203,7 @@ function renderPropertiesBody(){
     $('delTray').onclick=()=>{if(structureBlocked())return;state.trays=state.trays.filter(x=>x.id!==t.id);state.selected=null;save();renderAll();toast('Calha removida');};
     return;
   }
+  if(state.selected.type==='breakout')renderBreakoutProperties(p,state.breakouts.find(x=>x.id===state.selected.id));
   if(state.selected.type==='cable')renderCableProperties(p,state.cables.find(x=>x.id===state.selected.id));
 }
 
@@ -3432,6 +3449,7 @@ function renderManualRouteUI(c){
 function refreshVisuals(){normalizeState();render();renderCables();updateAlertsCenterBadge();save();}
 
 configureCables({ syncActiveRoom, normalizeCableCatalogs, cableTypeNames, defaultCableType, cableTypeColor, toast, cableUnitValidation, renderAll, flashSelection });
+configureBreakouts({ toast, save, renderAll, breakoutTypeOf, breakoutLegCables, cablePortConflict, flashSelection, setPropHead, setPropTitleSticky });
 async function exportAssetsXLSX(){
   beginTask('Exportando assets…');
   try{
@@ -3448,7 +3466,7 @@ async function exportAssetsXLSX(){
     const rows=(state.assets||[]).map(a=>{
       const rack=assetRack(a.rackId);
       const ports=a.ports||[];
-      const cables=roomCables.get(a.roomId)||[];
+      const cables=[...(roomCables.get(a.roomId)||[]),...breakoutLegCables((state.rooms||[]).find(r=>r.id===a.roomId)?.data?.breakouts)];
       const usedIds=new Set();
       cables.forEach(c=>{if(c.originPortId)usedIds.add(c.originPortId);if(c.destPortId)usedIds.add(c.destPortId);});
       const available=ports.filter(p=>!usedIds.has(p.id)).map(p=>p.label);
@@ -3473,7 +3491,7 @@ function updateCanvasEmptyHint(){
   const dismissed=localStorage.getItem('dccp_hint_dismissed')==='1';
   hint.classList.toggle('hidden',dismissed||state.rows.length>0);
 }
-function renderAll(persist=true){ensureFields();updateRoomUI();buildRowsPanel();render();renderProperties();renderCables();updateStructureControls();updateProjectSummary();updateMinimap();updateAlertsCenterBadge();updateCanvasEmptyHint();state.snapToEdges=true;if(persist)save();updateHistoryButtons();}
+function renderAll(persist=true){ensureFields();updateRoomUI();buildRowsPanel();render();renderProperties();renderCables();renderBreakoutsList();updateStructureControls();updateProjectSummary();updateMinimap();updateAlertsCenterBadge();updateCanvasEmptyHint();state.snapToEdges=true;if(persist)save();updateHistoryButtons();}
 
 function svgLocalPoint(clientX,clientY){
   const stage=$('canvasStage');
@@ -4472,7 +4490,11 @@ function bind(){
   requestAnimationFrame(()=>window.__applyCanvasPan&&window.__applyCanvasPan());
   $('btnBuildRows').onclick=rebuildStructureFromSettings;
   $('btnAddTray').onclick=()=>{ if(structureBlocked())return; const g=geometry(); const y=g.rows.length?g.rows[0].y-80:VIEW_PAD; createIndependentTray(g,g.x0,y,g.x0+Math.max(240,g.scale*3),y); };
-  $('btnAddCablePanel')?.addEventListener('click',addCable);$('btnImport').onclick=()=>$('excelInput').click();
+  $('btnAddCablePanel')?.addEventListener('click',addCable);
+  document.querySelectorAll('[data-cables-tab]').forEach(t=>t.onclick=()=>setCablesTab(t.dataset.cablesTab));
+  $('btnAddBreakout')?.addEventListener('click',addBreakout);
+  $('breakoutSearch')?.addEventListener('input',e=>{breakouts.query=e.target.value;renderBreakoutsList();});
+  $('btnImport').onclick=()=>$('excelInput').click();
   bindStyledSelect('cablesFilter','cablesFilterBtn');$('cablesFilter')?.addEventListener('change',()=>{cables.cablesFilterMode=$('cablesFilter').value;syncSelectButton('cablesFilter','cablesFilterBtn');renderCables();});
   $('cablesSearch')?.addEventListener('input',()=>{cables.cablesSearchQuery=$('cablesSearch').value;renderCables();});
   $('rowsSearch')?.addEventListener('input',()=>{rowsSearchQuery=$('rowsSearch').value;buildRowsPanel();});
