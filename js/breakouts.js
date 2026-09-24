@@ -72,8 +72,10 @@ export function renderBreakoutProperties(p,b){
   const r=breakoutCalc(b);
   const rackOpts=sel=>state.racks.map(x=>`<option value="${x.id}" ${x.id===sel?'selected':''}>${esc(rackDisplayName(x))}</option>`).join('');
   const destPorts=l=>{const a=l.destRack?assetAtRackU(state.assets,l.destRack,l.destU,l.destFace):null;return '<option value="">— Nenhuma —</option>'+(a?.ports||[]).map(pt=>`<option value="${esc(pt.id)}" ${pt.id===l.destPortId?'selected':''}>${esc(pt.label)}</option>`).join('');};
-  const legRow=(l,i)=>{const conflict=l.destPortId?cablePortConflict(breakoutLegCables([b]).find(c=>c.id===`${b.id}:${l.lane}`)||{},'dest',l.destPortId):null;
-    return `<div class="breakout-leg" data-leg="${i}"><b>${esc(l.lane)}</b><select data-leg-rack><option value="">— livre —</option>${rackOpts(l.destRack)}</select><input type="number" min="1" data-leg-u value="${l.destU??''}" placeholder="U"><select data-leg-face><option value="front">Frente</option><option value="rear" ${l.destFace==='rear'?'selected':''}>Traseira</option></select><select data-leg-port>${destPorts(l)}</select>${conflict?`<div class="field-error">Porta já usada por "${esc(conflict.name)}".</div>`:''}</div>`;};
+  const legRow=(l,i)=>{const lc=breakoutLegCables([b]).find(c=>c.id===`${b.id}:${l.lane}`)||{breakoutId:b.id,originRack:b.origin.rack};
+    const conflict=l.destPortId?cablePortConflict(lc,'dest',l.destPortId):null;
+    const originConflict=l.originPortId?cablePortConflict(lc,'origin',l.originPortId):null;
+    return `<div class="breakout-leg" data-leg="${i}"><b>${esc(l.lane)}</b><select data-leg-rack><option value="">— livre —</option>${rackOpts(l.destRack)}</select><input type="number" min="1" data-leg-u value="${l.destU??''}" placeholder="U"><select data-leg-face><option value="front">Frente</option><option value="rear" ${l.destFace==='rear'?'selected':''}>Traseira</option></select><select data-leg-port>${destPorts(l)}</select>${originConflict?`<div class="field-error">Porta ${esc(l.lane)} da origem já usada por "${esc(originConflict.name)}".</div>`:''}${conflict?`<div class="field-error">Porta já usada por "${esc(conflict.name)}".</div>`:''}</div>`;};
   const pick=r.pick;
   p.innerHTML=`<div class="prop-group breakout-props">
     <label class="prop-field">Nome<input id="boName" value="${esc(b.name)}"></label>

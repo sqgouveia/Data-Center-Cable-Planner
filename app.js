@@ -4,7 +4,7 @@ import {
   expandPortDefs, totalPortDefsCount, excelColumnLetter, parseImportDate, parseImportNumber,
   beginTask, endTask, uiIcon, normalizeCableLengths, formatBRL
 } from './js/utils.js';
-import { normalizeBreakoutLengths, breakoutLegCable } from './js/breakout-model.js';
+import { normalizeBreakoutLengths, breakoutLegCable, remapBreakoutRacks } from './js/breakout-model.js';
 import { breakouts, configureBreakouts, setCablesTab, renderBreakoutsList, renderBreakoutProperties, addBreakout, breakoutSummaryRows, breakoutCalc } from './js/breakouts.js';
 import { state, THEME_STORAGE } from './js/state.js';
 import { uiConfirm, uiPrompt } from './js/dialogs.js';
@@ -514,7 +514,8 @@ function structureRebuildImpact(count,racksPerRow,newUnits){
     assetsLost:mounted.filter(a=>lostIds.has(a.rackId)).length,
     assetsKept:mounted.filter(a=>!lostIds.has(a.rackId)).length,
     assetsTooTall:mounted.filter(a=>!lostIds.has(a.rackId)&&!isAssetArchived(a)&&assetOccupancy(a).end>newUnits).length, newUnits,
-    cablesLost, cablesKept:state.cables.length-cablesLost
+    cablesLost, cablesKept:state.cables.length-cablesLost,
+    breakoutsLost:(state.breakouts||[]).filter(b=>lostIds.has(b.origin.rack)||!rackIds.has(b.origin.rack)).length
   };
 }
 function structureRebuildMessage(count,racksPerRow,i){
@@ -525,6 +526,7 @@ function structureRebuildMessage(count,racksPerRow,i){
   if(i.assetsLost)out.push(`• ${n(i.assetsLost,'asset ficará','assets ficarão')} sem rack (a posição instalada é perdida).`);
   if(i.assetsTooTall)out.push(`• ${n(i.assetsTooTall,'asset passa','assets passam')} da altura de ${i.newUnits}U dos racks novos; ficam fora do rack até serem ajustados.`);
   if(i.cablesLost)out.push(`• ${n(i.cablesLost,'cabo será removido','cabos serão removidos')} por perder origem ou destino.`);
+  if(i.breakoutsLost)out.push(`• ${n(i.breakoutsLost,'breakout será removido','breakouts serão removidos')} por perder o rack de origem.`);
   if(i.customRacks||i.renamedRows)out.push('• Nomes e ajustes individuais de racks e fileiras (capacidades, posição) voltam ao padrão.');
   const kept=[i.assetsKept?n(i.assetsKept,'asset','assets'):'',i.cablesKept?n(i.cablesKept,'cabo','cabos'):''].filter(Boolean);
   if(kept.length)out.push(`Ficam no mesmo rack (mesma fileira e posição): ${kept.join(' e ')}.`);
@@ -547,6 +549,7 @@ async function rebuildStructureFromSettings(){
   const oldRacks=[...state.racks];
   const oldRackKey=new Map(oldRacks.map(r=>[r.id,`${oldRows.findIndex(row=>row.id===r.rowId)}:${r.index}`]));
   const oldCables=Array.isArray(state.cables)?JSON.parse(JSON.stringify(state.cables)):[];
+  const oldBreakouts=Array.isArray(state.breakouts)?JSON.parse(JSON.stringify(state.breakouts)):[];
   const oldTrayCount=state.trays.length;
 
   state.projectName=$('projectName').value.trim()||'Data Center';
@@ -578,6 +581,9 @@ async function rebuildStructureFromSettings(){
     return {...c,originRack,destRack,via};
   }).filter(Boolean);
 
+  // Breakouts acompanham os racks da mesma posição; sem rack de origem saem, perna sem destino fica livre.
+  const movedBreakouts=remapBreakoutRacks(oldBreakouts,id=>newRackByKey.get(oldRackKey.get(id))||null);
+  state.breakouts=movedBreakouts.breakouts;
   // Assets instalados acompanham o rack da mesma posição; se ela deixou de existir, ficam sem rack.
   state.assets.forEach(a=>{if(a.rackId&&oldRackKey.has(a.rackId))a.rackId=newRackByKey.get(oldRackKey.get(a.rackId))||null;});
   normalizeState();
@@ -588,7 +594,8 @@ async function rebuildStructureFromSettings(){
   // suficiente e a centralização acaba não acontecendo).
   requestAnimationFrame(()=>requestAnimationFrame(()=>window.__fitCanvas?.()));
   const msg=oldTrayCount?`Estrutura reconstruída. ${state.cables.length} cabo(s) preservado(s); ${oldTrayCount} calha(s) antiga(s) removida(s) e a estrutura foi recriada do zero.`:`Estrutura reconstruída. ${state.cables.length} cabo(s) preservado(s).`;
-  toast(droppedCables?`${msg} ${droppedCables} cabo(s) removido(s) por falta de origem/destino.`:msg);
+  const boMsg=state.breakouts.length||movedBreakouts.lost?` ${state.breakouts.length} breakout(s) preservado(s)${movedBreakouts.lost?`, ${movedBreakouts.lost} removido(s) por perder o rack de origem`:''}.`:'';
+  toast((droppedCables?`${msg} ${droppedCables} cabo(s) removido(s) por falta de origem/destino.`:msg)+boMsg);
 }
 
 function addRow(rackCount=0,gap=state.defaultRowGap){
@@ -3947,6 +3954,7 @@ function searchableItems(query){
   state.racks.forEach(r=>{const row=rowForRack(r); const hay=[r.name,row?.name,rackDisplayName(r)].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q)||tipoHit('rack'))add('rack',r.id,rackDisplayName(r),row?.name||'Fileira',[r.name]);});
   state.trays.forEach(t=>{const hay=[t.name].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q)||tipoHit('calha'))add('tray',t.id,t.name||'Calha','Calha');});
   state.cables.forEach(c=>{const o=state.racks.find(r=>r.id===c.originRack),d=state.racks.find(r=>r.id===c.destRack); const hay=[c.name,o?.name,d?.name].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q)||tipoHit('cabo'))add('cable',c.id,c.name||'Cabo',`${o?.name||'?'} → ${d?.name||'?'}`);});
+  (state.breakouts||[]).forEach(b=>{const o=state.racks.find(r=>r.id===b.origin.rack); const hay=[b.name,b.type,o?.name,b.origin.assetName].filter(Boolean).join(' ').toLowerCase(); if(hay.includes(q)||tipoHit('breakout'))add('breakout',b.id,b.name||'Breakout',`${o?.name||'?'} · ${b.legs.filter(l=>l.destRack).length} perna(s)`);});
   // Asset: casa pelo nome, tag, serial, modelo, fabricante, tipo e pelo rack onde está.
   state.assets.forEach(a=>{
     const rack=assetRack(a.rackId);
@@ -4045,6 +4053,7 @@ function activateSearchResult(type,id){
     openAssetsModal();
     const s=$('assetsSearch'); if(s){s.value=a.name||'';s.dispatchEvent(new Event('input',{bubbles:true}));}
   }
+  else if(type==='breakout'){if(!state.breakouts.some(b=>b.id===id))return;state.selected={type:'breakout',id};setCablesTab('breakouts');}
   else {const c=state.cables.find(x=>x.id===id);if(!c)return;state.selected={type:'cable',id};}
   closeQuickSearch();closeTopSearch();renderAll(false);
   // Depois do render: a lista é reescrita inteira, então o cartão marca aí e não antes.
@@ -4055,6 +4064,7 @@ function activateSearchResult(type,id){
       racksInRow(id).forEach(r=>flashElement(document.querySelector(`[data-rack="${r.id}"] .rack-body`)));
     }
     else if(type==='cable')focusPanelItem(`.cable-item[data-cable="${id}"]`);
+    else if(type==='breakout')focusPanelItem(`.breakout-item[data-breakout="${id}"]`);
     else if(type==='tray')flashElement(document.querySelector(`line[data-tray="${id}"].tray-line`));
     window.__applyCanvasPan?.();
   });

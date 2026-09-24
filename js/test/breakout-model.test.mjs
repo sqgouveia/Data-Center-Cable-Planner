@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   breakoutLane, isBreakoutTypeName, normalizeBreakoutLengths, pickBreakoutLength,
-  breakoutLegCable, groupBreakoutCables, resolveBreakoutType,
+  breakoutLegCable, groupBreakoutCables, resolveBreakoutType, remapBreakoutRacks,
 } from '../breakout-model.js';
 
 test('letra final da porta é a perna', () => {
@@ -105,4 +105,15 @@ test('reimportar o export não repete a letra da perna no nome', () => {
   assert.equal(groupBreakoutCables(rows, labelOf, isBo).breakouts[0].name, 'BO1');
   // Nome sem a letra no fim fica como está.
   assert.equal(groupBreakoutCables([cable('BO1-A', 'MTP OM4', '1A', 'r1', 'x')], labelOf, isBo).breakouts[0].name, 'BO1-A');
+});
+
+test('reconstruir estrutura leva o breakout para os racks novos', () => {
+  const b = { id: 'b', name: 'B', origin: { rack: 'old0' }, legs: [{ lane: 'A', destRack: 'old1', destPortId: 'p' }, { lane: 'B', destRack: 'gone', destPortId: 'q' }, { lane: 'C', destRack: null }] };
+  const lost = { id: 'x', name: 'X', origin: { rack: 'gone' }, legs: [] };
+  const map = { old0: 'new0', old1: 'new1' };
+  const r = remapBreakoutRacks([b, lost], id => map[id] || null);
+  assert.equal(r.lost, 1);
+  assert.equal(r.breakouts.length, 1);
+  assert.equal(r.breakouts[0].origin.rack, 'new0');
+  assert.deepEqual(r.breakouts[0].legs.map(l => [l.destRack, l.destPortId ?? null]), [['new1', 'p'], [null, null], [null, null]]);
 });

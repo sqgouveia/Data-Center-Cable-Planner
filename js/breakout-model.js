@@ -75,3 +75,14 @@ export function resolveBreakoutType(typeName,maxLane,breakoutTypes){
   const name=`${typeName} — breakout 1×${legs}`;
   return{name,created:{name,color:'#2dd4bf',legs,lengths:[]}};
 }
+// Racks refeitos (Reconstruir estrutura): newId(oldId) devolve o rack novo da mesma posição ou
+// null. Breakout sem rack de origem sai (conta em lost); perna sem rack de destino fica livre.
+export function remapBreakoutRacks(breakouts,newId){
+  let lost=0;
+  const out=(breakouts||[]).flatMap(b=>{
+    const rack=newId(b.origin?.rack);
+    if(!rack){lost++;return[];}
+    return[{...b,origin:{...b.origin,rack},legs:(b.legs||[]).map(l=>{const d=l.destRack?newId(l.destRack):null;return d?{...l,destRack:d}:{...l,destRack:null,destPortId:null};})}];
+  });
+  return{breakouts:out,lost};
+}

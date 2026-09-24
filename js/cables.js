@@ -293,7 +293,12 @@ export function processCableImportRows(selectedNewTypes=[]){
     if(r.created){const color=cableTypeColor(g.type);boTypes.push({...r.created,color:String(color).startsWith('#')?color:r.created.color});typesCreated++;}
     state.breakouts.push({...g,id:uid('breakout'),type:r.name});
   }
-  grouped.cables.forEach(c=>{delete c.originLabel;delete c.destLabel;state.cables.push(c);});
+  // Linha com tipo MTP/breakout que não virou breakout (porta sem letra, perna repetida) é cabo
+  // comum: o tipo entra no catálogo de cabos, senão normalizeState trocaria pelo tipo padrão.
+  grouped.cables.forEach(c=>{
+    if(!cableTypeNames().some(t=>catalogNormalize(t)===catalogNormalize(c.type))){state.cableCatalogs.types.push({name:c.type,color:CABLE_TYPE_AUTO_COLORS[state.cableCatalogs.types.length%CABLE_TYPE_AUTO_COLORS.length]});}
+    delete c.originLabel;delete c.destLabel;state.cables.push(c);
+  });
   added=grouped.cables.length;
   renderAll();
   const legRows=grouped.breakouts.reduce((s,b)=>s+b.legs.length,0);
