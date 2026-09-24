@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   breakoutLane, isBreakoutTypeName, normalizeBreakoutLengths, pickBreakoutLength,
-  breakoutLegCable, groupBreakoutCables, resolveBreakoutType, remapBreakoutRacks,
+  breakoutLegCable, groupBreakoutCables, resolveBreakoutType, remapBreakoutRacks, reviewImportTypes,
 } from '../breakout-model.js';
 
 test('letra final da porta é a perna', () => {
@@ -116,4 +116,20 @@ test('reconstruir estrutura leva o breakout para os racks novos', () => {
   assert.equal(r.breakouts.length, 1);
   assert.equal(r.breakouts[0].origin.rack, 'new0');
   assert.deepEqual(r.breakouts[0].legs.map(l => [l.destRack, l.destPortId ?? null]), [['new1', 'p'], [null, null], [null, null]]);
+});
+
+test('revisão da importação: tipos novos de cabo e de breakout, sem os já cadastrados', () => {
+  const rows = [
+    { type: 'MTP OM4', oPort: '1A', dPort: 'e1' }, { type: 'MTP OM4', oPort: '1B', dPort: 'e2' },   // breakout novo
+    { type: 'mtp om4', oPort: 'x', dPort: '2C' },                                                   // mesmo, lado destino
+    { type: 'MTP trunk', oPort: '5', dPort: 'e1' },                                                 // MTP sem letra: cabo
+    { type: 'Cat6', oPort: '', dPort: '' },                                                         // cabo novo
+    { type: 'UTP', oPort: '1A', dPort: '' },                                                        // já cadastrado
+    { type: 'Harness X', oPort: '3A', dPort: '' },                                                  // breakout já cadastrado
+  ];
+  assert.deepEqual(reviewImportTypes(rows, ['UTP'], [{ name: 'Harness X', legs: 4 }]), [
+    { label: 'MTP OM4', count: 3, breakout: true },
+    { label: 'MTP trunk', count: 1, breakout: false },
+    { label: 'Cat6', count: 1, breakout: false },
+  ]);
 });

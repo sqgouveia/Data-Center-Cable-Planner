@@ -4,7 +4,7 @@ import { uiConfirm } from './dialogs.js';
 import { rowForRack, geometry, rackRect, trayPointAt, rackDisplayName, findRackByLabel } from './geometry.js';
 import { buildRouteGraph, calcCable } from './routing.js';
 import { assetAtRackU, assetOwningPort } from './occupancy.js';
-import { groupBreakoutCables, isBreakoutTypeName, resolveBreakoutType } from './breakout-model.js';
+import { groupBreakoutCables, isBreakoutTypeName, resolveBreakoutType, reviewImportTypes, breakoutLane } from './breakout-model.js';
 
 // Estado mutável compartilhado com app.js. Vive num objeto porque um `let` de módulo
 // não pode ser reatribuído por quem importa.
@@ -180,20 +180,13 @@ export function importCablesXLSX(file){
         normalizeCableCatalogs();
         const existingTypes=cableTypeNames();
         const existingNorm=new Map(existingTypes.map(t=>[catalogNormalize(t),t]));
-        const newTypesSeen=new Map(); // normalizado -> {label, count}
-        dataRows.forEach(row=>{
-          const raw=String(map['Tipo']!=null?(row[map['Tipo']]??''):'').trim();
-          if(!raw)return;
-          if(isBreakoutTypeName(raw,state.cableCatalogs.breakoutTypes||[]))return;
-          const norm=catalogNormalize(raw);
-          if(existingNorm.has(norm))return;
-          if(!newTypesSeen.has(norm))newTypesSeen.set(norm,{label:raw,count:0});
-          newTypesSeen.get(norm).count++;
-        });
+        // Tipos novos (de cabo e de breakout) vão para a mesma janela de revisão.
+        const cell=(row,h)=>String(map[h]!=null?(row[map[h]]??''):'').trim();
+        const reviewTypes=reviewImportTypes(dataRows.map(row=>({type:cell(row,'Tipo'),oPort:cell(row,'Porta Origem'),dPort:cell(row,'Porta Destino')})),existingTypes,state.cableCatalogs.breakoutTypes||[]);
 
         cables.pendingCableImportRows={map,dataRows};
-        if(newTypesSeen.size){
-          openCableTypeReviewModal([...newTypesSeen.values()],existingTypes);
+        if(reviewTypes.length){
+          openCableTypeReviewModal(reviewTypes,existingTypes);
         }else{
           processCableImportRows();
         }
@@ -207,7 +200,7 @@ function openCableTypeReviewModal(newTypes,existingTypes){
   if(list){
     list.innerHTML=newTypes.map(t=>{
       const similar=catalogSimilar(t.label,existingTypes);
-      return `<label class="cable-type-review-item"><input type="checkbox" data-cable-type-review="${esc(t.label)}" checked><span class="cable-type-review-name">${esc(t.label)}</span><span class="cable-type-review-count">${t.count}× na planilha</span></label>${similar.length?`<div class="cable-type-review-warning">${uiIcon('warn')} Parecido com "${esc(similar[0])}", já cadastrado — pode ser o mesmo tipo escrito diferente.</div>`:''}`;
+      return `<label class="cable-type-review-item"><input type="checkbox" data-cable-type-review="${esc((t.breakout?'bo:':'')+t.label)}" checked><span class="cable-type-review-name">${esc(t.label)}${t.breakout?' <em class="cable-type-review-tag">breakout</em>':''}</span><span class="cable-type-review-count">${t.count}× na planilha</span></label>${similar.length?`<div class="cable-type-review-warning">${uiIcon('warn')} Parecido com "${esc(similar[0])}", já cadastrado — pode ser o mesmo tipo escrito diferente.</div>`:''}`;
     }).join('');
   }
   const m=$('cableTypeReviewModal'); if(!m)return;
@@ -226,7 +219,7 @@ export function processCableImportRows(selectedNewTypes=[]){
   if(selectedNewTypes.length){
     normalizeCableCatalogs();
     let colorIdx=state.cableCatalogs.types.length;
-    selectedNewTypes.forEach(label=>{
+    selectedNewTypes.filter(label=>!label.startsWith('bo:')).forEach(label=>{
       if(!cableTypeNames().some(t=>catalogNormalize(t)===catalogNormalize(label))){
         state.cableCatalogs.types.push({name:label,color:CABLE_TYPE_AUTO_COLORS[colorIdx%CABLE_TYPE_AUTO_COLORS.length]});
         colorIdx++;
@@ -293,13 +286,15 @@ export function processCableImportRows(selectedNewTypes=[]){
   for(const g of grouped.breakouts){
     const maxLane=g.legs.map(l=>l.lane).sort().at(-1);
     const r=resolveBreakoutType(g.type,maxLane,boTypes);
-    if(r.created){const color=cableTypeColor(g.type);boTypes.push({...r.created,color:String(color).startsWith('#')?color:r.created.color});typesCreated++;}
-    state.breakouts.push({...g,id:uid('breakout'),type:r.name});
+    const approved=selectedNewTypes.some(x=>x.startsWith('bo:')&&catalogNormalize(x.slice(3))===catalogNormalize(g.type));
+    if(r.created&&approved){const color=cableTypeColor(g.type);boTypes.push({...r.created,color:String(color).startsWith('#')?color:r.created.color});typesCreated++;}
+    // Desmarcado na revisão: o breakout entra com o nome da planilha, sem criar tipo no catálogo.
+    state.breakouts.push({...g,id:uid('breakout'),type:r.created&&!approved?g.type:r.name});
   }
-  // Linha com tipo MTP/breakout que não virou breakout (porta sem letra, perna repetida) é cabo
-  // comum: o tipo entra no catálogo de cabos, senão normalizeState trocaria pelo tipo padrão.
+  // Perna repetida (dois 1A) fica como cabo comum; a revisão não viu esse tipo como tipo de
+  // cabo, então ele entra no catálogo aqui, senão normalizeState trocaria pelo tipo padrão.
   grouped.cables.forEach(c=>{
-    if(!cableTypeNames().some(t=>catalogNormalize(t)===catalogNormalize(c.type))){state.cableCatalogs.types.push({name:c.type,color:CABLE_TYPE_AUTO_COLORS[state.cableCatalogs.types.length%CABLE_TYPE_AUTO_COLORS.length]});}
+    if((breakoutLane(c.originLabel)||breakoutLane(c.destLabel))&&!cableTypeNames().some(t=>catalogNormalize(t)===catalogNormalize(c.type))){state.cableCatalogs.types.push({name:c.type,color:CABLE_TYPE_AUTO_COLORS[state.cableCatalogs.types.length%CABLE_TYPE_AUTO_COLORS.length]});}
     delete c.originLabel;delete c.destLabel;state.cables.push(c);
   });
   added=grouped.cables.length;

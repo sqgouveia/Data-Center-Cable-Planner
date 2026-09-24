@@ -86,3 +86,18 @@ export function remapBreakoutRacks(breakouts,newId){
   });
   return{breakouts:out,lost};
 }
+// Tipos novos da planilha, para a janela de revisão da importação. Linha de breakout (tipo
+// MTP/breakout e porta com letra) pede um tipo de breakout; as demais, um tipo de cabo.
+// rows: [{ type, oPort, dPort }] — rótulos como vieram da planilha.
+export function reviewImportTypes(rows,cableTypes,breakoutTypes){
+  const seen=new Map(), cable=new Set((cableTypes||[]).map(catalogNormalize));
+  for(const r of rows){
+    const raw=String(r.type??'').trim(); if(!raw)continue;
+    const bo=isBreakoutTypeName(raw,breakoutTypes)&&!!(breakoutLane(r.oPort)||breakoutLane(r.dPort));
+    if(bo?!resolveBreakoutType(raw,'A',breakoutTypes).created:cable.has(catalogNormalize(raw)))continue;
+    const key=(bo?'bo:':'')+catalogNormalize(raw);
+    if(!seen.has(key))seen.set(key,{label:raw,count:0,breakout:bo});
+    seen.get(key).count++;
+  }
+  return[...seen.values()];
+}

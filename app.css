@@ -11562,3 +11562,4 @@ button.bayface-rack-state {
 .breakout-leg:first-child { border-top: 0; padding-top: 0; }
 .breakout-leg-head { display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-micro); }
 .breakout-leg-head span { color: var(--muted); }
+.cable-type-review-tag { margin-left: 6px; padding: 1px 6px; border-radius: 4px; background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--blue); font-style: normal; font-size: var(--fs-micro); }
