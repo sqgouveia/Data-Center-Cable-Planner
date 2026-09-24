@@ -37,6 +37,8 @@ export function renderBreakoutsList(){
   const q=breakouts.query.toLowerCase().trim();
   const hay=b=>[b.name,b.type,rackName(b.origin.rack),b.origin.assetName,...b.legs.flatMap(l=>[l.lane,rackName(l.destRack),l.destAssetName,destPortName(l)])].join(' ').toLowerCase();
   const list=state.breakouts.filter(b=>!q||hay(b).includes(q));
+  // Reescrever a lista zera a rolagem: guarda e devolve, como a lista de cabos.
+  const rolagem=el.scrollTop;
   el.innerHTML=list.map(b=>{
     const r=breakoutCalc(b), color=breakoutTypeOf(b.type)?.color||'var(--route)';
     const size=!r.reachable?'sem rota':r.pick?`${r.pick.m} m · pernas ${r.pick.leg} m${r.pick.estimated?' (estimado)':''}`:'⚠';
@@ -45,6 +47,7 @@ export function renderBreakoutsList(){
       <div class="cable-item-main"><div class="cable-name-row"><span class="cable-name">${esc(b.name)}</span><span class="cable-len">${esc(size)}</span></div>
       <div class="breakout-legs">${b.legs.map(l=>`<div class="cable-end"><i></i><span class="cable-end-text">${esc(l.lane)} → ${esc(l.destRack?[rackName(l.destRack),'U'+l.destU,l.destAssetName||'—',destPortName(l)||'—'].join(' · '):'livre')}</span></div>`).join('')}</div></div></div>`;
   }).join('')||'<div class="empty">Nenhum breakout. Importe a planilha de cabos (tipo MTP/breakout e portas 1A, 1B…) ou clique em "+ Breakout".</div>';
+  el.scrollTop=rolagem;
   el.querySelectorAll('[data-breakout]').forEach(it=>it.onclick=()=>{state.selected={type:'breakout',id:it.dataset.breakout};state.multiSelected=[];renderAll(false);flashSelection?.();});
 }
 // Portas do equipamento de origem agrupadas pela base (1 → 1A,1B,1C,1D).

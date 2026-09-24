@@ -3604,8 +3604,8 @@ function setupPropSectionResize(){
     // guarda a posição é quem reescreve o painel (renderProperties/renderCables); este é o
     // último ajuste antes de devolver, e por isso devolve também.
     const rolagemProps=propSection.scrollTop;
-    const listaCabos=cables.querySelector('#cablesList');
-    const rolagemCabos=listaCabos?listaCabos.scrollTop:0;
+    const listaCabos=cables.querySelector('#cablesList'), listaBreakouts=cables.querySelector('#breakoutsList');
+    const rolagemCabos=listaCabos?listaCabos.scrollTop:0, rolagemBreakouts=listaBreakouts?listaBreakouts.scrollTop:0;
     propSection.style.height='';
     cables.style.height='';
     handle.style.marginTop='';
@@ -3644,6 +3644,7 @@ function setupPropSectionResize(){
     propSection.style.height=propSection.classList.contains('collapsed')?'':propH+'px';
     propSection.scrollTop=rolagemProps;
     if(listaCabos)listaCabos.scrollTop=rolagemCabos;
+    if(listaBreakouts)listaBreakouts.scrollTop=rolagemBreakouts;
     bounds={min:minTop,max:maxTop,usable};
     window.__dccpSplit={nProp,nCab,baseGap,usable,minTop,maxTop,top,propH};
     window.__dccpRaw={
