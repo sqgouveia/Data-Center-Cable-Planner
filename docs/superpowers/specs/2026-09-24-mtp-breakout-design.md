@@ -99,8 +99,11 @@ Casos de borda:
 Nenhuma coluna nova. Depois de ler as linhas e antes de criar cabos:
 
 1. Para cada linha, resolve a porta de origem e a de destino no asset (como hoje).
-2. Uma porta é **perna de breakout** quando o rótulo termina em número + uma letra A–H
-   (`/^(.*\d)([A-H])$/i`): base `1`, perna `A`.
+2. Uma linha é **perna de breakout** quando as duas condições valem:
+   - o `Tipo` da linha contém "breakout" ou "MTP" (sem diferenciar maiúscula/minúscula e
+     acentos) ou é o nome de um tipo de breakout do catálogo;
+   - a porta termina em número + uma letra A–H (`/^(.*\d)([A-H])$/i`): base `1`, perna `A`.
+   Porta com letra num cabo de tipo comum (ex.: patch panel com portas `1A`) continua cabo comum.
 3. Agrupa as linhas pelo **mesmo equipamento** (rack + U + face) e **mesma base** de porta.
    Cada grupo vira um breakout; cada linha vira a perna da sua letra; o destino da linha é o
    destino da perna.
@@ -112,7 +115,7 @@ Nenhuma coluna nova. Depois de ler as linhas e antes de criar cabos:
    linha e que tem pernas suficientes; senão cria um: `<tipo da linha> — breakout 1×N`, com N = maior
    entre 4 e a maior letra do grupo, cor do tipo de cabo, sem metragens (o usuário cadastra depois).
 7. **Nome**: o `Nome` da primeira linha do grupo.
-8. Linhas sem letra na porta seguem como cabo comum, sem mudança.
+8. Linhas que não cumprem as duas condições seguem como cabo comum, sem mudança.
    Nome de tipo de breakout na coluna `Tipo` não entra na revisão de "tipos de cabo novos".
 9. A mensagem final resume: "40 cabos importados, 3 breakouts detectados (9 linhas), 1 tipo de
    breakout criado".
@@ -179,7 +182,8 @@ A importação continua lendo só a primeira aba.
 - `calcBreakout`: mesmo rack; destinos no mesmo rack remoto (tronco longo, perna curta);
   destinos em racks separados (perna longa); perna sem rota.
 - Agrupamento da importação (função pura sobre linhas já resolvidas): grupos `1A–1D`, `2A–2C`,
-  `3A–3B`; porta com letra no destino; linha sem letra continua cabo comum.
+  `3A–3B`; porta com letra no destino; linha sem letra continua cabo comum; porta com letra e
+  tipo comum continua cabo comum.
 - Verificação no navegador: importar uma planilha com os três grupos, conferir lista, painel,
   canvas e export.
 
