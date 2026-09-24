@@ -1,4 +1,5 @@
 import { uid, cloneData, esc, num, $, catalogNormalize, catalogSimilarity, catalogKeyLabel, buildPortRange, totalPortDefsCount, uiIcon, normalizeCableLengths } from './utils.js';
+import { normalizeBreakoutLengths } from './breakout-model.js';
 import { state } from './state.js';
 import { uiConfirm, uiPrompt } from './dialogs.js';
 import { importSession, assetStatusValues, validateAssetImportRows, renderEditableAssetImportPreview, updateImportPreviewSummary, validateCatalogImportRows, renderCatalogSinglePreviewRows } from './inventory-import.js';
@@ -133,6 +134,57 @@ export function renderCableTypesCatalog(){
     save();renderAll();renderCableTypesCatalog();
   });
 }
+// Tipos de breakout: nome, cor, nº de pernas e os produtos do fornecedor (total, perna, preço).
+const openBreakoutLengths=new Set();
+function breakoutLengthRow(l={}){
+  return `<div class="catalog-length-row is-3"><input type="number" min="0" max="999.99" step="0.01" data-bo-m value="${l.m??''}" placeholder="0" aria-label="Total (m)"><input type="number" min="0" max="999.99" step="0.01" data-bo-leg value="${l.leg??''}" placeholder="0" aria-label="Perna (m)"><input type="number" min="0" max="9999.99" step="0.01" data-bo-price value="${l.price??''}" placeholder="0,00" aria-label="Preço (R$), opcional"><button type="button" class="iconbtn danger-icon" data-len-remove title="Remover tamanho">${uiIcon('close')}</button></div>`;
+}
+export function renderBreakoutTypesCatalog(){
+  normalizeCableCatalogs();
+  const el=$('catalogBreakoutTypes'); if(!el)return;
+  const types=state.cableCatalogs.breakoutTypes;
+  const q=String($('catalogBreakoutTypeSearch')?.value||'').toLowerCase().trim();
+  el.innerHTML=types.map((t,i)=>({t,i})).filter(({t})=>!q||t.name.toLowerCase().includes(q)).map(({t,i})=>{
+    const open=openBreakoutLengths.has(t.name);
+    return `<div class="catalog-row"><span title="${esc(t.name)}">${esc(t.name)} · ${t.legs} pernas</span><div><button type="button" class="iconbtn catalog-lengths-toggle${open?' active':''}" data-bo-lengths="${i}" title="Tamanhos e preços" aria-expanded="${open}">${RULER_ICON}${t.lengths.length?`<b>${t.lengths.length}</b>`:''}</button><input type="color" class="catalog-color-swatch" data-bo-color="${i}" value="${esc(t.color)}" title="Cor deste tipo"><button type="button" class="iconbtn" data-bo-edit="${i}" title="Editar">${uiIcon('pencil')}</button><button type="button" class="iconbtn danger-icon" data-bo-delete="${i}" title="Excluir">${uiIcon('close')}</button></div></div>`
+      +(open?`<div class="catalog-lengths" data-bo-panel="${i}"><small>Tamanhos que o fornecedor vende: total e perna, preço opcional. O sistema escolhe o menor que alcança todos os destinos.</small><div class="catalog-length-row is-3 catalog-length-head" aria-hidden="true"><span>Total</span><span>Perna</span><span>Preço (R$)</span><i></i></div>${t.lengths.map(breakoutLengthRow).join('')}<button type="button" class="btn small" data-len-add>${uiIcon('plus')} Adicionar tamanho</button></div>`:'');
+  }).join('')||'<div class="empty">Nenhum tipo de breakout. A importação cria um quando encontra cabos MTP.</div>';
+  el.querySelectorAll('[data-bo-lengths]').forEach(btn=>btn.onclick=()=>{const n=types[Number(btn.dataset.boLengths)].name;openBreakoutLengths.has(n)?openBreakoutLengths.delete(n):openBreakoutLengths.add(n);renderBreakoutTypesCatalog();});
+  el.querySelectorAll('[data-bo-color]').forEach(inp=>{inp.oninput=()=>{types[Number(inp.dataset.boColor)].color=inp.value;};inp.onchange=()=>{save();renderAll(false);};});
+  el.querySelectorAll('[data-bo-edit]').forEach(btn=>btn.onclick=async()=>{
+    const t=types[Number(btn.dataset.boEdit)], old=t.name;
+    const name=await uiPrompt('Nome do tipo de breakout.',old,{title:'Editar tipo de breakout',label:'Nome',confirmText:'Salvar'}); if(name===null)return;
+    const legs=await uiPrompt('Quantas pernas (1 a 8)?',String(t.legs),{title:'Pernas',label:'Pernas',confirmText:'Salvar'}); if(legs===null)return;
+    const trimmed=name.trim(); if(!trimmed){toast('Nome não pode ficar vazio.');return;}
+    if(types.some(x=>x!==t&&catalogNormalize(x.name)===catalogNormalize(trimmed))){toast('Já existe um tipo de breakout com esse nome.');return;}
+    t.name=trimmed; t.legs=num(legs,t.legs);
+    (state.rooms||[]).forEach(r=>(r.data?.breakouts||[]).forEach(b=>{if(b.type===old)b.type=trimmed;}));
+    state.breakouts.forEach(b=>{if(b.type===old)b.type=trimmed;});
+    if(openBreakoutLengths.delete(old))openBreakoutLengths.add(trimmed);
+    save();renderAll();renderBreakoutTypesCatalog();
+  });
+  el.querySelectorAll('[data-bo-delete]').forEach(btn=>btn.onclick=async()=>{
+    const idx=Number(btn.dataset.boDelete), name=types[idx].name, inUse=state.breakouts.filter(b=>b.type===name).length;
+    if(inUse){toast(`${inUse} breakout(s) usam esse tipo. Troque o tipo deles antes de excluir.`);return;}
+    if(!await uiConfirm('',{title:`Excluir "${name}"?`,confirmText:'Excluir',danger:true}))return;
+    types.splice(idx,1); save();renderBreakoutTypesCatalog();
+  });
+  el.querySelectorAll('[data-bo-panel]').forEach(panel=>{
+    const commit=()=>{types[Number(panel.dataset.boPanel)].lengths=normalizeBreakoutLengths([...panel.querySelectorAll('.catalog-length-row:not(.catalog-length-head)')]
+      .map(r=>({m:r.querySelector('[data-bo-m]').value,leg:r.querySelector('[data-bo-leg]').value,price:r.querySelector('[data-bo-price]').value})));save();renderAll(false);};
+    panel.addEventListener('change',commit);
+    panel.addEventListener('input',e=>{
+      const lim=e.target.matches('[data-bo-price]')?4:e.target.matches('[data-bo-m],[data-bo-leg]')?3:0;
+      const v=e.target.value; if(!lim||!v)return;
+      const [int,dec]=v.split('.'); const cut=int.slice(0,lim)+(dec!=null?'.'+dec.slice(0,2):'');
+      if(cut!==v)e.target.value=cut.replace(/\.$/,'');
+    });
+    panel.addEventListener('click',e=>{
+      if(e.target.closest('[data-len-add]')){e.target.closest('[data-len-add]').insertAdjacentHTML('beforebegin',breakoutLengthRow());panel.querySelector('.catalog-length-row:last-of-type [data-bo-m]')?.focus();}
+      else if(e.target.closest('[data-len-remove]')){e.target.closest('.catalog-length-row').remove();commit();}
+    });
+  });
+}
 export function renderAssetCatalogs(){
   normalizeAssetCatalogs();
   const typeEl=$('catalogTypes'), manEl=$('catalogManufacturers'), statusEl=$('catalogStatuses'), substatusEl=$('catalogSubstatuses'), modelEl=$('catalogModels');
@@ -228,7 +280,7 @@ async function addAssetRoom(locationId){
   normalizeLocations(); const loc=state.locations.find(x=>x.id===locationId); if(!loc)return;
   const name=await uiPrompt(`Dê um nome para a nova sala em ${loc.name}.`,'Sala '+(loc.rooms.length+1),{title:'Nova sala',label:'Nome da sala',confirmText:'Criar sala'}); if(!name?.trim())return;
   const n=name.trim(); if(loc.rooms.some(id=>{const r=state.rooms.find(x=>x.id===id);return r&&catalogNormalize(r.name)===catalogNormalize(n)})){toast('Essa sala já existe nessa localização.');return;}
-  const base={rackUnits:state.rackUnits,rackWidth:state.rackWidth,rackGap:state.rackGap,rackDepth:state.rackDepth,defaultRowGap:state.defaultRowGap,lastUToTray:state.lastUToTray,defaultSlack:state.defaultSlack,rows:[],racks:[],cables:[],trays:[],trayLinks:[],trayRackLinks:[],structureLocked:false,snapToEdges:true};
+  const base={rackUnits:state.rackUnits,rackWidth:state.rackWidth,rackGap:state.rackGap,rackDepth:state.rackDepth,defaultRowGap:state.defaultRowGap,lastUToTray:state.lastUToTray,defaultSlack:state.defaultSlack,rows:[],racks:[],cables:[],breakouts:[],trays:[],trayLinks:[],trayRackLinks:[],structureLocked:false,snapToEdges:true};
   const room={id:uid('room'),name:n,locationId:loc.id,coolingCapacityW:0,data:base,updatedAt:new Date().toISOString()}; state.rooms.push(room); loc.rooms.push(room.id); save(); renderAssetCatalogs(); updateRoomUI(); toast('Sala criada');
 }
 export function roomThermalLoad(room){
@@ -315,7 +367,7 @@ async function renameAssetStock(locationId,stockId){const l=state.locations.find
 async function deleteAssetStock(locationId,stockId){const l=state.locations.find(x=>x.id===locationId);if(!l)return;const st=l.stocks.find(x=>x.id===stockId);if(!st)return;if(state.assets.some(a=>a.locationId===locationId&&a.stockId===stockId)){toast('Este estoque está sendo usado por assets.');return;}const ok=await uiConfirm('',{title:`Excluir o estoque "${st.name}"?`,confirmText:'Excluir estoque',danger:true});if(!ok)return;l.stocks=l.stocks.filter(x=>x.id!==stockId);if(!l.stocks.length)l.stocks.push({id:uid('stock'),name:'Estoque Principal'});save();renderAssetCatalogs();}
 const CATALOG_MODAL_ICON='<path d="m9 2 1.5 1.5L14 6l-8 8-4 1 1-4 8-8Z"/><path d="M13 5.5 16 2l4.5 4.5L17 10"/>';
 const LOCATIONS_MODAL_ICON='<path d="M12 21s7-5.2 7-12A7 7 0 1 0 5 9c0 6.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/>';
-export function openAssetCatalogModal(){normalizeAssetCatalogs();renderAssetCatalogManufacturerSelect();renderAssetCatalogTypeSelect();renderAssetCatalogs();renderCableTypesCatalog();const m=$('assetCatalogModal');if(!m)return;m.classList.remove('locations-only');$('assetCatalogTitle').textContent='Cadastros';m.querySelector('.catalog-modal-head span').textContent='Tipos de ativo, fabricantes, modelos, status, substatus, tipos de cabo e localizações usados no sistema.';const icon=m.querySelector('.catalog-modal-head .modal-icon svg');if(icon)icon.innerHTML=CATALOG_MODAL_ICON;m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.style.zIndex='300';}
+export function openAssetCatalogModal(){normalizeAssetCatalogs();renderAssetCatalogManufacturerSelect();renderAssetCatalogTypeSelect();renderAssetCatalogs();renderCableTypesCatalog();renderBreakoutTypesCatalog();const m=$('assetCatalogModal');if(!m)return;m.classList.remove('locations-only');$('assetCatalogTitle').textContent='Cadastros';m.querySelector('.catalog-modal-head span').textContent='Tipos de ativo, fabricantes, modelos, status, substatus, tipos de cabo e localizações usados no sistema.';const icon=m.querySelector('.catalog-modal-head .modal-icon svg');if(icon)icon.innerHTML=CATALOG_MODAL_ICON;m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.style.zIndex='300';}
 export function openLocationsModal(){normalizeLocations();renderAssetCatalogs();const m=$('assetCatalogModal');if(!m)return;m.classList.add('locations-only');$('assetCatalogTitle').textContent='Localizações';m.querySelector('.catalog-modal-head span').textContent='Gerencie Data Centers, salas e estoques.';const icon=m.querySelector('.catalog-modal-head .modal-icon svg');if(icon)icon.innerHTML=LOCATIONS_MODAL_ICON;m.classList.add('open');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');m.style.zIndex='300';}
 export function closeAssetCatalogModal(){const m=$('assetCatalogModal');if(!m)return;m.classList.remove('open');m.classList.add('hidden');m.setAttribute('aria-hidden','true');closeCatalogEditor();}
 export function renderAssetCatalogManufacturerSelect(){

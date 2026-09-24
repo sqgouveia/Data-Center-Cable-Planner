@@ -6100,6 +6100,9 @@ button.bayface-rack-state:hover {
   border-radius: 4px;
   background: var(--panel2);
 }
+.catalog-length-row.is-3 {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 24px;
+}
 .catalog-length-head {
   padding-block: 0;
   border-color: transparent;

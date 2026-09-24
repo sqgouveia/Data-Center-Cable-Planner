@@ -22,7 +22,7 @@ export const state = {
   defaultRowGap: 1.20,
   lastUToTray: 1.00,
   defaultSlack: 10,
-  rows: [], racks: [], cables: [], trays: [], trayLinks: [], assets: [], selected: null, multiSelected: [], trayMultiSelected: [],
+  rows: [], racks: [], cables: [], breakouts: [], trays: [], trayLinks: [], assets: [], selected: null, multiSelected: [], trayMultiSelected: [],
   // Depois da primeira escolha do usuário, ela manda.
   theme: localStorage.getItem(THEME_STORAGE) || localStorage.getItem('dc-theme') || preferredTheme(),
   structureLocked: false, snapToEdges: true, rooms: [], activeRoomId: null, assetCatalogs: {types:['Servidor','Switch','Storage','PDU','Patch Panel','Firewall','Roteador','Outro'], manufacturers:[], models:[]}

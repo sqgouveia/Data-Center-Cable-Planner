@@ -4,6 +4,7 @@ import {
   expandPortDefs, totalPortDefsCount, excelColumnLetter, parseImportDate, parseImportNumber,
   beginTask, endTask, uiIcon, normalizeCableLengths, formatBRL
 } from './js/utils.js';
+import { normalizeBreakoutLengths, breakoutLegCable } from './js/breakout-model.js';
 import { state, THEME_STORAGE } from './js/state.js';
 import { uiConfirm, uiPrompt } from './js/dialogs.js';
 import { closeStyledSelectPanels, syncSelectButton, openStyledSelectPanel, bindStyledSelect } from './js/styled-select.js';
@@ -32,12 +33,14 @@ import { configureBulkAssets, addBulkRow, openBulkAssetsModal, closeBulkAssetsMo
 import { cables, configureCables, addCable, cableCommercial, downloadCableTemplate, importCablesXLSX, closeCableTypeReviewModal, processCableImportRows, cableSummaryRows, cableEndpointLabel, compactPortLabels, cablesByRoom, exportCablesXLSX, cableSearchHaystack, renderCables, deleteCablesBulk } from './js/cables.js';
 import { capturePlant, composePlantSvg, svgToPngBlob, downloadBlob, safeFileName } from './js/plant-export.js';
 import { HEAT_MODES, levelForRatio, computeRackMetrics, heatLevel, summarizeRackMetrics } from './js/rack-metrics.js';
-import { catalogs, configureCatalogs, DEFAULT_ASSET_TYPES, DEFAULT_ASSET_STATUSES, DEFAULT_ASSET_SUBSTATUSES, normalizeAssetCatalogs, bayfaceTypeColor, renderCableTypesCatalog, renderAssetCatalogs, roomThermalLoad, openRoomEditor, closeRoomEditor, saveRoomEditor, addAssetLocation, openAssetCatalogModal, openLocationsModal, closeAssetCatalogModal, renderAssetCatalogManufacturerSelect, renderAssetCatalogTypeSelect, renderCatalogPortDefsEditor, openCatalogEditor, closeCatalogEditor, saveCatalogEditor, renderAssetCatalogSelects } from './js/catalogs.js';
+import { catalogs, configureCatalogs, DEFAULT_ASSET_TYPES, DEFAULT_ASSET_STATUSES, DEFAULT_ASSET_SUBSTATUSES, normalizeAssetCatalogs, bayfaceTypeColor, renderCableTypesCatalog, renderBreakoutTypesCatalog, renderAssetCatalogs, roomThermalLoad, openRoomEditor, closeRoomEditor, saveRoomEditor, addAssetLocation, openAssetCatalogModal, openLocationsModal, closeAssetCatalogModal, renderAssetCatalogManufacturerSelect, renderAssetCatalogTypeSelect, renderCatalogPortDefsEditor, openCatalogEditor, closeCatalogEditor, saveCatalogEditor, renderAssetCatalogSelects } from './js/catalogs.js';
 configurePdfReport({ syncActiveRoom, toast, assetWarrantyLevel, assetEndOfLifeLevel, assetsNeedingAttention, allProjectRacks, capacityIssues, bayfaceTypeColor, cableSummaryRows });
 
-const ROOM_KEYS=['rackUnits','rackWidth','rackGap','rackDepth','defaultRowGap','lastUToTray','defaultSlack','rows','racks','cables','trays','trayLinks','trayRackLinks','structureLocked','snapToEdges'];
+const ROOM_KEYS=['rackUnits','rackWidth','rackGap','rackDepth','defaultRowGap','lastUToTray','defaultSlack','rows','racks','cables','breakouts','trays','trayLinks','trayRackLinks','structureLocked','snapToEdges'];
 function roomDataFromState(){const data={};ROOM_KEYS.forEach(k=>{data[k]=cloneData(state[k]);});return data;}
-function applyRoomData(data){if(!data)return;ROOM_KEYS.forEach(k=>{if(data[k]!==undefined)state[k]=cloneData(data[k]);});state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];normalizeState();}
+function applyRoomData(data){if(!data)return;ROOM_KEYS.forEach(k=>{if(data[k]!==undefined)state[k]=cloneData(data[k]);});
+  // Sala salva antes do breakout não tem a chave: sem isto, herdaria os da sala anterior.
+  if(data.breakouts===undefined)state.breakouts=[];state.selected=null;state.multiSelected=[];state.trayMultiSelected=[];normalizeState();}
 function syncActiveRoom(){if(!Array.isArray(state.rooms)||!state.rooms.length)return;const room=state.rooms.find(r=>r.id===state.activeRoomId)||state.rooms[0];if(!room)return;state.activeRoomId=room.id;room.data=roomDataFromState();room.updatedAt=new Date().toISOString();}
 function migrateGlobalAssets(){
   state.assets=Array.isArray(state.assets)?state.assets:[];
@@ -104,10 +107,19 @@ function normalizeCableCatalogs(){
     clean.push(t);
   });
   state.cableCatalogs.types=clean.length?clean:DEFAULT_CABLE_TYPES.map(t=>({...t}));
+  // Tipos de breakout: nome único, cor, nº de pernas (1–8) e os produtos { m, leg, price? }.
+  const bSeen=new Set();
+  state.cableCatalogs.breakoutTypes=(Array.isArray(state.cableCatalogs.breakoutTypes)?state.cableCatalogs.breakoutTypes:[]).filter(t=>{
+    const name=String(t?.name||'').trim(), key=catalogNormalize(name);
+    if(!name||bSeen.has(key))return false; bSeen.add(key);
+    Object.assign(t,{name,color:/^#[0-9a-fA-F]{6}$/.test(t.color||'')?t.color:'#2dd4bf',legs:Math.min(8,Math.max(1,Math.floor(num(t.legs,4)))),lengths:normalizeBreakoutLengths(t.lengths)});
+    return true;
+  });
 }
 function cableTypeNames(){normalizeCableCatalogs();return state.cableCatalogs.types.map(t=>t.name);}
 function defaultCableType(){normalizeCableCatalogs();return state.cableCatalogs.types[0]?.name||'UTP';}
 function cableTypeColor(type){normalizeCableCatalogs();return state.cableCatalogs.types.find(t=>t.name===type)?.color||'var(--route)';}
+function breakoutTypeOf(name){normalizeCableCatalogs();return state.cableCatalogs.breakoutTypes.find(t=>t.name===name)||null;}
 
 
 const history = { undo: [], redo: [], last: null, restoring: false, max: 80, projectId: null, roomId: null, contexts: new Map() };
@@ -466,6 +478,8 @@ function normalizeState(){
   // Assets are project-level. A missing rack means the asset is unassigned; never delete it.
   state.assets.forEach(a=>{if(a.rackId&&!allRackIds.has(a.rackId)){a.rackId=null;}});
   state.cables.forEach(c=>{c.type=cableTypeNames().includes(c.type)?c.type:defaultCableType();c.via=(c.via||[]).filter(id=>rackIds.has(id));c.originPortId=c.originPortId||null;c.destPortId=c.destPortId||null;c.originPortLabel=String(c.originPortLabel||'');c.destPortLabel=String(c.destPortLabel||'');c.originAssetName=String(c.originAssetName||'');c.destAssetName=String(c.destAssetName||'');c.originFace=c.originFace==='rear'?'rear':'front';c.destFace=c.destFace==='rear'?'rear':'front';});
+  state.breakouts=(Array.isArray(state.breakouts)?state.breakouts:[]).filter(b=>b?.origin&&rackIds.has(b.origin.rack));
+  state.breakouts.forEach(b=>{b.legs=(b.legs||[]).map(l=>!l.destRack||rackIds.has(l.destRack)?l:{...l,destRack:null,destPortId:null});});
   if(state.selected?.type==='rack'&&!rackIds.has(state.selected.id))state.selected=null;
   state.multiSelected=Array.isArray(state.multiSelected)?state.multiSelected.filter(id=>rackIds.has(id)):[];
   if(state.selected?.type==='rack' && !state.multiSelected.includes(state.selected.id)) state.multiSelected=[state.selected.id];
@@ -4377,6 +4391,16 @@ function bind(){
   $('assetRack')?.addEventListener('change',updateAssetUFieldsState);
   $('assetModel')?.addEventListener('change',()=>{const modelName=$('assetModel')?.value||'';if(!modelName)return;normalizeAssetCatalogs();const m=state.assetCatalogs.models.find(x=>String(x.name)===String(modelName));if(!m)return;renderAssetCatalogSelects({assetType:m.type||'',assetManufacturer:m.manufacturer||'',assetModel:m.name||''});autoFillPortsFromModelIfEmpty();autoFillPowerFromModelIfEmpty();autoFillWeightFromModelIfEmpty();});
   $('catalogCableTypeSearch')?.addEventListener('input',renderCableTypesCatalog);
+  $('catalogBreakoutTypeSearch')?.addEventListener('input',renderBreakoutTypesCatalog);
+  $('catalogBreakoutTypeAdd')?.addEventListener('click',async()=>{
+    normalizeCableCatalogs();
+    const name=await uiPrompt('Ex.: MTP-8 → 4× LC OM4','',{title:'Novo tipo de breakout',label:'Nome',confirmText:'Adicionar'});
+    if(name===null)return; const trimmed=name.trim();
+    if(!trimmed){toast('Nome não pode ficar vazio.');return;}
+    if(state.cableCatalogs.breakoutTypes.some(t=>catalogNormalize(t.name)===catalogNormalize(trimmed))){toast('Já existe um tipo de breakout com esse nome.');return;}
+    state.cableCatalogs.breakoutTypes.push({name:trimmed,color:'#2dd4bf',legs:4,lengths:[]});
+    save();renderBreakoutTypesCatalog();
+  });
   $('catalogTypeSearch')?.addEventListener('input',renderAssetCatalogs);
   $('catalogManufacturerSearch')?.addEventListener('input',renderAssetCatalogs);
   $('catalogStatusSearch')?.addEventListener('input',renderAssetCatalogs);
