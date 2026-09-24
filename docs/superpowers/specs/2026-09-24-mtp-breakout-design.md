@@ -15,8 +15,9 @@ conhece cabo ponto a ponto, então um breakout vira N cabos soltos:
 ## Objetivo
 
 - Registrar um breakout como **um cabo**, com uma perna por destino.
-- Calcular **tronco e perna separadamente**, com as metragens do fornecedor.
-- Contar **um item** por breakout na compra, com preço pelo tronco.
+- Calcular **tronco e perna separadamente** e escolher o **comprimento total** vendido pelo
+  fornecedor (tronco + perna).
+- Contar **um item** por breakout na compra, com o preço do comprimento total.
 - Entender breakouts **sozinho** na importação da planilha de cabos atual, sem o usuário mudar
   nada na planilha.
 
@@ -26,14 +27,14 @@ conhece cabo ponto a ponto, então um breakout vira N cabos soltos:
 |---|---|
 | Modelo | Breakout é uma entidade isolada, separada do cabo comum. |
 | Comprimento da perna | Configurável: cada tipo de breakout tem uma lista de comprimentos de perna. |
-| Preço | Só pelo tronco (tabela metragem → preço, preço opcional). |
+| Preço | Pelo comprimento total vendido (tabela metragem total → preço, preço opcional). |
+| Comprimento vendido | Total = tronco + perna. Ex.: tronco 9 m + pernas 1 m = cabo de 10 m. |
 | Portas no asset | Cada perna tem a sua porta no cadastro do equipamento: `1A`, `1B`, `1C`, `1D`. |
 | Importação | Automática, pela porta: `1A`–`1D` = um breakout; `2A`–`2C` = outro, com 3 pernas usadas. |
 
 ## Premissas
 
-- O fornecedor vende pelo **comprimento do tronco, sem contar as pernas**. Se for pelo
-  comprimento total, só muda a conta do tronco (seção Cálculo).
+- O fornecedor vende pelo **comprimento total** (tronco + perna), confirmado pelo usuário.
 - As pernas de um breakout têm todas o mesmo comprimento (o do produto).
 - A letra final da porta é a perna: `A` = perna 1 … `H` = perna 8.
 
@@ -43,11 +44,11 @@ conhece cabo ponto a ponto, então um breakout vira N cabos soltos:
 
 ```js
 { name: 'MTP-8 → 4× LC OM4', color: '#2dd4bf', legs: 4,
-  trunkLengths: [{ m: 3, price: 180 }, { m: 5 }],   // mesmo formato das metragens de cabo
-  legLengths: [0.5, 1, 2, 3] }                       // metros, sem preço
+  lengths: [{ m: 5, price: 180 }, { m: 10 }],      // comprimento TOTAL vendido, preço opcional
+  legLengths: [0.5, 1, 2, 3] }                     // comprimento das pernas, sem preço
 ```
 
-Normalizado como os tipos de cabo (`normalizeCableLengths` para o tronco; pernas ordenadas, sem
+Normalizado como os tipos de cabo (`normalizeCableLengths` para `lengths`; pernas ordenadas, sem
 repetição, só > 0). Projeto antigo sem a chave ganha lista vazia.
 
 ### Por sala: `state.breakouts` (nova chave em `ROOM_KEYS`)
@@ -70,12 +71,16 @@ Função pura, sem DOM, coberta por testes em `js/test/breakout.test.mjs`.
    rota atual (`calcCable` / grafo de `buildRouteGraph`), com folga 0.
 2. **Ponto de divisão**: último nó comum a todas as rotas (prefixo comum dos `path`).
 3. **Tronco necessário** = distância da origem até a divisão, mais a folga %.
-   Metragem do tronco = `commercialLength(tronco, type.trunkLengths)` → metragem, preço, aviso
-   de "acima da maior metragem".
 4. **Perna necessária** = maior distância da divisão até um destino, mais conexão, mais folga %.
    Comprimento da perna = menor valor de `type.legLengths` ≥ perna necessária.
-5. Resultado: `{ reachable, trunk, trunkM, price, overTrunk, legNeeded, legM, legTooShort,
-   legs: [{ lane, total, reachable }] }`.
+5. **Total necessário** = tronco necessário + comprimento da perna.
+   Comprimento vendido = `commercialLength(total, type.lengths)` → metragem total, preço, aviso de
+   "acima da maior metragem". O tronco real do produto é `total vendido − perna`, e é sempre ≥ o
+   tronco necessário (a sobra fica no tronco).
+   Ex.: tronco necessário 8,4 m, perna necessária 0,7 m → perna 1 m → total 9,4 m → cabo de 10 m
+   (tronco 9 m + pernas 1 m).
+6. Resultado: `{ reachable, trunkNeeded, legNeeded, legM, legTooShort, totalNeeded, totalM,
+   trunkM, price, over, legs: [{ lane, total, reachable }] }`.
 
 Casos de borda:
 - Todos os destinos no mesmo rack da origem: tronco ≈ 0, só perna.
@@ -84,6 +89,7 @@ Casos de borda:
   distantes para este breakout — considere tronco MTP + cassete".
 - Uma perna sem rota: breakout marcado "sem rota", como o cabo comum.
 - Tipo sem `legLengths`: perna necessária arredondada para cima, sem aviso.
+- Tipo sem `lengths`: total arredondado para cima, sem preço (como o cabo comum).
 
 ## Importação automática (planilha de cabos atual)
 
@@ -119,10 +125,11 @@ A importação continua lendo só a primeira aba.
   com letra encontradas no asset: `1`, `2`, `3`…). As pernas aparecem uma por porta da base
   (`1A`–`1D`), cada uma com seletor de destino (rack, U, face, porta).
 - **Painel do breakout**: nome, tipo, origem, pernas, folga, e o resultado: tronco (calculado →
-  comercial), perna (necessária → comprimento), preço, distância de cada perna, avisos.
+  comercial), perna (necessária → comprimento), **comprimento total vendido** (ex.: "10 m = tronco
+  9 m + pernas 1 m"), preço, distância de cada perna, avisos.
 - **Canvas**: desenha a rota de cada perna na cor do tipo. O trecho comum se sobrepõe e forma o
   tronco. Clique seleciona o breakout.
-- **Catálogo**: seção "Tipos de breakout": nome, cor, nº de pernas, metragens do tronco com preço
+- **Catálogo**: seção "Tipos de breakout": nome, cor, nº de pernas, comprimentos totais com preço
   (mesmo editor de hoje) e comprimentos de perna.
 
 ## Integração
@@ -141,9 +148,9 @@ A importação continua lendo só a primeira aba.
   - aba **Cabos**: cada perna sai como uma linha normal, com a porta de origem própria (`1A`…) e
     o nome do tipo de breakout na coluna `Tipo`. Reimportar essa planilha reconstrói os breakouts pela regra da
     letra.
-  - aba **Breakouts**: uma linha por breakout: nome, tipo, origem, tronco calculado, tronco
-    comercial, perna, preço, pernas usadas/total, portas.
-  - aba **Resumo**: itens de breakout agrupados por tipo + tronco + perna, com quantidade, preço
+  - aba **Breakouts**: uma linha por breakout: nome, tipo, origem, tronco necessário, perna,
+    comprimento total vendido, tronco do produto, preço, pernas usadas/total, portas.
+  - aba **Resumo**: itens de breakout agrupados por tipo + comprimento total + perna, com quantidade, preço
     unitário e subtotal, entrando no total geral.
 - **PDF**: o resumo de cabos inclui as linhas de breakout.
 
@@ -162,7 +169,8 @@ A importação continua lendo só a primeira aba.
 
 - `breakoutLane`: `1A`, `12d`, `Gi1/0/1A`, sem letra, letra além de H.
 - `calcBreakout`: mesmo rack; destinos no mesmo rack remoto (tronco longo, perna curta);
-  destinos em racks separados (perna longa, `legTooShort`); perna sem rota; tipo sem pernas.
+  destinos em racks separados (perna longa, `legTooShort`); perna sem rota; tipo sem pernas;
+  total = tronco + perna escolhendo a metragem total (exemplo 8,4 + 1 → 10 m).
 - Agrupamento da importação (função pura sobre linhas já resolvidas): grupos `1A–1D`, `2A–2C`,
   `3A–3B`; porta com letra no destino; linha sem letra continua cabo comum.
 - Verificação no navegador: importar uma planilha com os três grupos, conferir lista, painel,
