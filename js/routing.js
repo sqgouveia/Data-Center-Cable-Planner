@@ -406,7 +406,8 @@ export function breakoutSplit(trays,pairTray){
   for(let i=0;i<trays.length;i++)for(let j=i+1;j<trays.length;j++){const d=pairTray(i,j);if(Number.isFinite(d))trunk=Math.min(trunk,(trays[i]+trays[j]-d)/2);}
   return Math.max(0,trunk);
 }
-// Breakout: rota de cada perna pelo motor de sempre (folga 0), tronco até a divisão e a maior
+// Breakout: rota de cada perna pelo motor de sempre (folga 0), tronco até a divisão (que pode
+// ser dentro do rack de destino, quando as pernas vão para o mesmo rack) e a maior
 // perna depois dela, cada um com 0,30 m de conexão e a folga % do breakout. Se alguma perna
 // termina no próprio rack da origem, a divisão é na porta. O produto vem de type.lengths.
 export function calcBreakout(b,type){
@@ -421,9 +422,15 @@ export function calcBreakout(b,type){
     trunkNeeded=0.30;
     legNeeded=Math.max(...res.map((r,i)=>atOrigin[i]?r.v1+0.30:r.v1+r.tray+r.v2+0.30));
   }else{
-    const trunkTray=breakoutSplit(res.map(r=>r.tray),(i,j)=>legs[i].destRack===legs[j].destRack?0:(routeBetweenRacks(legs[i].destRack,legs[j].destRack,{})?.length??Infinity));
-    trunkNeeded=Math.max(...res.map(r=>r.v1))+trunkTray+0.30;
-    legNeeded=Math.max(...res.map(r=>r.tray-trunkTray+r.v2+0.30));
+    // Caminho de cada perna depois de sair da origem: calhas + descida no rack de destino. Dois
+    // destinos no mesmo rack distam só a diferença de U (o tronco desce junto até o mais alto);
+    // em racks diferentes, a calha entre eles mais as duas descidas.
+    const path=res.map(r=>r.tray+r.v2);
+    const trunkPath=breakoutSplit(path,(i,j)=>legs[i].destRack===legs[j].destRack
+      ?Math.abs(num(legs[i].destU,1)-num(legs[j].destU,1))*(U_MM/1000)
+      :(routeBetweenRacks(legs[i].destRack,legs[j].destRack,{})?.length??Infinity)+res[i].v2+res[j].v2);
+    trunkNeeded=Math.max(...res.map(r=>r.v1))+trunkPath+0.30;
+    legNeeded=Math.max(...path.map(x=>x-trunkPath))+0.30;
   }
   trunkNeeded*=k; legNeeded*=k;
   const {pick,reason}=pickBreakoutLength(trunkNeeded,legNeeded,type?.lengths);

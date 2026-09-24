@@ -23,14 +23,25 @@ const bo = legs => ({ id: 'b', name: 'B', type: 'MTP', slack: 0, origin: { rack:
 const leg = (lane, destRack, destU = 40) => ({ lane, originPortId: null, destRack, destU, destFace: 'front', destPortId: null });
 const type = { lengths: [{ m: 5, leg: 1 }, { m: 10, leg: 1, price: 99 }, { m: 10, leg: 3 }] };
 
-test('pernas no rack remoto: tronco = rota até lá, perna = subida no rack', () => {
+test('pernas no mesmo rack remoto: o tronco desce até o destino mais alto, a perna cobre só a diferença de U', () => {
   resetState(state); buildTwoRackScenario(state);
-  const one = calcCable({ originRack: 'rack0', destRack: 'rack1', originU: 40, destU: 40, slack: 0, routeMode: 'automatic', via: [] });
-  const r = calcBreakout(bo([leg('A', 'rack1'), leg('B', 'rack1', 30)]), type);
+  const hi = calcCable({ originRack: 'rack0', destRack: 'rack1', originU: 40, destU: 40, slack: 0, routeMode: 'automatic', via: [] });
+  const r = calcBreakout(bo([leg('A', 'rack1', 40), leg('B', 'rack1', 38)]), type);
   assert.equal(r.reachable, true);
-  assert.ok(near(r.trunkNeeded, one.v1 + one.tray + 0.30));
-  assert.ok(r.legNeeded >= one.v2 + 0.30 - 1e-9);
+  // Tronco: origem + calhas + descida até a U40 (a mais alta) + conexão.
+  assert.ok(near(r.trunkNeeded, hi.v1 + hi.tray + hi.v2 + 0.30));
+  // Perna: 2U até a U38 + conexão — não a descida inteira desde a calha.
+  assert.ok(near(r.legNeeded, 2 * 0.04445 + 0.30));
   assert.deepEqual(r.legs.map(l => l.lane), ['A', 'B']);
+});
+
+test('pernas em racks diferentes: divisão na calha, perna = descida de cada rack', () => {
+  resetState(state); buildTwoRackScenario(state, { rackCount: 2 });
+  const one = calcCable({ originRack: 'rack0', destRack: 'rack1', originU: 40, destU: 40, slack: 0, routeMode: 'automatic', via: [] });
+  // Uma perna só: o tronco vai até o equipamento, a perna é só a conexão.
+  const r1 = calcBreakout(bo([leg('A', 'rack1', 40)]), type);
+  assert.ok(near(r1.trunkNeeded, one.v1 + one.tray + one.v2 + 0.30));
+  assert.ok(near(r1.legNeeded, 0.30));
 });
 
 test('perna no mesmo rack da origem: divisão na porta, perna remota leva a rota inteira', () => {
