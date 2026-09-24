@@ -75,21 +75,40 @@ export function addBreakout(){
     origin:{rack:r.id,u:r.units,face:'front',assetName:''},base:'',legs:[]};
   state.breakouts.push(b); state.selected={type:'breakout',id:b.id}; setCablesTab('breakouts'); renderAll(); toast('Breakout adicionado');
 }
+// Pernas do breakout: uma linha por perna do tipo (4 pernas = A–D), mais as que já têm destino
+// além disso. A porta de origem de cada perna é a porta MTP + a letra (1A…): ligada à porta do
+// equipamento quando ela existe, senão fica como texto.
+const LANES='ABCDEFGH';
+function syncLegs(b){
+  const asset=assetAtRackU(state.assets,b.origin.rack,b.origin.u,b.origin.face);
+  const used=b.legs.filter(l=>l.destRack||l.destPortLabel).map(l=>LANES.indexOf(l.lane)+1);
+  const n=Math.min(8,Math.max(breakoutTypeOf(b.type)?.legs||4,...used));
+  const old=new Map(b.legs.map(l=>[l.lane,l]));
+  b.legs=[...LANES.slice(0,n)].map(lane=>{
+    const l=old.get(lane)||{destRack:null,destU:null,destFace:'front',destPortId:null,destPortLabel:'',destAssetName:''};
+    const label=b.base?`${b.base}${lane}`:'';
+    const port=label?(asset?.ports||[]).find(p=>p.label.toLowerCase()===label.toLowerCase()):null;
+    return{...l,lane,originPortId:port?.id||null,originPortLabel:port?'':label};
+  });
+}
 export function renderBreakoutProperties(p,b){
   if(!b){p.innerHTML='';return;}
   setPropHead('cable','Propriedades do breakout','Ponta MTP, pernas e tamanho do cabo.');
   setPropTitleSticky(b.name);
+  syncLegs(b);
   const types=state.cableCatalogs.breakoutTypes||[];
   const asset=assetAtRackU(state.assets,b.origin.rack,b.origin.u,b.origin.face);
-  const groups=laneGroups(asset);
   const r=breakoutCalc(b);
+  const hasDest=b.legs.some(l=>l.destRack);
   const rackOpts=sel=>state.racks.map(x=>`<option value="${x.id}" ${x.id===sel?'selected':''}>${esc(rackDisplayName(x))}</option>`).join('');
-  const destPorts=l=>{const a=l.destRack?assetAtRackU(state.assets,l.destRack,l.destU,l.destFace):null;return '<option value="">— Nenhuma —</option>'+(a?.ports||[]).map(pt=>`<option value="${esc(pt.id)}" ${pt.id===l.destPortId?'selected':''}>${esc(pt.label)}</option>`).join('');};
+  const destAssetOf=l=>l.destRack?assetAtRackU(state.assets,l.destRack,l.destU,l.destFace):null;
   const legRow=(l,i)=>{const lc=breakoutLegCables([b]).find(c=>c.id===`${b.id}:${l.lane}`)||{breakoutId:b.id,originRack:b.origin.rack};
     const conflict=l.destPortId?cablePortConflict(lc,'dest',l.destPortId):null;
     const originConflict=l.originPortId?cablePortConflict(lc,'origin',l.originPortId):null;
-    return `<div class="breakout-leg" data-leg="${i}"><b>${esc(l.lane)}</b><select data-leg-rack><option value="">— livre —</option>${rackOpts(l.destRack)}</select><input type="number" min="1" data-leg-u value="${l.destU??''}" placeholder="U"><select data-leg-face><option value="front">Frente</option><option value="rear" ${l.destFace==='rear'?'selected':''}>Traseira</option></select><select data-leg-port>${destPorts(l)}</select>${originConflict?`<div class="field-error">Porta ${esc(l.lane)} da origem já usada por "${esc(originConflict.name)}".</div>`:''}${conflict?`<div class="field-error">Porta já usada por "${esc(conflict.name)}".</div>`:''}</div>`;};
+    const da=destAssetOf(l), portText=(l.destPortId&&da?.ports?.find(pt=>pt.id===l.destPortId)?.label)||l.destPortLabel||'';
+    return `<div class="breakout-leg" data-leg="${i}"><b title="Porta de origem ${esc(b.base?b.base+l.lane:l.lane)}">${esc(l.lane)}</b><select data-leg-rack><option value="">— livre —</option>${rackOpts(l.destRack)}</select><input type="number" min="1" data-leg-u value="${l.destU??''}" placeholder="U"><select data-leg-face><option value="front">Frente</option><option value="rear" ${l.destFace==='rear'?'selected':''}>Traseira</option></select><input data-leg-port list="boPorts${i}" value="${esc(portText)}" placeholder="Porta destino" autocomplete="off"><input data-leg-asset value="${esc(da?.name||l.destAssetName||'')}" placeholder="Equipamento de destino" ${da?'disabled':''}><datalist id="boPorts${i}">${(da?.ports||[]).map(pt=>`<option value="${esc(pt.label)}"></option>`).join('')}</datalist>${originConflict?`<div class="field-error">Porta ${esc(b.base+l.lane)} da origem já usada por "${esc(originConflict.name)}".</div>`:''}${conflict?`<div class="field-error">Porta já usada por "${esc(conflict.name)}".</div>`:''}</div>`;};
   const pick=r.pick;
+  const bases=[...laneGroups(asset).keys()];
   p.innerHTML=`<div class="prop-group breakout-props">
     <label class="prop-field">Nome<input id="boName" value="${esc(b.name)}"></label>
     <label class="prop-field">Tipo<select id="boType">${types.map(t=>`<option ${t.name===b.type?'selected':''}>${esc(t.name)}</option>`).join('')}</select></label>
@@ -97,13 +116,13 @@ export function renderBreakoutProperties(p,b){
     <label class="prop-field">Rack<select id="boRack">${rackOpts(b.origin.rack)}</select></label>
     <label class="prop-field">U<input id="boU" type="number" min="1" value="${b.origin.u}"></label>
     <label class="prop-field">Face<select id="boFace"><option value="front">Frente</option><option value="rear" ${b.origin.face==='rear'?'selected':''}>Traseira</option></select></label>
-    <label class="prop-field">Porta MTP<select id="boBase"><option value="">—</option>${[...groups.keys()].map(k=>`<option ${k===b.base?'selected':''}>${esc(k)}</option>`).join('')}</select></label>
-    ${asset&&!groups.size?'<div class="field-error">Este equipamento não tem portas no formato 1A, 1B…</div>':''}
-    <div class="prop-subtitle">Pernas</div>
-    ${b.legs.map(legRow).join('')||'<div class="empty">Escolha a porta MTP para listar as pernas.</div>'}
+    <label class="prop-field">Equipamento<input id="boAsset" value="${esc(asset?.name||b.origin.assetName||'')}" placeholder="Nome do equipamento" ${asset?'disabled':''}></label>
+    <label class="prop-field">Porta MTP<input id="boBase" list="boBases" value="${esc(b.base||'')}" placeholder="Ex.: 1" autocomplete="off"><datalist id="boBases">${bases.map(k=>`<option value="${esc(k)}"></option>`).join('')}</datalist></label>
+    <div class="prop-subtitle">Pernas (destinos)</div>
+    ${b.legs.map(legRow).join('')}
     <label class="prop-field">Folga (%)<input id="boSlack" type="number" min="0" step="1" value="${b.slack??state.defaultSlack}"></label>
     <div class="breakout-result">
-      ${!r.reachable?'<div class="unreachable">Alguma perna não tem rota pelas calhas.</div>':`
+      ${!hasDest?'<div class="empty">Informe o destino de pelo menos uma perna.</div>':!r.reachable?'<div class="unreachable">Alguma perna não tem rota pelas calhas.</div>':`
       <div class="cable-metric"><span class="cable-metric-label">Tronco necessário</span><b>${fmtM(r.trunkNeeded)}</b></div>
       <div class="cable-metric"><span class="cable-metric-label">Perna necessária</span><b>${fmtM(r.legNeeded)}</b></div>
       ${pick?`<div class="cable-metric is-rounded"><span class="cable-metric-label">Cabo escolhido</span><b>${pick.m} m · pernas ${pick.leg} m · tronco ${Math.round((pick.m-pick.leg)*100)/100} m</b></div>`:''}
@@ -112,26 +131,30 @@ export function renderBreakoutProperties(p,b){
     </div>
     <button type="button" id="delBreakout" class="btn danger small">${uiIcon('trash')} Excluir breakout</button>
   </div>`;
-  const upd=fn=>()=>{fn();save();renderAll(false);};
+  const upd=fn=>()=>{fn();syncLegs(b);save();renderAll(false);};
   $('boName').onchange=upd(()=>{b.name=$('boName').value.trim()||b.name;});
   $('boType').onchange=upd(()=>{b.type=$('boType').value;});
   $('boSlack').onchange=upd(()=>{b.slack=Math.max(0,num($('boSlack').value,0));});
-  const resetOrigin=()=>{b.base='';b.legs=[];b.origin.assetName=assetAtRackU(state.assets,b.origin.rack,b.origin.u,b.origin.face)?.name||'';};
-  $('boRack').onchange=upd(()=>{b.origin.rack=$('boRack').value;resetOrigin();});
-  $('boU').onchange=upd(()=>{b.origin.u=Math.max(1,Math.floor(num($('boU').value,1)));resetOrigin();});
-  $('boFace').onchange=upd(()=>{b.origin.face=$('boFace').value==='rear'?'rear':'front';resetOrigin();});
-  $('boBase').onchange=upd(()=>{
-    const old=new Map(b.legs.map(l=>[l.lane,l])); b.base=$('boBase').value;
-    b.legs=(groups.get(b.base)||[]).sort((x,y)=>x.lane.localeCompare(y.lane)).map(g=>({...(old.get(g.lane)||{destRack:null,destU:null,destFace:'front',destPortId:null,destPortLabel:'',destAssetName:''}),lane:g.lane,originPortId:g.port.id,originPortLabel:''}));
-  });
+  const originAsset=()=>{b.origin.assetName=assetAtRackU(state.assets,b.origin.rack,b.origin.u,b.origin.face)?.name||b.origin.assetName||'';};
+  $('boRack').onchange=upd(()=>{b.origin.rack=$('boRack').value;originAsset();});
+  $('boU').onchange=upd(()=>{b.origin.u=Math.max(1,Math.floor(num($('boU').value,1)));originAsset();});
+  $('boFace').onchange=upd(()=>{b.origin.face=$('boFace').value==='rear'?'rear':'front';originAsset();});
+  $('boAsset').onchange=upd(()=>{b.origin.assetName=$('boAsset').value.trim();});
+  // "1A" digitado vira a porta MTP "1".
+  $('boBase').onchange=upd(()=>{const v=$('boBase').value.trim();b.base=breakoutLane(v)?.base||v;});
   p.querySelectorAll('[data-leg]').forEach(row=>{
     const l=b.legs[Number(row.dataset.leg)];
-    const destAsset=()=>l.destRack?assetAtRackU(state.assets,l.destRack,l.destU,l.destFace):null;
-    const reset=()=>{l.destPortId=null;l.destPortLabel='';l.destAssetName=destAsset()?.name||'';};
+    const reset=()=>{l.destPortId=null;l.destPortLabel='';l.destAssetName=destAssetOf(l)?.name||'';};
     row.querySelector('[data-leg-rack]').onchange=upd(()=>{l.destRack=row.querySelector('[data-leg-rack]').value||null;l.destU=l.destU||state.racks.find(x=>x.id===l.destRack)?.units||1;reset();});
     row.querySelector('[data-leg-u]').onchange=upd(()=>{l.destU=Math.max(1,Math.floor(num(row.querySelector('[data-leg-u]').value,1)));reset();});
     row.querySelector('[data-leg-face]').onchange=upd(()=>{l.destFace=row.querySelector('[data-leg-face]').value==='rear'?'rear':'front';reset();});
-    row.querySelector('[data-leg-port]').onchange=upd(()=>{l.destPortId=row.querySelector('[data-leg-port]').value||null;});
+    row.querySelector('[data-leg-asset]').onchange=upd(()=>{l.destAssetName=row.querySelector('[data-leg-asset]').value.trim();});
+    // Porta digitada: se bate com uma porta do equipamento de destino, liga nela; senão fica o texto.
+    row.querySelector('[data-leg-port]').onchange=upd(()=>{
+      const text=row.querySelector('[data-leg-port]').value.trim();
+      const port=(destAssetOf(l)?.ports||[]).find(pt=>pt.label.toLowerCase()===text.toLowerCase());
+      l.destPortId=port?.id||null; l.destPortLabel=port?'':text;
+    });
   });
   $('delBreakout').onclick=()=>{state.breakouts=state.breakouts.filter(x=>x!==b);state.selected=null;renderAll();toast('Breakout excluído');};
 }

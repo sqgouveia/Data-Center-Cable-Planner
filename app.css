@@ -11550,7 +11550,7 @@ button.bayface-rack-state {
 .breakouts-list { display: grid; gap: 6px; padding: 0 12px 12px; overflow: auto; }
 .breakout-legs { display: grid; gap: 2px; margin-top: 4px; }
 .breakout-leg { display: grid; grid-template-columns: 18px minmax(0, 1fr) minmax(0, 1fr); gap: 4px; align-items: center; margin-bottom: 8px; }
-.breakout-leg > b { grid-row: span 2; }
+.breakout-leg > b { grid-row: span 3; }
 .breakout-leg .field-error { grid-column: 2 / -1; }
 .breakout-result { display: grid; gap: 4px; margin: 8px 0; }
 
@@ -11560,3 +11560,4 @@ button.bayface-rack-state {
 .catalog-row.is-breakout { grid-template-columns: minmax(0, 1fr); }
 .catalog-row.is-breakout > div { align-items: center; }
 .catalog-row.is-breakout .catalog-legs-select { flex: 1; min-width: 64px; margin-right: auto; padding: 0 6px; -webkit-appearance: none; appearance: none; background-image: none; cursor: pointer; }
+.breakout-leg [data-leg-asset] { grid-column: 2 / -1; }
