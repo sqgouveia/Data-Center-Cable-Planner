@@ -110,12 +110,16 @@ function normalizeCableCatalogs(){
   state.cableCatalogs.types=clean.length?clean:DEFAULT_CABLE_TYPES.map(t=>({...t}));
   // Tipos de breakout: nome único, cor, nº de pernas (1–8) e os produtos { m, leg, price? }.
   const bSeen=new Set();
-  state.cableCatalogs.breakoutTypes=(Array.isArray(state.cableCatalogs.breakoutTypes)?state.cableCatalogs.breakoutTypes:[]).filter(t=>{
+  // Filtra no próprio array: quem guardou a referência (catálogo aberto, importação) segue válido.
+  const bList=Array.isArray(state.cableCatalogs.breakoutTypes)?state.cableCatalogs.breakoutTypes:[];
+  const bKept=bList.filter(t=>{
     const name=String(t?.name||'').trim(), key=catalogNormalize(name);
     if(!name||bSeen.has(key))return false; bSeen.add(key);
     Object.assign(t,{name,color:/^#[0-9a-fA-F]{6}$/.test(t.color||'')?t.color:'#2dd4bf',legs:Math.min(8,Math.max(1,Math.floor(num(t.legs,4)))),lengths:normalizeBreakoutLengths(t.lengths)});
     return true;
   });
+  bList.splice(0,bList.length,...bKept);
+  state.cableCatalogs.breakoutTypes=bList;
 }
 function cableTypeNames(){normalizeCableCatalogs();return state.cableCatalogs.types.map(t=>t.name);}
 function defaultCableType(){normalizeCableCatalogs();return state.cableCatalogs.types[0]?.name||'UTP';}

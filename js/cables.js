@@ -4,6 +4,7 @@ import { uiConfirm } from './dialogs.js';
 import { rowForRack, geometry, rackRect, trayPointAt, rackDisplayName, findRackByLabel } from './geometry.js';
 import { buildRouteGraph, calcCable } from './routing.js';
 import { assetAtRackU, assetOwningPort } from './occupancy.js';
+import { groupBreakoutCables, isBreakoutTypeName, resolveBreakoutType } from './breakout-model.js';
 
 // Estado mutável compartilhado com app.js. Vive num objeto porque um `let` de módulo
 // não pode ser reatribuído por quem importa.
@@ -180,6 +181,7 @@ export function importCablesXLSX(file){
         dataRows.forEach(row=>{
           const raw=String(map['Tipo']!=null?(row[map['Tipo']]??''):'').trim();
           if(!raw)return;
+          if(isBreakoutTypeName(raw,state.cableCatalogs.breakoutTypes||[]))return;
           const norm=catalogNormalize(raw);
           if(existingNorm.has(norm))return;
           if(!newTypesSeen.has(norm))newTypesSeen.set(norm,{label:raw,count:0});
@@ -230,6 +232,7 @@ export function processCableImportRows(selectedNewTypes=[]){
   }
   const val=(row,name,def='')=>{const i=map[name];return i==null||i>=row.length||row[i]===''||row[i]==null?def:row[i];};
   let added=0,skipped=0,portsUnmatched=0;
+  const imported=[];
   for(const row of dataRows){
     // Aceita o nome do rack, o rótulo com a fileira (A-101) e o formato antigo — assim a
     // planilha exportada volta a importar sem edição.
@@ -276,11 +279,27 @@ export function processCableImportRows(selectedNewTypes=[]){
     const destAsset=destHit?.asset||(destAssets.length===1?destAssets[0]:null);
     const originAssetName=originAsset?originAsset.name:String(val(row,'Nome Asset Origem','')).trim();
     const destAssetName=destAsset?destAsset.name:String(val(row,'Nome Asset Destino','')).trim();
-    state.cables.push({id:uid('cable'),name:String(val(row,'Nome',`Cabo-${String(state.cables.length+1).padStart(3,'0')}`)).trim(),type,originRack:origin.id,originU,originFace,originPortId,originPortLabel:originPortLabelFree,originAssetName,destRack:dest.id,destU,destFace,destPortId,destPortLabel:destPortLabelFree,destAssetName,slack:state.defaultSlack,via:[]});
+    imported.push({originLabel:originPortLabel,destLabel:destPortLabel,id:uid('cable'),name:String(val(row,'Nome',`Cabo-${String(state.cables.length+1).padStart(3,'0')}`)).trim(),type,originRack:origin.id,originU,originFace,originPortId,originPortLabel:originPortLabelFree,originAssetName,destRack:dest.id,destU,destFace,destPortId,destPortLabel:destPortLabelFree,destAssetName,slack:state.defaultSlack,via:[]});
     added++;
   }
+  // Cabos MTP/breakout com porta 1A…1H viram um breakout por equipamento + porta (1A–1D = um).
+  normalizeCableCatalogs();
+  const boTypes=state.cableCatalogs.breakoutTypes;
+  const grouped=groupBreakoutCables(imported,(c,side)=>side==='origin'?c.originLabel:c.destLabel,t=>isBreakoutTypeName(t,boTypes));
+  let typesCreated=0;
+  for(const g of grouped.breakouts){
+    const maxLane=g.legs.map(l=>l.lane).sort().at(-1);
+    const r=resolveBreakoutType(g.type,maxLane,boTypes);
+    if(r.created){const color=cableTypeColor(g.type);boTypes.push({...r.created,color:String(color).startsWith('#')?color:r.created.color});typesCreated++;}
+    state.breakouts.push({...g,id:uid('breakout'),type:r.name});
+  }
+  grouped.cables.forEach(c=>{delete c.originLabel;delete c.destLabel;state.cables.push(c);});
+  added=grouped.cables.length;
   renderAll();
+  const legRows=grouped.breakouts.reduce((s,b)=>s+b.legs.length,0);
   const parts=[`${added} cabo(s) importado(s).`];
+  if(grouped.breakouts.length)parts.push(`${grouped.breakouts.length} breakout(s) detectado(s) (${legRows} linhas).`);
+  if(typesCreated)parts.push(`${typesCreated} tipo(s) de breakout criado(s).`);
   if(skipped)parts.push(`${skipped} ignorado(s).`);
   if(portsUnmatched)parts.push(`${portsUnmatched} porta(s) não encontrada(s) e deixada(s) em branco.`);
   toast(parts.join(' '));
