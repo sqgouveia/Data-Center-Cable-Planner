@@ -368,6 +368,29 @@ body {
   min-height: 0;
   overflow-y: auto;
 }
+/* Abas Cabos | Breakouts: cada painel ocupa o resto do cartão e a lista rola dentro dele
+   (sem isto a lista perde a altura limitada e a barra de rolagem). */
+.sidebar.right > .cables-section > #cablesPane:not([hidden]),
+.sidebar.right > .cables-section > #breakoutsPane:not([hidden]) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.sidebar.right > .cables-section #breakoutsList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.sidebar.right > .cables-section > #cablesPane > .cables-toolbar,
+.sidebar.right > .cables-section > #cablesPane > .cables-bulk-bar,
+.sidebar.right > .cables-section > #cablesPane > #cablesList {
+  padding-left: 9px;
+  padding-right: 9px;
+}
+.sidebar.right > .cables-section > #cablesPane > #cablesList {
+  padding-bottom: 9px;
+}
 .left {
   border-right: 1px solid var(--border);
   transition: transform 0.2s ease;
@@ -11541,13 +11564,13 @@ button.bayface-rack-state {
 }
 
 /* Breakouts: abas do card Cabos, lista e painel. */
-.cables-tabs { display: flex; gap: 4px; padding: 0 12px 8px; }
+.cables-tabs { display: flex; gap: 4px; padding: 0 9px 8px; }
 .cables-tab { flex: 1; padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--panel2); color: var(--muted); font-size: var(--fs-micro); cursor: pointer; }
 .cables-tab.active { color: var(--text); border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); background: color-mix(in srgb, var(--blue) 8%, var(--panel2)); }
 .cables-tab b { margin-left: 4px; font-weight: 600; }
-.breakouts-toolbar { display: flex; gap: 6px; padding: 0 12px 8px; }
+.breakouts-toolbar { display: flex; gap: 6px; padding: 0 9px 8px; }
 .breakouts-toolbar input { flex: 1; min-width: 0; }
-.breakouts-list { display: grid; gap: 6px; padding: 0 12px 12px; overflow: auto; }
+.breakouts-list { display: grid; align-content: start; gap: 6px; padding: 0 9px 9px; overflow: auto; }
 .breakout-legs { display: grid; gap: 2px; margin-top: 4px; }
 .breakout-result { display: grid; gap: 4px; margin: 8px 0; }
 
