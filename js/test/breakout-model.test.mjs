@@ -36,7 +36,10 @@ test('escolhe o menor total que atende tronco e perna; empate, menor perna', () 
   assert.deepEqual(pickBreakoutLength(3, 1.5, list), { pick: { m: 10, leg: 2, price: 260 }, reason: null });
   assert.deepEqual(pickBreakoutLength(1, 3, list), { pick: null, reason: 'leg' });
   assert.deepEqual(pickBreakoutLength(20, 1, list), { pick: null, reason: 'total' });
-  assert.deepEqual(pickBreakoutLength(1, 1, []), { pick: null, reason: 'empty' });
+  // Sem tamanhos cadastrados: estimativa com perna de 1 m e total arredondado para cima.
+  assert.deepEqual(pickBreakoutLength(8.4, 0.7, []), { pick: { m: 10, leg: 1, price: null, estimated: true, legShort: false }, reason: 'empty' });
+  assert.deepEqual(pickBreakoutLength(8, 1, []), { pick: { m: 9, leg: 1, price: null, estimated: true, legShort: false }, reason: 'empty' });
+  assert.deepEqual(pickBreakoutLength(1, 3, undefined), { pick: { m: 2, leg: 1, price: null, estimated: true, legShort: true }, reason: 'empty' });
 });
 
 const cable = (name, type, oPort, dRack, dPort, extra = {}) => ({

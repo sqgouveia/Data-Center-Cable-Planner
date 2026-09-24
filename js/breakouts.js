@@ -17,7 +17,7 @@ const rackName=id=>{const r=state.racks.find(x=>x.id===id);return r?rackDisplayN
 const destPortName=l=>(l.destPortId&&assetAtRackU(state.assets,l.destRack,l.destU,l.destFace)?.ports?.find(p=>p.id===l.destPortId)?.label)||l.destPortLabel||'';
 const fmtM=v=>`${num(v,0).toFixed(2).replace('.',',')} m`;
 function reasonText(r,type){
-  if(r.reason==='empty')return `Cadastre os tamanhos de "${type}" no catálogo.`;
+  if(r.reason==='empty')return r.pick?.legShort?`Medida estimada com pernas de 1 m, mas a perna precisa de ${fmtM(r.legNeeded)}. Cadastre os tamanhos de "${type}" no catálogo.`:`Medida estimada: tronco + pernas de 1 m. Cadastre os tamanhos de "${type}" para usar os do fornecedor.`;
   if(r.reason==='leg')return 'Destinos muito distantes para este breakout — considere tronco MTP + cassete.';
   if(r.reason==='total')return 'Passa do maior tamanho cadastrado para este tipo.';
   return '';
@@ -39,7 +39,7 @@ export function renderBreakoutsList(){
   const list=state.breakouts.filter(b=>!q||hay(b).includes(q));
   el.innerHTML=list.map(b=>{
     const r=breakoutCalc(b), color=breakoutTypeOf(b.type)?.color||'var(--route)';
-    const size=!r.reachable?'sem rota':r.pick?`${r.pick.m} m · pernas ${r.pick.leg} m`:'⚠';
+    const size=!r.reachable?'sem rota':r.pick?`${r.pick.m} m · pernas ${r.pick.leg} m${r.pick.estimated?' (estimado)':''}`:'⚠';
     const sel=state.selected?.type==='breakout'&&state.selected.id===b.id;
     return `<div class="cable-item breakout-item ${sel?'selected':''}" style="--cable-color:${esc(color)};border-left-color:${esc(color)}" data-breakout="${b.id}">
       <div class="cable-item-main"><div class="cable-name-row"><span class="cable-name">${esc(b.name)}</span><span class="cable-len">${esc(size)}</span></div>
@@ -162,7 +162,7 @@ export function renderBreakoutProperties(p,b){
     ${!hasDest?'<div class="unreachable">Informe o destino de pelo menos uma perna.</div>':!r.reachable?'<div class="unreachable">Alguma perna não tem rota pelas calhas.</div>':
       metric('tray','Tronco necessário',fmtM(r.trunkNeeded))
       +metric('downArrow','Perna necessária',fmtM(r.legNeeded))
-      +(pick?metric('upArrow','Cabo escolhido',`${pick.m} m · pernas ${pick.leg} m`,'is-rounded'):'')
+      +(pick?metric('upArrow',pick.estimated?'Cabo estimado':'Cabo escolhido',`${pick.m} m · pernas ${pick.leg} m`,'is-rounded'):'')
       +(pick?.price!=null?metric('ruler','Preço',formatBRL(pick.price),'is-price'):'')
       +(r.reason?`<div class="validation-error">${uiIcon('warn')} ${esc(reasonText(r,b.type))}</div>`:'')}
   </div>
@@ -203,8 +203,8 @@ export function breakoutSummaryRows(list=state.breakouts){
   for(const b of list){
     const r=breakoutCalc(b);
     if(!r.pick){noPick++;continue;}
-    const key=`${b.type}|${r.pick.m}|${r.pick.leg}`;
-    const g=groups.get(key)||{type:b.type,m:r.pick.m,leg:r.pick.leg,price:r.pick.price,qty:0};
+    const key=`${b.type}|${r.pick.m}|${r.pick.leg}|${!!r.pick.estimated}`;
+    const g=groups.get(key)||{type:b.type,m:r.pick.m,leg:r.pick.leg,price:r.pick.price,estimated:!!r.pick.estimated,qty:0};
     g.qty++; groups.set(key,g);
   }
   return{rows:[...groups.values()].sort((a,b)=>a.type.localeCompare(b.type)||a.m-b.m||a.leg-b.leg),noPick};

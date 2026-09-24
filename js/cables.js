@@ -422,7 +422,7 @@ export async function exportCablesXLSX(){
     const bo=breakoutSummaryRows();
     if(bo.rows.length){
       summary.addRow([]); summary.addRow(['Breakout','Cabo (m) / Perna (m)','Quantidade','Preço unit. (R$)','Subtotal (R$)']).font={bold:true};
-      bo.rows.forEach(r=>summary.addRow([r.type,`${r.m} / ${r.leg}`,r.qty,r.price??'',r.price!=null?r.price*r.qty:'']));
+      bo.rows.forEach(r=>summary.addRow([r.type+(r.estimated?' (estimado)':''),`${r.m} / ${r.leg}`,r.qty,r.price??'',r.price!=null?r.price*r.qty:'']));
     }
     const boQty=bo.rows.reduce((s,r)=>s+r.qty,0);
     const boValue=bo.rows.reduce((s,r)=>s+(r.price??0)*r.qty,0);

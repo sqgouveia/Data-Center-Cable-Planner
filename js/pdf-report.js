@@ -308,7 +308,7 @@ export async function generatePDFReport(options={}){
         doc.autoTable({
           startY: (doc.lastAutoTable?.finalY ?? y) + 6,
           head: [['Breakout','Cabo (m)','Perna (m)','Quantidade']],
-          body: boRows.map(r=>[r.type, String(r.m), String(r.leg), String(r.qty)]),
+          body: boRows.map(r=>[r.type+(r.estimated?' (estimado)':''), String(r.m), String(r.leg), String(r.qty)]),
           theme:'striped', styles:{fontSize:9}, headStyles:{fillColor:[31,41,55]},
         });
       }

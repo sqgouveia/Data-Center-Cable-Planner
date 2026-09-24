@@ -29,7 +29,9 @@ export function pickBreakoutLength(trunkNeeded,legNeeded,lengths){
   const list=lengths||[], eps=1e-9;
   const pick=list.find(x=>x.leg>=legNeeded-eps&&x.m-x.leg>=trunkNeeded-eps);
   if(pick)return{pick:{m:pick.m,leg:pick.leg,price:pick.price??null},reason:null};
-  if(!list.length)return{pick:null,reason:'empty'};
+  // Tipo sem tamanhos cadastrados: estimativa com perna de 1 m e total (tronco + perna) em metro
+  // inteiro para cima. legShort avisa quando 1 m não alcança o destino mais longe.
+  if(!list.length)return{pick:{m:Math.ceil(trunkNeeded+1-eps),leg:1,price:null,estimated:true,legShort:legNeeded>1+eps},reason:'empty'};
   return{pick:null,reason:list.some(x=>x.leg>=legNeeded-eps)?'total':'leg'};
 }
 // Cada perna, para o resto do app, é um cabo comum da porta da perna até o destino dela.
