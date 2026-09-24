@@ -5,7 +5,7 @@ import {
   beginTask, endTask, uiIcon, normalizeCableLengths, formatBRL
 } from './js/utils.js';
 import { normalizeBreakoutLengths, breakoutLegCable, remapBreakoutRacks } from './js/breakout-model.js';
-import { breakouts, configureBreakouts, setCablesTab, renderBreakoutsList, renderBreakoutProperties, addBreakout, breakoutSummaryRows, breakoutCalc } from './js/breakouts.js';
+import { breakouts, configureBreakouts, cableToBreakout, setCablesTab, renderBreakoutsList, renderBreakoutProperties, addBreakout, breakoutSummaryRows, breakoutCalc } from './js/breakouts.js';
 import { state, THEME_STORAGE } from './js/state.js';
 import { uiConfirm, uiPrompt } from './js/dialogs.js';
 import { closeStyledSelectPanels, syncSelectButton, openStyledSelectPanel, bindStyledSelect } from './js/styled-select.js';
@@ -3307,7 +3307,7 @@ function renderCableProperties(p,c){
   p.innerHTML=`<div class="prop-card cable-panel">
   <div class="grid2">
     <label class="prop-field">${fieldLabel('name','Nome',true)}<span class="prop-field-box"><input id="cbName" value="${esc(c.name)}"></span></label>
-    <label class="prop-field">${fieldLabel('type','Tipo',true)}<span class="prop-field-box"><select id="cbType">${cableTypeNames().map(t=>`<option value="${esc(t)}" ${c.type===t?'selected':''}>${esc(t)}</option>`).join('')}</select></span></label>
+    <label class="prop-field">${fieldLabel('type','Tipo',true)}<span class="prop-field-box"><select id="cbType">${cableTypeNames().map(t=>`<option value="${esc(t)}" ${c.type===t?'selected':''}>${esc(t)}</option>`).join('')}<optgroup label="Breakout (MTP)">${(state.cableCatalogs.breakoutTypes||[]).map(t=>`<option value="bo:${esc(t.name)}">${esc(t.name)} · ${t.legs} pernas</option>`).join('')||'<option disabled>Cadastre um tipo de breakout em Cadastros</option>'}</optgroup></select></span></label>
   </div>
   <div class="prop-card-sub" data-panel-step="origem">
     ${subHead('arrowUp','Origem')}
@@ -3366,7 +3366,7 @@ function renderCableProperties(p,c){
   </div>`;
   $('cbOR').value=c.originRack;$('cbDR').value=c.destRack;
   const sync=()=>{refreshVisuals();renderProperties();};
-  $('cbType').onchange=()=>{c.type=$('cbType').value;sync();};
+  $('cbType').onchange=()=>{const v=$('cbType').value;if(v.startsWith('bo:')){cableToBreakout(c,v.slice(3));return;}c.type=v;sync();};
   $('cbOR').onchange=()=>{c.originRack=$('cbOR').value;c.originFace='front';c.originPortId=null;c.originPortLabel='';c.originAssetName='';sync();};
   $('cbDR').onchange=()=>{c.destRack=$('cbDR').value;c.destFace='front';c.destPortId=null;c.destPortLabel='';c.destAssetName='';sync();};
   $('cbOU').oninput=()=>{c.originU=Math.floor(num($('cbOU').value,0));refreshCableValidation(c);updateCableResult(c);refreshVisuals();updateCableAssetNameField(c,'origin');};
@@ -4423,7 +4423,7 @@ function bind(){
   $('assetRack')?.addEventListener('change',updateAssetUFieldsState);
   $('assetModel')?.addEventListener('change',()=>{const modelName=$('assetModel')?.value||'';if(!modelName)return;normalizeAssetCatalogs();const m=state.assetCatalogs.models.find(x=>String(x.name)===String(modelName));if(!m)return;renderAssetCatalogSelects({assetType:m.type||'',assetManufacturer:m.manufacturer||'',assetModel:m.name||''});autoFillPortsFromModelIfEmpty();autoFillPowerFromModelIfEmpty();autoFillWeightFromModelIfEmpty();});
   $('catalogCableTypeSearch')?.addEventListener('input',renderCableTypesCatalog);
-  $('catalogBreakoutTypeSearch')?.addEventListener('input',renderBreakoutTypesCatalog);
+  $('catalogCableTypeSearch')?.addEventListener('input',renderBreakoutTypesCatalog);
   $('catalogBreakoutTypeAdd')?.addEventListener('click',async()=>{
     normalizeCableCatalogs();
     const name=await uiPrompt('Ex.: MTP-8 → 4× LC OM4','',{title:'Novo tipo de breakout',label:'Nome',confirmText:'Adicionar'});

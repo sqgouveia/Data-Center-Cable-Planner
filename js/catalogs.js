@@ -143,21 +143,21 @@ export function renderBreakoutTypesCatalog(){
   normalizeCableCatalogs();
   const el=$('catalogBreakoutTypes'); if(!el)return;
   const types=state.cableCatalogs.breakoutTypes;
-  const q=String($('catalogBreakoutTypeSearch')?.value||'').toLowerCase().trim();
+  const q=String($('catalogCableTypeSearch')?.value||'').toLowerCase().trim();
   el.innerHTML=types.map((t,i)=>({t,i})).filter(({t})=>!q||t.name.toLowerCase().includes(q)).map(({t,i})=>{
     const open=openBreakoutLengths.has(t.name);
-    return `<div class="catalog-row"><span title="${esc(t.name)}">${esc(t.name)} · ${t.legs} pernas</span><div><button type="button" class="iconbtn catalog-lengths-toggle${open?' active':''}" data-bo-lengths="${i}" title="Tamanhos e preços" aria-expanded="${open}">${RULER_ICON}${t.lengths.length?`<b>${t.lengths.length}</b>`:''}</button><input type="color" class="catalog-color-swatch" data-bo-color="${i}" value="${esc(t.color)}" title="Cor deste tipo"><button type="button" class="iconbtn" data-bo-edit="${i}" title="Editar">${uiIcon('pencil')}</button><button type="button" class="iconbtn danger-icon" data-bo-delete="${i}" title="Excluir">${uiIcon('close')}</button></div></div>`
+    return `<div class="catalog-row is-breakout"><span title="${esc(t.name)}">${esc(t.name)}</span><div><select class="catalog-legs-select" data-bo-legs="${i}" title="Quantidade de pernas" aria-label="Quantidade de pernas">${[1,2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${n===t.legs?'selected':''}>${n} pernas</option>`).join('')}</select><button type="button" class="iconbtn catalog-lengths-toggle${open?' active':''}" data-bo-lengths="${i}" title="Tamanhos e preços" aria-expanded="${open}">${RULER_ICON}${t.lengths.length?`<b>${t.lengths.length}</b>`:''}</button><input type="color" class="catalog-color-swatch" data-bo-color="${i}" value="${esc(t.color)}" title="Cor deste tipo"><button type="button" class="iconbtn" data-bo-edit="${i}" title="Editar">${uiIcon('pencil')}</button><button type="button" class="iconbtn danger-icon" data-bo-delete="${i}" title="Excluir">${uiIcon('close')}</button></div></div>`
       +(open?`<div class="catalog-lengths" data-bo-panel="${i}"><small>Tamanhos que o fornecedor vende: total e perna, preço opcional. O sistema escolhe o menor que alcança todos os destinos.</small><div class="catalog-length-row is-3 catalog-length-head" aria-hidden="true"><span>Total</span><span>Perna</span><span>Preço (R$)</span><i></i></div>${t.lengths.map(breakoutLengthRow).join('')}<button type="button" class="btn small" data-len-add>${uiIcon('plus')} Adicionar tamanho</button></div>`:'');
-  }).join('')||'<div class="empty">Nenhum tipo de breakout. A importação cria um quando encontra cabos MTP.</div>';
+  }).join('')||'<div class="empty">Nenhum breakout. A importação cria um quando encontra cabos MTP.</div>';
   el.querySelectorAll('[data-bo-lengths]').forEach(btn=>btn.onclick=()=>{const n=types[Number(btn.dataset.boLengths)].name;openBreakoutLengths.has(n)?openBreakoutLengths.delete(n):openBreakoutLengths.add(n);renderBreakoutTypesCatalog();});
+  el.querySelectorAll('[data-bo-legs]').forEach(sel=>sel.onchange=()=>{types[Number(sel.dataset.boLegs)].legs=Number(sel.value);save();renderAll(false);});
   el.querySelectorAll('[data-bo-color]').forEach(inp=>{inp.oninput=()=>{types[Number(inp.dataset.boColor)].color=inp.value;};inp.onchange=()=>{save();renderAll(false);};});
   el.querySelectorAll('[data-bo-edit]').forEach(btn=>btn.onclick=async()=>{
     const t=types[Number(btn.dataset.boEdit)], old=t.name;
     const name=await uiPrompt('Nome do tipo de breakout.',old,{title:'Editar tipo de breakout',label:'Nome',confirmText:'Salvar'}); if(name===null)return;
-    const legs=await uiPrompt('Quantas pernas (1 a 8)?',String(t.legs),{title:'Pernas',label:'Pernas',confirmText:'Salvar'}); if(legs===null)return;
     const trimmed=name.trim(); if(!trimmed){toast('Nome não pode ficar vazio.');return;}
     if(types.some(x=>x!==t&&catalogNormalize(x.name)===catalogNormalize(trimmed))){toast('Já existe um tipo de breakout com esse nome.');return;}
-    t.name=trimmed; t.legs=num(legs,t.legs);
+    t.name=trimmed;
     (state.rooms||[]).forEach(r=>(r.data?.breakouts||[]).forEach(b=>{if(b.type===old)b.type=trimmed;}));
     state.breakouts.forEach(b=>{if(b.type===old)b.type=trimmed;});
     if(openBreakoutLengths.delete(old))openBreakoutLengths.add(trimmed);

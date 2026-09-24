@@ -11553,3 +11553,10 @@ button.bayface-rack-state {
 .breakout-leg > b { grid-row: span 2; }
 .breakout-leg .field-error { grid-column: 2 / -1; }
 .breakout-result { display: grid; gap: 4px; margin: 8px 0; }
+
+/* Breakouts dentro do cartão Tipos de cabo. */
+.catalog-subhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0 6px; color: var(--muted); font-size: var(--fs-micro); font-weight: 600; }
+.catalog-legs-select { height: 28px; padding: 0 4px; font-size: var(--fs-micro); }
+.catalog-row.is-breakout { grid-template-columns: minmax(0, 1fr); }
+.catalog-row.is-breakout > div { align-items: center; }
+.catalog-row.is-breakout .catalog-legs-select { flex: 1; min-width: 64px; margin-right: auto; padding: 0 6px; -webkit-appearance: none; appearance: none; background-image: none; cursor: pointer; }

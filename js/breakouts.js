@@ -53,6 +53,19 @@ function laneGroups(asset){
   (asset?.ports||[]).forEach(p=>{const l=breakoutLane(p.label);if(!l)return;if(!m.has(l.base))m.set(l.base,[]);m.get(l.base).push({...l,port:p});});
   return m;
 }
+// Cabo novo com tipo de breakout escolhido: vira breakout na mesma origem. Se a porta de origem
+// é uma perna (1A…), a porta MTP é a base dela e o destino do cabo vai para essa perna.
+export function cableToBreakout(c,typeName){
+  const asset=assetAtRackU(state.assets,c.originRack,c.originU,c.originFace||'front');
+  const lane=breakoutLane(asset?.ports?.find(p=>p.id===c.originPortId)?.label);
+  const group=lane?(laneGroups(asset).get(lane.base)||[]):[];
+  const empty={destRack:null,destU:null,destFace:'front',destPortId:null,destPortLabel:'',destAssetName:''};
+  const legs=group.sort((x,y)=>x.lane.localeCompare(y.lane)).map(g=>({...(g.lane===lane.lane?{destRack:c.destRack,destU:c.destU,destFace:c.destFace||'front',destPortId:c.destPortId||null,destPortLabel:c.destPortLabel||'',destAssetName:c.destAssetName||''}:empty),lane:g.lane,originPortId:g.port.id,originPortLabel:''}));
+  const b={id:uid('breakout'),name:c.name,type:typeName,slack:c.slack??state.defaultSlack,
+    origin:{rack:c.originRack,u:c.originU,face:c.originFace||'front',assetName:asset?.name||c.originAssetName||''},base:lane?.base||'',legs};
+  state.cables=state.cables.filter(x=>x!==c);
+  state.breakouts.push(b); state.selected={type:'breakout',id:b.id}; setCablesTab('breakouts'); renderAll(); toast('Cabo convertido em breakout');
+}
 export function addBreakout(){
   if(!state.racks.length){toast('Crie racks primeiro.');return;}
   const types=state.cableCatalogs.breakoutTypes||[];

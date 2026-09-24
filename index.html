@@ -13,29 +13,29 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Titillium+Web:wght@400;600;700;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="app.css?v=341" />
-    <link rel="stylesheet" href="macos.css?v=206" />
+    <link rel="stylesheet" href="app.css?v=344" />
+    <link rel="stylesheet" href="macos.css?v=209" />
     <script type="importmap">
       {
         "imports": {
-          "./js/breakout-model.js": "./js/breakout-model.js?v=361",
-          "./js/breakouts.js": "./js/breakouts.js?v=361",
-          "./js/bulk-assets.js": "./js/bulk-assets.js?v=361",
-          "./js/cables.js": "./js/cables.js?v=361",
-          "./js/catalogs.js": "./js/catalogs.js?v=361",
-          "./js/cloud-sync.js": "./js/cloud-sync.js?v=361",
-          "./js/dialogs.js": "./js/dialogs.js?v=361",
-          "./js/geometry.js": "./js/geometry.js?v=361",
-          "./js/inventory-import.js": "./js/inventory-import.js?v=361",
-          "./js/occupancy.js": "./js/occupancy.js?v=361",
-          "./js/pdf-report.js": "./js/pdf-report.js?v=361",
-          "./js/plant-export.js": "./js/plant-export.js?v=361",
-          "./js/rack-metrics.js": "./js/rack-metrics.js?v=361",
-          "./js/routing.js": "./js/routing.js?v=361",
-          "./js/runtime.js": "./js/runtime.js?v=361",
-          "./js/state.js": "./js/state.js?v=361",
-          "./js/styled-select.js": "./js/styled-select.js?v=361",
-          "./js/utils.js": "./js/utils.js?v=361"
+          "./js/breakout-model.js": "./js/breakout-model.js?v=364",
+          "./js/breakouts.js": "./js/breakouts.js?v=364",
+          "./js/bulk-assets.js": "./js/bulk-assets.js?v=364",
+          "./js/cables.js": "./js/cables.js?v=364",
+          "./js/catalogs.js": "./js/catalogs.js?v=364",
+          "./js/cloud-sync.js": "./js/cloud-sync.js?v=364",
+          "./js/dialogs.js": "./js/dialogs.js?v=364",
+          "./js/geometry.js": "./js/geometry.js?v=364",
+          "./js/inventory-import.js": "./js/inventory-import.js?v=364",
+          "./js/occupancy.js": "./js/occupancy.js?v=364",
+          "./js/pdf-report.js": "./js/pdf-report.js?v=364",
+          "./js/plant-export.js": "./js/plant-export.js?v=364",
+          "./js/rack-metrics.js": "./js/rack-metrics.js?v=364",
+          "./js/routing.js": "./js/routing.js?v=364",
+          "./js/runtime.js": "./js/runtime.js?v=364",
+          "./js/state.js": "./js/state.js?v=364",
+          "./js/styled-select.js": "./js/styled-select.js?v=364",
+          "./js/utils.js": "./js/utils.js?v=364"
         }
       }
     </script>
@@ -2178,7 +2178,7 @@
                 ></span>
                 <div>
                   <h4>Tipos de cabo</h4>
-                  <small>Nome e cor de cada tipo</small>
+                  <small>Nome e cor de cada tipo, e os breakouts MTP</small>
                 </div>
               </div>
               <div class="catalog-section-utility">
@@ -2222,37 +2222,11 @@
               />
             </div>
             <div id="catalogCableTypes" class="catalog-list"></div>
-          </section>
-          <section class="catalog-section">
-            <div class="catalog-section-head">
-              <div class="catalog-section-toprow">
-              <div class="catalog-section-title">
-                <span class="catalog-section-icon"
-                  ><svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M3 12h8M11 12l8-6M11 12l8-2M11 12l8 2M11 12l8 6" /></svg
-                ></span>
-                <div>
-                  <h4>Tipos de breakout</h4>
-                  <small>Cabos MTP com pernas, e os tamanhos do fornecedor</small>
-                </div>
-              </div>
-              </div>
-              <button
-                type="button"
-                class="btn primary small catalog-add-btn full"
-                id="catalogBreakoutTypeAdd"
-              >
-                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg> Adicionar
+            <div class="catalog-subhead">
+              <span>Breakout (MTP)</span>
+              <button type="button" class="btn small" id="catalogBreakoutTypeAdd">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg> Breakout
               </button>
-            </div>
-            <div class="catalog-search">
-              <span>⌕</span
-              ><input
-                id="catalogBreakoutTypeSearch"
-                type="search"
-                placeholder="Buscar tipo de breakout..."
-                autocomplete="off"
-              />
             </div>
             <div id="catalogBreakoutTypes" class="catalog-list"></div>
           </section>
@@ -4231,6 +4205,6 @@
       <span class="task-bar-fill" aria-hidden="true"></span>
       <span class="task-bar-label" id="taskBarLabel">Processando…</span>
     </div>
-    <script type="module" src="app.js?v=361"></script>
+    <script type="module" src="app.js?v=364"></script>
   </body>
 </html>
