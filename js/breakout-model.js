@@ -27,11 +27,14 @@ export function normalizeBreakoutLengths(list){
 }
 export function pickBreakoutLength(trunkNeeded,legNeeded,lengths){
   const list=lengths||[], eps=1e-9;
-  const pick=list.find(x=>x.leg>=legNeeded-eps&&x.m-x.leg>=trunkNeeded-eps);
+  // Serve se a perna alcança do ponto de divisão até o destino mais longe e o total cobre o
+  // caminho inteiro. Perna maior que o necessário só antecipa a divisão (o tronco encurta).
+  const total=trunkNeeded+legNeeded;
+  const pick=list.find(x=>x.leg>=legNeeded-eps&&x.m>=total-eps);
   if(pick)return{pick:{m:pick.m,leg:pick.leg,price:pick.price??null},reason:null};
-  // Tipo sem tamanhos cadastrados: estimativa com perna de 1 m e total (tronco + perna) em metro
-  // inteiro para cima. legShort avisa quando 1 m não alcança o destino mais longe.
-  if(!list.length)return{pick:{m:Math.ceil(trunkNeeded+1-eps),leg:1,price:null,estimated:true,legShort:legNeeded>1+eps},reason:'empty'};
+  // Tipo sem tamanhos cadastrados: estimativa com perna de 1 m e o caminho inteiro em metro
+  // inteiro para cima (no mínimo 2 m, para caber a perna). legShort avisa quando 1 m não alcança o destino mais longe.
+  if(!list.length)return{pick:{m:Math.max(2,Math.ceil(total-eps)),leg:1,price:null,estimated:true,legShort:legNeeded>1+eps},reason:'empty'};
   return{pick:null,reason:list.some(x=>x.leg>=legNeeded-eps)?'total':'leg'};
 }
 // Cada perna, para o resto do app, é um cabo comum da porta da perna até o destino dela.
