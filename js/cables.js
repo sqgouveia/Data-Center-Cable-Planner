@@ -1,4 +1,4 @@
-import { uid, esc, num, $, catalogNormalize, catalogSimilar, parsePortTemplate, excelColumnLetter, beginTask, endTask, uiIcon, commercialLength } from './utils.js';
+import { uid, esc, num, $, catalogNormalize, catalogSimilar, parsePortTemplate, excelColumnLetter, beginTask, endTask, uiIcon, commercialLength, toggleBulkBar } from './utils.js';
 import { state } from './state.js';
 import { uiConfirm } from './dialogs.js';
 import { rowForRack, geometry, rackRect, trayPointAt, rackDisplayName, findRackByLabel } from './geometry.js';
@@ -544,7 +544,7 @@ export function renderCables(){
 }
 function updateCablesBulkBar(){
   const bar=$('cablesBulkBar'); if(!bar)return;
-  bar.classList.toggle('hidden',cables.cableMultiSelected.length===0);
+  toggleBulkBar(bar,cables.cableMultiSelected.length>0);
   if($('cablesBulkCount'))$('cablesBulkCount').textContent=String(cables.cableMultiSelected.length);
 }
 // Excluir um cabo só, direto da lista. Sem confirmação: a barra de ferramentas tem

@@ -156,3 +156,13 @@ export function commercialLength(total,lengths){
   return{m:Math.ceil(total),price:null,over:!!lengths?.length};
 }
 export function formatBRL(v){return Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
+// Barra de seleção em massa: mostra com a animação de entrada (CSS) e, ao esconder, toca a de
+// saída antes do display:none. Chamar de novo com o mesmo estado não faz nada.
+export function toggleBulkBar(bar,show){
+  if(!bar)return;
+  if(show){bar.classList.remove('is-leaving','hidden');return;}
+  if(bar.classList.contains('hidden')||bar.classList.contains('is-leaving'))return;
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){bar.classList.add('hidden');return;}
+  bar.classList.add('is-leaving');
+  bar.addEventListener('animationend',()=>{if(bar.classList.contains('is-leaving'))bar.classList.replace('is-leaving','hidden');},{once:true});
+}

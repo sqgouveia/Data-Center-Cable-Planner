@@ -2,7 +2,7 @@ import {
   uid, cloneData, esc, num, $, dateUrgencyLevel, formatAssetDate, catalogNormalize,
   catalogSimilarity, catalogSimilar, catalogKeyLabel, parsePortTemplate, buildPortRange,
   expandPortDefs, totalPortDefsCount, excelColumnLetter, parseImportDate, parseImportNumber,
-  beginTask, endTask, uiIcon, normalizeCableLengths, formatBRL
+  beginTask, endTask, uiIcon, normalizeCableLengths, formatBRL, toggleBulkBar
 } from './js/utils.js';
 import { normalizeBreakoutLengths, breakoutLegCable, remapBreakoutRacks } from './js/breakout-model.js';
 import { breakouts, configureBreakouts, cableToBreakout, toggleAllBreakouts, clearBreakoutSelection, deleteBreakoutsBulk, setCablesTab, renderBreakoutsList, renderBreakoutProperties, addBreakout, breakoutSummaryRows, breakoutCalc } from './js/breakouts.js';
@@ -2509,7 +2509,7 @@ function updateAssetsBulkBar(){
   const count=assetSelectedIds.size;
   if($('assetsSelectedCountFooter'))$('assetsSelectedCountFooter').textContent=String(count);
   const bar=$('assetsBulkBar'); if(!bar)return;
-  bar.classList.toggle('hidden',count===0);
+  toggleBulkBar(bar,count>0);
   if($('assetsSelectedCount'))$('assetsSelectedCount').textContent=String(count);
   const statusSel=$('assetsBulkStatus');
   if(statusSel && statusSel.options.length<=1) statusSel.innerHTML='<option value="">Alterar status...</option>'+assetStatusValues().map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');

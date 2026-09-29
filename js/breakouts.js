@@ -1,7 +1,7 @@
 // Cabos MTP breakout: aba "Breakouts" do card Cabos, painel de propriedades, novo breakout e
 // as linhas de resumo/export. A conta fica em routing.js (calcBreakout); o modelo em
 // breakout-model.js.
-import { uid, esc, num, $, uiIcon, formatBRL } from './utils.js';
+import { uid, esc, num, $, uiIcon, formatBRL, toggleBulkBar } from './utils.js';
 import { state } from './state.js';
 import { rackDisplayName } from './geometry.js';
 import { calcBreakout } from './routing.js';
@@ -83,7 +83,7 @@ export function cableToBreakout(c,typeName){
 function updateBreakoutsBulk(visible){
   const all=$('breakoutsSelectAll');
   if(all){const n=visible.filter(b=>breakouts.multiSelected.includes(b.id)).length;all.checked=!!visible.length&&n===visible.length;all.indeterminate=n>0&&n<visible.length;}
-  $('breakoutsBulkBar')?.classList.toggle('hidden',!breakouts.multiSelected.length);
+  toggleBulkBar($('breakoutsBulkBar'),breakouts.multiSelected.length>0);
   if($('breakoutsBulkCount'))$('breakoutsBulkCount').textContent=String(breakouts.multiSelected.length);
 }
 export function toggleAllBreakouts(on){
