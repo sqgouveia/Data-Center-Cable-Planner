@@ -5,7 +5,7 @@ import {
   beginTask, endTask, uiIcon, normalizeCableLengths, formatBRL
 } from './js/utils.js';
 import { normalizeBreakoutLengths, breakoutLegCable, remapBreakoutRacks } from './js/breakout-model.js';
-import { breakouts, configureBreakouts, cableToBreakout, setCablesTab, renderBreakoutsList, renderBreakoutProperties, addBreakout, breakoutSummaryRows, breakoutCalc } from './js/breakouts.js';
+import { breakouts, configureBreakouts, cableToBreakout, toggleAllBreakouts, clearBreakoutSelection, deleteBreakoutsBulk, setCablesTab, renderBreakoutsList, renderBreakoutProperties, addBreakout, breakoutSummaryRows, breakoutCalc } from './js/breakouts.js';
 import { state, THEME_STORAGE } from './js/state.js';
 import { uiConfirm, uiPrompt } from './js/dialogs.js';
 import { closeStyledSelectPanels, syncSelectButton, openStyledSelectPanel, bindStyledSelect } from './js/styled-select.js';
@@ -4505,9 +4505,12 @@ function bind(){
   requestAnimationFrame(()=>window.__applyCanvasPan&&window.__applyCanvasPan());
   $('btnBuildRows').onclick=rebuildStructureFromSettings;
   $('btnAddTray').onclick=()=>{ if(structureBlocked())return; const g=geometry(); const y=g.rows.length?g.rows[0].y-80:VIEW_PAD; createIndependentTray(g,g.x0,y,g.x0+Math.max(240,g.scale*3),y); };
-  $('btnAddCablePanel')?.addEventListener('click',addCable);
+  // + Adicionar segue a aba aberta: cabo comum ou breakout.
+  $('btnAddCablePanel')?.addEventListener('click',()=>breakouts.tab==='breakouts'?addBreakout():addCable());
   document.querySelectorAll('[data-cables-tab]').forEach(t=>t.onclick=()=>setCablesTab(t.dataset.cablesTab));
-  $('btnAddBreakout')?.addEventListener('click',addBreakout);
+  $('breakoutsSelectAll')?.addEventListener('change',e=>toggleAllBreakouts(e.target.checked));
+  $('breakoutsBulkClear')?.addEventListener('click',clearBreakoutSelection);
+  $('breakoutsBulkDelete')?.addEventListener('click',deleteBreakoutsBulk);
   $('breakoutSearch')?.addEventListener('input',e=>{breakouts.query=e.target.value;renderBreakoutsList();});
   $('btnImport').onclick=()=>$('excelInput').click();
   bindStyledSelect('cablesFilter','cablesFilterBtn');$('cablesFilter')?.addEventListener('change',()=>{cables.cablesFilterMode=$('cablesFilter').value;syncSelectButton('cablesFilter','cablesFilterBtn');renderCables();});

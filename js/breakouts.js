@@ -6,8 +6,9 @@ import { state } from './state.js';
 import { rackDisplayName } from './geometry.js';
 import { calcBreakout } from './routing.js';
 import { breakoutLane } from './breakout-model.js';
+import { uiConfirm } from './dialogs.js';
 import { assetAtRackU } from './occupancy.js';
-export const breakouts = { tab: 'cables', query: '' };
+export const breakouts = { tab: 'cables', query: '', multiSelected: [] };
 let toast, save, renderAll, breakoutTypeOf, breakoutLegCables, cablePortConflict, flashSelection, setPropHead, setPropTitleSticky, propIcon, bindCablePanelSections, CABLE_METRIC_ICONS;
 export function configureBreakouts(deps){
   ({ toast, save, renderAll, breakoutTypeOf, breakoutLegCables, cablePortConflict, flashSelection, setPropHead, setPropTitleSticky, propIcon, bindCablePanelSections, CABLE_METRIC_ICONS } = deps);
@@ -37,17 +38,26 @@ export function renderBreakoutsList(){
   const q=breakouts.query.toLowerCase().trim();
   const hay=b=>[b.name,b.type,rackName(b.origin.rack),b.origin.assetName,...b.legs.flatMap(l=>[l.lane,rackName(l.destRack),l.destAssetName,destPortName(l)])].join(' ').toLowerCase();
   const list=state.breakouts.filter(b=>!q||hay(b).includes(q));
+  breakouts.multiSelected=breakouts.multiSelected.filter(id=>state.breakouts.some(b=>b.id===id));
   // Reescrever a lista zera a rolagem: guarda e devolve, como a lista de cabos.
   const rolagem=el.scrollTop;
   el.innerHTML=list.map(b=>{
     const r=breakoutCalc(b), color=breakoutTypeOf(b.type)?.color||'var(--route)';
     const size=!r.reachable?'sem rota':r.pick?`${r.pick.m} m · pernas ${r.pick.leg} m${r.pick.estimated?' (estimado)':''}`:'⚠';
     const sel=state.selected?.type==='breakout'&&state.selected.id===b.id;
-    return `<div class="cable-item breakout-item ${sel?'selected':''}" style="--cable-color:${esc(color)};border-left-color:${esc(color)}" data-breakout="${b.id}">
+    return `<div class="cable-item breakout-item ${sel?'selected':''} ${breakouts.multiSelected.includes(b.id)?'is-checked':''}" style="--cable-color:${esc(color)};border-left-color:${esc(color)}" data-breakout="${b.id}">
+      <label class="cable-item-check" onclick="event.stopPropagation()"><input type="checkbox" data-breakout-check="${b.id}" ${breakouts.multiSelected.includes(b.id)?'checked':''}></label>
       <div class="cable-item-main"><div class="cable-name-row"><span class="cable-name">${esc(b.name)}</span><span class="cable-len">${esc(size)}</span></div>
       <div class="breakout-legs">${b.legs.map(l=>`<div class="cable-end"><i></i><span class="cable-end-text">${esc(l.lane)} → ${esc(l.destRack?[rackName(l.destRack),'U'+l.destU,l.destAssetName||'—',destPortName(l)||'—'].join(' · '):'livre')}</span></div>`).join('')}</div></div></div>`;
   }).join('')||'<div class="empty">Nenhum breakout. Importe a planilha de cabos (tipo MTP/breakout e portas 1A, 1B…) ou clique em "+ Breakout".</div>';
   el.scrollTop=rolagem;
+  el.querySelectorAll('[data-breakout-check]').forEach(cb=>cb.onchange=()=>{
+    const id=cb.dataset.breakoutCheck;
+    breakouts.multiSelected=cb.checked?[...new Set([...breakouts.multiSelected,id])]:breakouts.multiSelected.filter(x=>x!==id);
+    cb.closest('.breakout-item')?.classList.toggle('is-checked',cb.checked);
+    updateBreakoutsBulk(list);
+  });
+  updateBreakoutsBulk(list);
   el.querySelectorAll('[data-breakout]').forEach(it=>it.onclick=()=>{state.selected={type:'breakout',id:it.dataset.breakout};state.multiSelected=[];renderAll(false);flashSelection?.();});
 }
 // Portas do equipamento de origem agrupadas pela base (1 → 1A,1B,1C,1D).
@@ -68,6 +78,28 @@ export function cableToBreakout(c,typeName){
     origin:{rack:c.originRack,u:c.originU,face:c.originFace||'front',assetName:asset?.name||c.originAssetName||''},base:lane?.base||'',legs};
   state.cables=state.cables.filter(x=>x!==c);
   state.breakouts.push(b); state.selected={type:'breakout',id:b.id}; setCablesTab('breakouts'); renderAll(); toast('Cabo convertido em breakout');
+}
+// Seleção múltipla, como na lista de cabos: caixa "todos" (dos visíveis) e barra de exclusão.
+function updateBreakoutsBulk(visible){
+  const all=$('breakoutsSelectAll');
+  if(all){const n=visible.filter(b=>breakouts.multiSelected.includes(b.id)).length;all.checked=!!visible.length&&n===visible.length;all.indeterminate=n>0&&n<visible.length;}
+  $('breakoutsBulkBar')?.classList.toggle('hidden',!breakouts.multiSelected.length);
+  if($('breakoutsBulkCount'))$('breakoutsBulkCount').textContent=String(breakouts.multiSelected.length);
+}
+export function toggleAllBreakouts(on){
+  const q=breakouts.query.toLowerCase().trim();
+  const visible=[...document.querySelectorAll('#breakoutsList [data-breakout]')].map(e=>e.dataset.breakout);
+  breakouts.multiSelected=on?[...new Set([...breakouts.multiSelected,...visible])]:breakouts.multiSelected.filter(id=>!visible.includes(id));
+  renderBreakoutsList();
+}
+export function clearBreakoutSelection(){breakouts.multiSelected=[];renderBreakoutsList();}
+export async function deleteBreakoutsBulk(){
+  const ids=[...breakouts.multiSelected]; if(!ids.length)return;
+  if(!await uiConfirm('',{title:`Excluir ${ids.length} breakout(s) selecionado(s)?`,confirmText:'Excluir breakouts',danger:true}))return;
+  state.breakouts=state.breakouts.filter(b=>!ids.includes(b.id));
+  if(state.selected?.type==='breakout'&&ids.includes(state.selected.id))state.selected=null;
+  breakouts.multiSelected=[];
+  renderAll();toast(`${ids.length} breakout(s) excluído(s)`);
 }
 export function addBreakout(){
   if(!state.racks.length){toast('Crie racks primeiro.');return;}
