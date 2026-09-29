@@ -108,7 +108,7 @@ export function addBreakout(){
   const r=state.racks[0];
   const b={id:uid('breakout'),name:`Breakout-${String(state.breakouts.length+1).padStart(3,'0')}`,type:types[0].name,slack:state.defaultSlack,
     origin:{rack:r.id,u:r.units,face:'front',assetName:''},base:'',legs:[]};
-  state.breakouts.push(b); state.selected={type:'breakout',id:b.id}; setCablesTab('breakouts'); renderAll(); toast('Breakout adicionado');
+  state.breakouts.push(b); state.selected={type:'breakout',id:b.id}; setCablesTab('breakouts'); renderAll(); toast('Breakout adicionado'); flashSelection?.();
 }
 // Pernas do breakout: uma linha por perna do tipo (4 pernas = A–D), mais as que já têm destino
 // além disso. A porta de origem de cada perna é a porta MTP + a letra (1A…): ligada à porta do

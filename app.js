@@ -384,7 +384,12 @@ function flashSelection(){
   const id=typeof CSS!=='undefined'&&CSS.escape?CSS.escape(String(sel.id)):String(sel.id);
   if(sel.type==='rack')flashElement(svg?.querySelector(`[data-rack="${id}"] .rack-body`));
   else if(sel.type==='tray')flashElement(svg?.querySelector(`line[data-tray="${id}"].tray-line`));
-  else if(sel.type==='cable')flashElement(document.querySelector(`.cable-item[data-cable="${id}"]`));
+  else if(sel.type==='cable'||sel.type==='breakout'){
+    // Cabo/breakout: a lista rola até o item (o novo nasce no fim) e as Propriedades abrem.
+    const props=document.querySelector('.sidebar.right > section:first-of-type');
+    if(props?.classList.contains('collapsed'))props.querySelector('.panel-step-toggle')?.click();
+    focusPanelItem(sel.type==='cable'?`.cable-item[data-cable="${id}"]`:`.breakout-item[data-breakout="${id}"]`);
+  }
   else if(sel.type==='asset')flashElement(document.querySelector(`.asset-row[data-asset-id="${id}"]`));
 }
 function save(){ recordHistory(); localStorage.setItem(THEME_STORAGE,state.theme); applyTheme(); updatePlannerProjectName(); updateAlertsCenterBadge(); scheduleCloudSave(); }
